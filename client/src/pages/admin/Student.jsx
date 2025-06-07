@@ -24,7 +24,15 @@ const Student = ({ setShowUserModal, setSelectedUser, showUserModal, selectedUse
     {
       id: 3, name: 'Mike Johnson', email: 'mike@techcorp.com', role: 'hr', company: 'TechCorp Inc.',
       phone: '+1234567892', location: 'San Francisco, CA', status: 'active', joinDate: '2024-02-10', lastActive: '2025-06-05'
-    }
+    },
+     {
+      id: 4, name: 'John', email: 'john@example.com', role: 'student', college: 'MIT',
+      phone: '+123456790', location: 'Cambr, MA', status: 'active', joinDate: '2024-01-15', lastActive: '2025-06-05'
+    },
+     {
+      id: 5, name: 'Uday', email: 'Uday@example.com', role: '', college: 'MIT',
+      phone: '+1234567890', location: 'Cambridge, MA', status: 'active', joinDate: '2024-01-15', lastActive: '2025-06-05'
+    },
   ]);
 
   const filteredUsers = users.filter(user => {
