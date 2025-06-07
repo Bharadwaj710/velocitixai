@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, User } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const location = useLocation();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-
   const isActiveRoute = (path) => location.pathname === path;
-
-  const handleLogout = () => {
-    // Add your logout logic here
-  };
 
   return (
     <nav className="bg-white shadow-lg fixed w-full top-0 z-50">
@@ -44,37 +38,18 @@ const Navbar = () => {
 
           <div className="hidden md:block">
             <div className="ml-4 flex items-center md:ml-6 space-x-3">
-              <Link to="/login" className="btn">
+              <Link 
+                to="/login" 
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
                 Login
               </Link>
-              <Link to="/register" className="btn btn-primary">
+              <Link 
+                to="/register" 
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
+              >
                 Sign Up
               </Link>
-              <div className="ml-3 relative">
-                <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="bg-gray-800 flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white p-1"
-                >
-                  <User className="h-6 w-6 text-gray-300" />
-                </button>
-
-                {showProfileMenu && (
-                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5">
-                    <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Your Profile
-                    </Link>
-                    <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Settings
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -111,10 +86,14 @@ const Navbar = () => {
               Contact
             </Link>
             <div className="px-3 py-2 space-y-2">
-              <Link to="/login" className="btn block text-center">
+              <Link to="/login" 
+                className="block text-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
                 Login
               </Link>
-              <Link to="/register" className="btn btn-primary block text-center">
+              <Link to="/register" 
+                className="block text-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
+              >
                 Sign Up
               </Link>
             </div>
