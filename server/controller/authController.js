@@ -1,6 +1,8 @@
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/User");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+
 
 const signup = async (req, res) => {
   try {
@@ -88,7 +90,63 @@ const login = async (req, res) => {
   }
 };
 
+// forgot password
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found", success: false });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+
+    const resetLink = `http://localhost:3000/reset-password/${token}`;
+
+    // Send email
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER, // your gmail
+        pass: process.env.EMAIL_PASS, // app password from google
+      },
+    });
+    
+    await transporter.sendMail({
+      from: `"Velocitix AI" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "Reset Your Password",
+      html: `<p>Click <a href="${resetLink}">here</a> to reset your password. This link expires in 15 minutes.</p>`,
+    });
+
+    res.json({ message: "Reset link sent to your email", success: true });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Something went wrong", success: false });
+  }
+};
+
+// reset password
+const resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await UserModel.findByIdAndUpdate(decoded.id, { password: hashedPassword });
+
+    res.json({ message: "Password reset successful", success: true });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Invalid or expired token", success: false });
+  }
+};
+
 module.exports = {
   signup,
   login,
+  forgotPassword,
+  resetPassword,
 };
