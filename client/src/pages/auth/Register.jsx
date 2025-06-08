@@ -30,271 +30,136 @@ const Register = () => {
     navigate('/login');
   };
 
-  const styles = {
-    container: {
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '48px 24px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-    },
-    formWrapper: {
-      maxWidth: '450px',
-      width: '100%',
-      background: 'white',
-      borderRadius: '16px',
-      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-      padding: '32px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '24px'
-    },
-    title: {
-      textAlign: 'center',
-      fontSize: '28px',
-      fontWeight: '700',
-      color: '#1f2937',
-      marginBottom: '8px'
-    },
-    subtitle: {
-      textAlign: 'center',
-      fontSize: '14px',
-      color: '#6b7280',
-      marginBottom: '16px'
-    },
-    form: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '20px'
-    },
-    inputGroup: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '6px'
-    },
-    label: {
-      fontSize: '14px',
-      fontWeight: '500',
-      color: '#374151'
-    },
-    input: {
-      width: '100%',
-      padding: '12px 16px',
-      border: '2px solid #e5e7eb',
-      borderRadius: '8px',
-      fontSize: '16px',
-      transition: 'all 0.2s ease',
-      outline: 'none',
-      backgroundColor: '#fff',
-      boxSizing: 'border-box'
-    },
-    inputFocus: {
-      borderColor: '#667eea',
-      boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)'
-    },
-    select: {
-      width: '100%',
-      padding: '12px 16px',
-      border: '2px solid #e5e7eb',
-      borderRadius: '8px',
-      fontSize: '16px',
-      backgroundColor: 'white',
-      cursor: 'pointer',
-      outline: 'none',
-      transition: 'all 0.2s ease',
-      boxSizing: 'border-box'
-    },
-    button: {
-      width: '100%',
-      padding: '14px 16px',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      color: 'white',
-      border: 'none',
-      borderRadius: '8px',
-      fontSize: '16px',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'all 0.2s ease',
-      outline: 'none'
-    },
-    buttonHover: {
-      transform: 'translateY(-1px)',
-      boxShadow: '0 10px 20px rgba(102, 126, 234, 0.2)'
-    },
-    linkContainer: {
-      textAlign: 'center',
-      fontSize: '14px',
-      color: '#6b7280'
-    },
-    link: {
-      color: '#667eea',
-      textDecoration: 'none',
-      fontWeight: '500',
-      transition: 'color 0.2s ease'
-    },
-    linkHover: {
-      color: '#5a67d8',
-      textDecoration: 'underline'
-    },
-    roleSection: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '12px'
-    },
-    roleGrid: {
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: '12px'
-    },
-    roleOption: {
-      display: 'flex',
-      alignItems: 'center',
-      padding: '12px',
-      border: '2px solid #e5e7eb',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      transition: 'all 0.2s ease',
-      backgroundColor: 'white'
-    },
-    roleOptionSelected: {
-      borderColor: '#667eea',
-      backgroundColor: '#f0f4ff'
-    },
-    roleRadio: {
-      marginRight: '8px',
-      accentColor: '#667eea'
-    },
-    roleLabel: {
-      fontSize: '14px',
-      fontWeight: '500',
-      color: '#374151',
-      cursor: 'pointer'
-    }
-  };
-
   return (
-    <div style={styles.container}>
-      <div style={styles.formWrapper}>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 space-y-8">
         <div>
-          <h2 style={styles.title}>Create Account</h2>
-          <p style={styles.subtitle}>Join us today and get started</p>
+          <h2 className="text-center text-3xl font-extrabold text-gray-900">Create Account</h2>
+          <p className="mt-2 text-center text-sm text-gray-600">Join us today and get started</p>
         </div>
         
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Full Name</label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              placeholder="Enter your full name"
-              value={formData.name}
-              onChange={handleChange}
-              style={styles.input}
-              onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
-              onBlur={(e) => Object.assign(e.target.style, styles.input)}
-            />
-          </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Full Name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter your full name"
+                value={formData.name}
+                onChange={handleChange}
+              />
+            </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email Address</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              placeholder="Enter your email"
-              value={formData.email}
-              onChange={handleChange}
-              style={styles.input}
-              onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
-              onBlur={(e) => Object.assign(e.target.style, styles.input)}
-            />
-          </div>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={handleChange}
+              />
+            </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              placeholder="Create a password"
-              value={formData.password}
-              onChange={handleChange}
-              style={styles.input}
-              onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
-              onBlur={(e) => Object.assign(e.target.style, styles.input)}
-            />
-          </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Create a password"
+                value={formData.password}
+                onChange={handleChange}
+              />
+            </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Confirm Password</label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              required
-              placeholder="Confirm your password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              style={styles.input}
-              onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
-              onBlur={(e) => Object.assign(e.target.style, styles.input)}
-            />
-          </div>
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+              />
+            </div>
 
-          <div style={styles.roleSection}>
-            <label style={styles.label}>Select Role</label>
-            <div style={styles.roleGrid}>
-              {[
-                { value: 'student', label: 'Student' },
-                { value: 'admin', label: 'Admin' },
-                { value: 'hr', label: 'HR' }
-              ].map((role) => (
-                <label
-                  key={role.value}
-                  style={{
-                    ...styles.roleOption,
-                    ...(formData.role === role.value ? styles.roleOptionSelected : {})
-                  }}
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                Register as
+              </label>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <div
+                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${formData.role === 'student' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}`}
+                  onClick={() => handleChange({ target: { name: 'role', value: 'student' } })}
                 >
                   <input
                     type="radio"
                     name="role"
-                    value={role.value}
-                    checked={formData.role === role.value}
+                    value="student"
+                    checked={formData.role === 'student'}
                     onChange={handleChange}
-                    style={styles.roleRadio}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
-                  <span style={styles.roleLabel}>{role.label}</span>
-                </label>
-              ))}
+                  <label className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
+                    Student
+                  </label>
+                </div>
+
+                <div
+                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${formData.role === 'hr' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}`}
+                  onClick={() => handleChange({ target: { name: 'role', value: 'hr' } })}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value="hr"
+                    checked={formData.role === 'hr'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
+                    HR Manager
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
-          <button
-            type="submit"
-            style={styles.button}
-            onMouseEnter={(e) => Object.assign(e.target.style, {...styles.button, ...styles.buttonHover})}
-            onMouseLeave={(e) => Object.assign(e.target.style, styles.button)}
-          >
-            Create Account
-          </button>
+          <div>
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transform transition hover:-translate-y-0.5"
+            >
+              Create Account
+            </button>
+          </div>
         </form>
 
-        <div style={styles.linkContainer}>
-          Already have an account?{' '}
-          <Link 
-            to="/login" 
-            style={styles.link}
-            onMouseEnter={(e) => Object.assign(e.target.style, styles.linkHover)}
-            onMouseLeave={(e) => Object.assign(e.target.style, styles.link)}
-          >
-            Sign in here
+        <div className="text-center text-sm">
+          <span className="text-gray-600">Already have an account? </span>
+          <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            Sign in
           </Link>
         </div>
       </div>

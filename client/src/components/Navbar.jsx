@@ -1,150 +1,106 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
 
 const Navbar = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const isActiveRoute = (path) => location.pathname === path;
+
   return (
-    <>
-      <style>{`
-        .navbar {
-          background-color: #ffffff;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          padding: 0;
-        }
-
-        .nav-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 20px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          height: 70px;
-        }
-
-        .nav-logo h2 {
-          color: #2c3e50;
-          margin: 0;
-          font-size: 1.8rem;
-          font-weight: 600;
-          letter-spacing: -0.5px;
-        }
-
-        .nav-menu {
-          display: flex;
-          align-items: center;
-          gap: 2rem;
-        }
-
-        .nav-links {
-          display: flex;
-          align-items: center;
-          gap: 2rem;
-        }
-
-        .nav-link {
-          color: #555;
-          text-decoration: none;
-          font-weight: 500;
-          padding: 8px 16px;
-          border-radius: 6px;
-          transition: all 0.2s ease;
-        }
-
-        .nav-link:hover {
-          color: #3498db;
-          background-color: #f8f9fa;
-        }
-
-        .auth-buttons {
-          display: flex;
-          gap: 12px;
-        }
-
-        .btn-auth {
-          padding: 10px 20px;
-          border: none;
-          border-radius: 6px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-size: 14px;
-          text-decoration: none;
-          display: inline-block;
-          text-align: center;
-        }
-
-        .btn-login {
-          background-color: transparent;
-          color: #555;
-          border: 1px solid #ddd;
-        }
-
-        .btn-login:hover {
-          background-color: #f8f9fa;
-          border-color: #3498db;
-          color: #3498db;
-        }
-
-        .btn-signup {
-          background-color: #3498db;
-          color: white;
-          border: 1px solid #3498db;
-        }
-
-        .btn-signup:hover {
-          background-color: #2980b9;
-          border-color: #2980b9;
-          transform: translateY(-1px);
-        }
-
-        @media (max-width: 768px) {
-          .nav-container {
-            padding: 0 15px;
-            height: 60px;
-          }
-
-          .nav-logo h2 {
-            font-size: 1.5rem;
-          }
-
-          .nav-links {
-            display: none;
-          }
-
-          .nav-menu {
-            gap: 1rem;
-          }
-
-          .btn-auth {
-            padding: 8px 16px;
-            font-size: 13px;
-          }
-        }
-      `}</style>
-
-      <nav className="navbar">
-        <div className="nav-container">
-          <div className="nav-logo">
-            <h2>VelocitX AI</h2>
+    <nav className="bg-white shadow-lg fixed w-full top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex-shrink-0">
+            <Link to="/" className="flex items-center">
+              <span className="text-2xl font-bold text-blue-600">Velocitix AI</span>
+            </Link>
           </div>
-          <div className="nav-menu">
-            <div className="nav-links">
-            <Link to="/" className="nav-link">Home</Link>
-              <a href="#about" className="nav-link">About</a>
-              <a href="#services" className="nav-link">Services</a>
-              <a href="#contact" className="nav-link">Contact</a>
+
+          <div className="hidden md:block">
+            <div className="ml-10 flex items-baseline space-x-4">
+              <Link to="/" className={`nav-link ${isActiveRoute('/') && 'nav-link-active'}`}>
+                Home
+              </Link>
+              <Link to="/features" className={`nav-link ${isActiveRoute('/features') && 'nav-link-active'}`}>
+                Features
+              </Link>
+              <Link to="/about" className={`nav-link ${isActiveRoute('/about') && 'nav-link-active'}`}>
+                About
+              </Link>
+              <Link to="/contact" className={`nav-link ${isActiveRoute('/contact') && 'nav-link-active'}`}>
+                Contact
+              </Link>
             </div>
-            <div className="auth-buttons">
-              <Link to="/login" className="btn-auth btn-login">Login</Link>
-              <Link to="/register" className="btn-auth btn-signup">Sign Up</Link>
+          </div>
+
+          <div className="hidden md:block">
+            <div className="ml-4 flex items-center md:ml-6 space-x-3">
+              <Link 
+                to="/login" 
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
+                Login
+              </Link>
+              <Link 
+                to="/register" 
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
+
+          <div className="md:hidden">
+            <button
+              onClick={toggleMenu}
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              aria-expanded="false"
+            >
+              <span className="sr-only">Open main menu</span>
+              {isMenuOpen ? (
+                <X className="block h-6 w-6" />
+              ) : (
+                <Menu className="block h-6 w-6" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {isMenuOpen && (
+        <div className="md:hidden">
+          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
+            <Link to="/" className={`nav-link block ${isActiveRoute('/') && 'nav-link-active'}`}>
+              Home
+            </Link>
+            <Link to="/features" className={`nav-link block ${isActiveRoute('/features') && 'nav-link-active'}`}>
+              Features
+            </Link>
+            <Link to="/about" className={`nav-link block ${isActiveRoute('/about') && 'nav-link-active'}`}>
+              About
+            </Link>
+            <Link to="/contact" className={`nav-link block ${isActiveRoute('/contact') && 'nav-link-active'}`}>
+              Contact
+            </Link>
+            <div className="px-3 py-2 space-y-2">
+              <Link to="/login" 
+                className="block text-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
+                Login
+              </Link>
+              <Link to="/register" 
+                className="block text-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
+              >
+                Sign Up
+              </Link>
             </div>
           </div>
         </div>
-      </nav>
-    </>
+      )}
+    </nav>
   );
 };
 
