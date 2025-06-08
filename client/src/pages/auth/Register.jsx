@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { handleError, handleSuccess } from '../../utils/api';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -21,17 +24,87 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+    
+    // Check for empty fields
+    if(!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.confirmPassword.trim()) {
+      handleError('All fields are required');
       return;
     }
-    // TODO: Implement actual registration logic
-    console.log('Registration attempt:', formData);
-    navigate('/login');
+
+    // Check password match
+    if (formData.password !== formData.confirmPassword) {
+      handleError('Passwords do not match!');
+      return;
+    }
+
+    try {
+      const url = 'http://localhost:8080/auth/signup';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role: 'student',
+        }),
+      });
+
+      const responseData = await response.json();
+      console.log('Server response:', responseData); // Debug log
+
+      if (!response.ok) {
+        // Handle validation errors
+        if (responseData.error && Array.isArray(responseData.error) && responseData.error[0]?.message) {
+          handleError(responseData.error[0].message);
+        } else if (responseData.error && responseData.error.details && responseData.error.details.length > 0) {
+          handleError(responseData.error.details[0].message);
+        } else if (responseData.error && responseData.error.message) {
+          handleError(responseData.error.message);
+        } else {
+          handleError(responseData.message || 'Registration failed');
+        }
+        return;
+      }
+
+      if (responseData.success) {
+        handleSuccess(responseData.message || 'Registration successful!');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
+      } else {
+        handleError(responseData.message || 'Registration failed');
+      }
+
+    } catch (error) {
+      // Try to extract Joi validation error from error.response if available
+      if (error && error.response && error.response.error && Array.isArray(error.response.error) && error.response.error[0]?.message) {
+        handleError(error.response.error[0].message);
+      } else if (error && error.message && error.message.includes('"')) {
+        // If error.message itself contains a Joi message
+        handleError(error.message);
+      } else {
+        handleError('Registration failed');
+      }
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 py-12 px-4 sm:px-6 lg:px-8">
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 space-y-8">
         <div>
           <h2 className="text-center text-3xl font-extrabold text-gray-900">Create Account</h2>
@@ -104,46 +177,7 @@ const Register = () => {
               />
             </div>
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                Register as
-              </label>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <div
-                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${formData.role === 'student' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}`}
-                  onClick={() => handleChange({ target: { name: 'role', value: 'student' } })}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value="student"
-                    checked={formData.role === 'student'}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <label className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
-                    Student
-                  </label>
-                </div>
 
-                <div
-                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${formData.role === 'hr' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}`}
-                  onClick={() => handleChange({ target: { name: 'role', value: 'hr' } })}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value="hr"
-                    checked={formData.role === 'hr'}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <label className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
-                    HR Manager
-                  </label>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div>

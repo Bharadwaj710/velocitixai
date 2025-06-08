@@ -49,43 +49,61 @@ const signup = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    
+    // Debug log
+    console.log('Login attempt for:', email);
     const user = await UserModel.findOne({ email });
 
-    const errorMsg = "Auth failed. Email or password is incorrect";
     if (!user) {
-      return res.status(403).json({ message: errorMsg, success: false });
+      return res.status(401).json({
+        message: "Invalid email or password",
+        success: false
+      });
     }
 
-    const isPassEqual = await bcrypt.compare(password, user.password);
-    if (!isPassEqual) {
-      return res.status(403).json({ message: errorMsg, success: false });
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+        success: false
+      });
     }
 
-    const jwtToken = jwt.sign(
-      {
-        email: user.email,
-        _id: user._id,
-        isAdmin: user.isAdmin,
-        role: user.role,
+    console.log('User found:', {
+      id: user._id,
+      name: user.name,
+      isAdmin: user.isAdmin
+    });
+
+    // Create token with proper user data
+    const token = jwt.sign(
+      { 
+        userId: user._id, 
+        isAdmin: user.isAdmin 
       },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
 
+    // Send response with explicit boolean conversion
     res.status(200).json({
       message: "Login successful",
       success: true,
-      jwtToken,
-      email: user.email,
-      name: user.name,
-      isAdmin: user.isAdmin,
-      role: user.role,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isAdmin: Boolean(user.isAdmin), // Ensure boolean
+        role: user.role
+      },
+      token
     });
+
   } catch (error) {
-    console.error("Login error:", error);
+    console.error('Login error:', error);
     res.status(500).json({
       message: "Internal server error",
-      success: false,
+      success: false
     });
   }
 };
@@ -133,8 +151,18 @@ const resetPassword = async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const user = await UserModel.findById(decoded.id);
+    
+    // Check if the new password is same as old password
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({ 
+        message: "New password cannot be the same as the old password", 
+        success: false 
+      });
+    }
 
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await UserModel.findByIdAndUpdate(decoded.id, { password: hashedPassword });
 
     res.json({ message: "Password reset successful", success: true });
