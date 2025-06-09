@@ -2,7 +2,9 @@ const bcrypt = require("bcrypt");
 const UserModel = require("../models/User");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const { OAuth2Client } = require('google-auth-library');
 
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const signup = async (req, res) => {
   try {
@@ -172,9 +174,52 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// Google login
+const googleLogin = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name } = payload;
+
+    let user = await UserModel.findOne({ email });
+
+    if (!user) {
+      user = new UserModel({
+        name,
+        email,
+        password: "google-auth", // placeholder
+        role: "student"
+      });
+      await user.save();
+    }
+
+    const jwtToken = jwt.sign({
+      _id: user._id,
+      email: user.email,
+      role: user.role
+    }, process.env.JWT_SECRET, { expiresIn: "24h" });
+
+    res.status(200).json({
+      message: "Google login successful",
+      success: true,
+      jwtToken,
+      user
+    });
+  } catch (err) {
+    console.error("Google Login Error:", err);
+    res.status(401).json({ success: false, message: "Invalid token" });
+  }
+};
+
 module.exports = {
   signup,
   login,
   forgotPassword,
   resetPassword,
+  googleLogin,
 };
