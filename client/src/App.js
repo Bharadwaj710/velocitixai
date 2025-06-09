@@ -14,6 +14,9 @@ import CollegeDashboard from './pages/college/Dashboard';
 import StudentDashboard from './pages/student/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
+
+
+
 const AppContent = () => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin-');
