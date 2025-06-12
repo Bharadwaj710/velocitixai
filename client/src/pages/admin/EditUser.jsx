@@ -25,11 +25,15 @@ const EditUser = ({ user, onClose, onSave }) => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validateForm()) {
-      onSave(editedUser);
+      // Make sure we're passing all the user data, including the role
+      const updatedUser = {
+        ...user,
+        ...editedUser
+      };
+      onSave(updatedUser);
     }
   };
 
@@ -115,10 +119,10 @@ const EditUser = ({ user, onClose, onSave }) => {
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 errors.role ? 'border-red-500' : 'border-gray-300'
               }`}
-            >
-              <option value="student">Student</option>
+            >              <option value="student">Student</option>
               <option value="college">College</option>
               <option value="hr">HR</option>
+              <option value="admin">Admin</option>
             </select>
             {errors.role && (
               <p className="mt-1 text-xs text-red-500">{errors.role}</p>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, UserPlus, Edit3, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import EditUser from './EditUser';
 
-const Student = ({ setShowUserModal, setSelectedUser, showUserModal, selectedUser, selectedRole = 'all' }) => {
+const UserList = ({ setShowUserModal, setSelectedUser, showUserModal, selectedUser, selectedRole = 'all' }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentRole, setCurrentRole] = useState(selectedRole);
   
@@ -181,4 +181,4 @@ const Student = ({ setShowUserModal, setSelectedUser, showUserModal, selectedUse
   );
 };
 
-export default Student;
+export default UserList;

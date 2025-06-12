@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, GraduationCap, Briefcase, TrendingUp, UserPlus, 
-  Search, CheckCircle, Calendar
+  Search, CheckCircle, Calendar, Book
 } from 'lucide-react';
-import Student from './Student';
+import UserList from './UserList';
+import StudentList from './StudentList';
 import Colleges from './Colleges';
-import HRs from './HRs';
+import HRList from './HRList';
 import AdminHeader from '../../components/AdminDashboard/AdminHeader';
 import AdminSidebar from '../../components/AdminDashboard/AdminSidebar';
+
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -17,19 +19,19 @@ const Dashboard = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedCollege, setSelectedCollege] = useState('');
 
   // Reset selectedRole when changing tabs
-  useEffect(() => {
-    if (activeTab !== 'users') {
-      setSelectedRole('all');
-    }
-  }, [activeTab]);
 
   const dashboardStats = {
-    totalUsers: 15420,
-    students: 12340,
-    colleges: 156,
-    hrs: 234,
+    totalUsers: 8,
+    students: 4,
+    colleges: 1,
+    hrs: 2,
     pendingApprovals: 3,
     collegesOnboarded: 156,
     placementRate: 87.5
@@ -57,24 +59,23 @@ const Dashboard = () => {
     };
     setSelectedRole(filterStates[filterType]);
   };
-
   const StatCard = ({ title, value, icon: Icon, change, color = 'blue', onClick }) => (
     <div 
-      className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md cursor-pointer transition-all duration-200 transform hover:-translate-y-1"
+      className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border hover:shadow-md cursor-pointer transition-all duration-200 transform hover:-translate-y-1 select-none"
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+        <div className="space-y-1 sm:space-y-2">
+          <p className="text-sm text-gray-600 line-clamp-1">{title}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{value}</p>
           {change && (
-            <p className={`text-sm mt-2 flex items-center ${change > 0 ? 'text-green-600' : 'text-red-600'}`}>
-              <TrendingUp className="h-4 w-4 mr-1" />
+            <p className={`text-xs sm:text-sm mt-1 flex items-center ${change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               {change > 0 ? '+' : ''}{change}% from last month
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-full bg-${color}-100`}>
+        <div className={`p-2 sm:p-3 rounded-full bg-${color}-100 flex-shrink-0 ml-2`}>
           <Icon className={`h-8 w-8 text-${color}-600`} />
         </div>
       </div>
@@ -119,23 +120,36 @@ const Dashboard = () => {
       </button>
     );
   };
+  return (    <div className="min-h-screen bg-gray-50">
+      <AdminHeader 
+        notifications={notifications} 
+        user={user} 
+        sidebarOpen={sidebarOpen} 
+        setSidebarOpen={setSidebarOpen}
+      />
+      <div className="flex h-[calc(100vh-4rem)]">
+        {/* Fixed sidebar for desktop, sliding for mobile */}
+        <div className="md:relative md:block">
+          <AdminSidebar 
+            activeTab={activeTab} 
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
+              setSidebarOpen(false);
+            }}
+            notifications={notifications}
+            setSelectedRole={setSelectedRole}
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+          />
+        </div>
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader notifications={notifications} user={user} />
-      
-      <div className="flex">        <AdminSidebar 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          notifications={notifications}
-          setSelectedRole={setSelectedRole}
-        />
-
-        <main className="flex-1 p-6">
+        {/* Main content - automatically adjusts for sidebar */}
+        <main className={`flex-1 overflow-y-auto transition-all duration-300 ease-in-out
+          ${sidebarOpen ? 'md:pl-64' : ''} w-full
+          p-4 md:p-6 pb-16`}>
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Stat Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="space-y-4 md:space-y-6">
+              {/* Stat Cards */}              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 <StatCard 
                   title="Total Users" 
                   value={dashboardStats.totalUsers.toLocaleString()} 
@@ -150,7 +164,7 @@ const Dashboard = () => {
                   icon={GraduationCap} 
                   change={8.3} 
                   color="green" 
-                  onClick={() => handleCardClick('students')}
+                  onClick={() => setActiveTab('students')}
                 />
                 <StatCard 
                   title="Partner Colleges" 
@@ -158,7 +172,7 @@ const Dashboard = () => {
                   icon={GraduationCap} 
                   change={15.2} 
                   color="purple" 
-                  onClick={() => handleCardClick('colleges')}
+                  onClick={() => setActiveTab('colleges')}
                 />
                 <StatCard 
                   title="Active HRs" 
@@ -166,14 +180,14 @@ const Dashboard = () => {
                   icon={Briefcase} 
                   change={22.1} 
                   color="orange" 
-                  onClick={() => handleCardClick('hrs')}
+                  onClick={() => setActiveTab('hrs')}
                 />
               </div>
 
-              {/* Quick Actions */}
-              <div className="bg-white p-6 rounded-xl border">
-                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">                  <QuickAction
+              {/* Quick Actions */}              <div className="bg-white p-4 sm:p-6 rounded-xl border">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  <QuickAction
                     icon={Users}
                     title="View User Details"
                     description="Manage user accounts"
@@ -200,16 +214,15 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Recent Activity */}
-              <div className="bg-white p-6 rounded-xl border">
-                <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-                <div className="space-y-3">
+              {/* Recent Activity */}              <div className="bg-white p-4 sm:p-6 rounded-xl border">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Recent Activity</h3>
+                <div className="space-y-2 sm:space-y-3">
                   {notifications.map((notification, index) => (
-                    <div key={notification.id} className="flex items-center p-3 bg-gray-50 rounded-lg">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                      <div>
-                        <p className="text-sm text-gray-900">{notification.message}</p>
-                        <p className="text-xs text-gray-500">{index + 1} hour{index !== 0 ? 's' : ''} ago</p>
+                    <div key={notification.id} className="flex items-center p-2 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 sm:mr-3 flex-shrink-0"></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-gray-900 break-words">{notification.message}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{index + 1} hour{index !== 0 ? 's' : ''} ago</p>
                       </div>
                     </div>
                   ))}
@@ -219,7 +232,7 @@ const Dashboard = () => {
           )}
 
           {(activeTab === 'users' || activeTab === 'search-users') && (
-            <Student 
+            <UserList
               setShowUserModal={setShowUserModal} 
               setSelectedUser={setSelectedUser} 
               showUserModal={showUserModal} 
@@ -228,48 +241,62 @@ const Dashboard = () => {
             />
           )}
 
-          {activeTab === 'new-user' && (
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <h2 className="text-xl font-semibold mb-4">Add New User</h2>
-              {/* Add your new user form here */}
-            </div>
-          )}
-
           {activeTab === 'students' && (
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold">Student Details</h2>
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6 mb-6">
+                <h2 className="text-lg sm:text-xl font-semibold">Student Details</h2>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:flex-none">
+                    <Search className="h-4 w-4 sm:h-5 sm:w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
                       placeholder="Search students..."
-                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full sm:w-auto pl-9 sm:pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  <select className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">All Courses</option>
-                    {/* Add course options */}
-                  </select>
-                  <select className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">All Colleges</option>
-                    {/* Add college options */}
-                  </select>
+                  <div className="flex gap-3 sm:gap-4">
+                    <select 
+                      value={selectedCourse}
+                      onChange={(e) => setSelectedCourse(e.target.value)}
+                      className="flex-1 sm:flex-none text-sm border border-gray-300 rounded-lg px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="">All Courses</option>
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Information Technology">Information Technology</option>
+                      <option value="Electronics">Electronics</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Mechanical">Mechanical</option>
+                    </select>
+                    <select 
+                      value={selectedCollege}
+                      onChange={(e) => setSelectedCollege(e.target.value)}
+                      className="flex-1 sm:flex-none text-sm border border-gray-300 rounded-lg px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="">All Colleges</option>
+                      {dashboardStats.colleges > 0 && Array.from({ length: Math.min(5, dashboardStats.colleges) }).map((_, idx) => (
+                        <option key={idx} value={`College ${idx + 1}`}>College {idx + 1}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-              {/* Add student table or grid here */}
+              <StudentList 
+                students={students}
+                loading={loading}
+                setSelectedUser={setSelectedUser}
+                setShowUserModal={setShowUserModal}
+              />
             </div>
           )}
+          {activeTab === 'colleges' && (
+            <Colleges />
+          )}
+          {activeTab === 'hrs' && (
+  <HRList />
+)}
 
-          {activeTab === 'approvals' && (
-            <div className="space-y-6">
-              <Colleges />
-              <HRs />
-            </div>
-          )}
         </main>
       </div>
     </div>
