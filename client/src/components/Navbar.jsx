@@ -20,23 +20,6 @@ const Navbar = () => {
           </div>
 
           <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <Link to="/" className={`nav-link ${isActiveRoute('/') && 'nav-link-active'}`}>
-                Home
-              </Link>
-              <Link to="/features" className={`nav-link ${isActiveRoute('/features') && 'nav-link-active'}`}>
-                Features
-              </Link>
-              <Link to="/about" className={`nav-link ${isActiveRoute('/about') && 'nav-link-active'}`}>
-                About
-              </Link>
-              <Link to="/contact" className={`nav-link ${isActiveRoute('/contact') && 'nav-link-active'}`}>
-                Contact
-              </Link>
-            </div>
-          </div>
-
-          <div className="hidden md:block">
             <div className="ml-4 flex items-center md:ml-6 space-x-3">
               <Link 
                 to="/login" 
