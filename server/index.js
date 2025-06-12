@@ -8,7 +8,7 @@ require("./config/db");
 const app = express();
 app.use(cors());
 app.use(express.json());
-
+app.use('/admin', require('./routes/admin'));
 app.get("/", (req, res) => {
   res.send("Velocitix AI Backend is Running");
 });

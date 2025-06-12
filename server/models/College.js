@@ -12,6 +12,18 @@ const CourseSchema = new Schema({
 }, { _id: false });
 
 const CollegeSchema = new Schema({
+
+  user: {
+    type: Schema.Types.ObjectId,
+    ref: 'user',
+    required: true
+  },
+  name: {
+    type: String,
+    required: true,
+    unique: true
+  },
+=======
   name: { type: String, required: true, unique: true },
 
   slug: {
@@ -52,5 +64,10 @@ const CollegeSchema = new Schema({
 }, { timestamps: true });
 
 
+const CollegeModel = mongoose.model("colleges", CollegeSchema);
+module.exports = CollegeModel;
+=======
+
 const CollegeModel = mongoose.model("college", CollegeSchema);
 module.exports = CollegeModel;
+

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Settings, Home, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const AdminHeader = ({ notifications = [], user = {} }) => {
+const AdminHeader = ({ notifications = [], user = {}, sidebarOpen, setSidebarOpen }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const profileRef = useRef(null);
@@ -27,49 +27,52 @@ const AdminHeader = ({ notifications = [], user = {} }) => {
     console.log('Logging out...');
   };
 
-  return (
-    <header className="bg-white shadow-sm border-b sticky top-0 z-40 pl-16">
-      <div className="px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center space-x-6">
+  return (    <header className="bg-white shadow-sm border-b sticky top-0 z-50 h-14 sm:h-16">
+      <div className="h-full px-3 sm:px-4 md:px-6 flex items-center justify-between">
+        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-6">
+          <button
+            className="md:hidden p-1.5 sm:p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 active:bg-gray-200"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
+          </button>
           <Link to="/" className="flex items-center">
-            <span className="text-2xl font-bold text-blue-600">Velocitix AI</span>
+            <span className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">Velocitix AI</span>
           </Link>
         </div>
 
-        {/* Admin Dashboard Title */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
-          <h1 className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent px-4 py-1 rounded-lg">
+        {/* Center title - hidden on mobile */}
+        <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
+          <h1 className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
             Admin Dashboard
           </h1>
-        </div>
-
-        <div className="flex items-center space-x-4">
+        </div>        <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
+          {/* Notifications */}
           <div ref={notificationRef} className="relative">
             <button 
-              className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+              className="relative p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full transition-colors duration-200 active:bg-gray-100"
               onClick={() => setShowNotifications(!showNotifications)}
               aria-label="Notifications"
             >
-              <Bell className="h-6 w-6" />
+              <Bell className="h-5 w-5 sm:h-5 sm:w-5 md:h-6 md:w-6" />
               {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 sm:h-4 sm:w-4 md:h-5 md:w-5 bg-red-500 rounded-full text-[10px] sm:text-xs text-white flex items-center justify-center">
                   {notifications.length}
                 </span>
               )}
             </button>
 
-            {showNotifications && notifications.length > 0 && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-1 z-50 border">
-                <div className="px-4 py-2 border-b">
+            {/* Notifications dropdown */}            {showNotifications && (
+              <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:mt-2 w-auto sm:w-72 md:w-80 bg-white rounded-lg shadow-xl py-1 z-50 border max-h-[60vh] sm:max-h-[80vh] overflow-y-auto">
+                <div className="sticky top-0 px-3 sm:px-4 py-2 border-b bg-white">
                   <h3 className="text-sm font-semibold">Notifications</h3>
                 </div>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="divide-y divide-gray-100">
                   {notifications.map((notification, index) => (
-                    <div key={index} className="px-4 py-3 hover:bg-gray-50 border-b last:border-b-0">
-                      <p className="text-sm text-gray-800">{notification.message}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {notification.time || '1 hour ago'}
-                      </p>
+                    <div key={index} className="px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-50/80 active:bg-gray-100 cursor-pointer transition-colors duration-200">
+                      <p className="text-sm text-gray-800 break-words">{notification.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">{notification.time || '1 hour ago'}</p>
                     </div>
                   ))}
                 </div>
@@ -77,22 +80,19 @@ const AdminHeader = ({ notifications = [], user = {} }) => {
             )}
           </div>
 
-          <button className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full">
-            <Settings className="h-6 w-6" />
-          </button>
-
+          {/* Profile Menu */}
           <div ref={profileRef} className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1 group"
             >
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center transform transition-transform duration-200 hover:scale-105">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center transform transition-transform duration-200 hover:scale-105">
                 <span className="text-white font-semibold text-lg">
                   {user.name ? user.name[0].toUpperCase() : 'A'}
                 </span>
               </div>
               <div className="hidden md:block text-left group-hover:text-blue-600 transition-colors duration-200">
-                <p className="font-semibold text-sm text-gray-900 group-hover:text-blue-600 flex items-center">
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 flex items-center">
                   {user.name || 'Admin User'} 
                   <ChevronDown className="h-4 w-4 ml-1" />
                 </p>
@@ -100,27 +100,27 @@ const AdminHeader = ({ notifications = [], user = {} }) => {
               </div>
             </button>
 
-            {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border">
-                <div className="px-4 py-2 border-b">
-                  <p className="text-sm font-semibold text-gray-900">{user.name || 'Admin User'}</p>
-                  <p className="text-xs text-gray-500">{user.email || 'admin@velocitix.ai'}</p>
+            {/* Profile dropdown */}            {showProfileMenu && (
+              <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto sm:w-56 top-16 sm:mt-2 bg-white rounded-lg shadow-xl py-1 z-50 border">
+                <div className="sticky top-0 px-4 py-3 border-b bg-white">
+                  <p className="text-sm font-semibold text-gray-900 break-words">{user.name || 'Admin User'}</p>
+                  <p className="text-xs text-gray-500 break-words">{user.email || 'admin@velocitix.ai'}</p>
                 </div>
-                <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  Your Profile
-                </Link>
-                <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  Settings
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 border-t"
-                >
-                  <div className="flex items-center">
+                <div className="p-1 sm:p-0">
+                  <Link 
+                    to="/profile" 
+                    className="flex items-center w-full px-3 sm:px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200"
+                  >
+                    Your Profile
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-3 sm:px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors duration-200 border-t"
+                  >
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign out
-                  </div>
-                </button>
+                  </button>
+                </div>
               </div>
             )}
           </div>
