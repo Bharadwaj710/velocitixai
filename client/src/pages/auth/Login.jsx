@@ -1,184 +1,119 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { handleError, handleSuccess } from '../../utils/api';
+import { Link } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { useAuth } from '../../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
+import 'react-toastify/dist/ReactToastify.css';
+
+import { handleError, handleSuccess } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-
-  const navigate = useNavigate();
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const { login } = useAuth(); // ✅ Using AuthContext
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if(!formData.email.trim() || !formData.password.trim()) {
+
+    if (!formData.email.trim() || !formData.password.trim()) {
       handleError('All fields are required');
       return;
     }
 
     try {
-      const url = 'http://localhost:8080/auth/login';
-      const response = await fetch(url, {
+      const res = await fetch('http://localhost:8080/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
-      const result = await response.json();
-      const { message, success, user, token } = result;
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || 'Login failed');
 
-      if (!response.ok) throw new Error(message || 'Login failed');
+      const { user, token } = result;
 
-      if (success) {
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('token', token);
-        handleSuccess(message || 'Login successful!');
-
-        setTimeout(() => {
-          if (user.isAdmin === true) {
-            navigate('/admin-dashboard');
-          } else {
-            navigate('/student-dashboard');
-          }
-        }, 1500);
-      } else {
-        handleError(message || 'Login failed');
-      }
-    } catch (error) {
-      handleError(error.message || 'Login failed');
+      // ✅ Store token and call login from context
+      localStorage.setItem('token', token);
+      login(user);
+      handleSuccess('Login successful!');
+    } catch (err) {
+      handleError(err.message || 'Login failed');
     }
   };
 
   const handleGoogleLogin = async (credentialResponse) => {
     const token = credentialResponse.credential;
-    console.log("Google Token:", token);
-
     try {
-      const res = await fetch("http://localhost:8080/auth/google", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ token })
+      const res = await fetch('http://localhost:8080/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
       });
 
-      const data = await res.json();
-      const { success, message, jwtToken, user } = data;
+      const result = await res.json();
+      const { success, jwtToken, user } = result;
 
       if (success) {
-        localStorage.setItem("token", jwtToken);
-        localStorage.setItem("user", JSON.stringify(user));
-        handleSuccess("Google login successful!");
-
-        setTimeout(() => {
-          if (user.isAdmin === true) {
-            navigate("/admin-dashboard");
-          } else {
-            navigate("/student-dashboard");
-          }
-        }, 1500);
+        localStorage.setItem('token', jwtToken);
+        login(user);
+        handleSuccess('Google login successful!');
       } else {
-        handleError(message || "Google login failed");
+        handleError(result.message || 'Google login failed');
       }
     } catch (err) {
-      console.error("Google Login Error:", err);
-      handleError("Something went wrong with Google login.");
+      handleError('Something went wrong with Google login.');
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 py-12 px-4 sm:px-6 lg:px-8">
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+      <ToastContainer position="top-right" autoClose={3000} theme="light" />
       <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 space-y-8">
         <div>
           <h2 className="text-center text-3xl font-extrabold text-gray-900">Welcome Back</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">Sign in to your account to continue</p>
+          <p className="mt-2 text-center text-sm text-gray-600">Sign in to your account</p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
+            <input
+              name="email"
+              type="email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Email"
+              className="w-full px-3 py-2 border rounded-md"
+            />
+            <input
+              name="password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Password"
+              className="w-full px-3 py-2 border rounded-md"
+            />
           </div>
-
-          <div>
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transform transition hover:-translate-y-0.5"
-            >
-              Sign In
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Sign In
+          </button>
         </form>
 
-        {/* Forgot & Register */}
         <div className="flex flex-col space-y-4 text-sm text-center">
-          <div className="flex items-center justify-center space-x-1">
-            <span className="text-gray-500">Trouble signing in?</span>
-            <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200">
-              Forgot Password
-            </Link>
-          </div>
-
-          <div className="border-t border-gray-200 pt-4">
-            <span className="text-gray-600">Don't have an account? </span>
-            <Link to="/register" className="font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200">
-              Sign up
-            </Link>
+          <Link to="/forgot-password" className="text-blue-600 hover:text-blue-800">
+            Forgot Password?
+          </Link>
+          <div className="border-t pt-4">
+            <span>Don't have an account? </span>
+            <Link to="/register" className="text-blue-600 font-medium">Sign up</Link>
           </div>
         </div>
 

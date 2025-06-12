@@ -73,26 +73,28 @@ const Navbar = () => {
       {isMenuOpen && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
-            <Link to="/" className={`nav-link block ${isActiveRoute('/') && 'nav-link-active'}`}>
+            <Link to="/" className={`nav-link block ${isActiveRoute('/') && 'nav-link-active'}`} onClick={() => setIsMenuOpen(false)}>
               Home
             </Link>
-            <Link to="/features" className={`nav-link block ${isActiveRoute('/features') && 'nav-link-active'}`}>
+            <Link to="/features" className={`nav-link block ${isActiveRoute('/features') && 'nav-link-active'}`} onClick={() => setIsMenuOpen(false)}>
               Features
             </Link>
-            <Link to="/about" className={`nav-link block ${isActiveRoute('/about') && 'nav-link-active'}`}>
+            <Link to="/about" className={`nav-link block ${isActiveRoute('/about') && 'nav-link-active'}`} onClick={() => setIsMenuOpen(false)}>
               About
             </Link>
-            <Link to="/contact" className={`nav-link block ${isActiveRoute('/contact') && 'nav-link-active'}`}>
+            <Link to="/contact" className={`nav-link block ${isActiveRoute('/contact') && 'nav-link-active'}`} onClick={() => setIsMenuOpen(false)}>
               Contact
             </Link>
             <div className="px-3 py-2 space-y-2">
               <Link to="/login" 
                 className="block text-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Login
               </Link>
               <Link to="/register" 
                 className="block text-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Sign Up
               </Link>
