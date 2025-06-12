@@ -78,28 +78,27 @@ const login = async (req, res) => {
     });
 
     // Create token with proper user data
-    const token = jwt.sign(
-      { 
-        userId: user._id, 
-        isAdmin: user.isAdmin 
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
+    const token = jwt.sign({
+  userId: user._id,
+  isAdmin: user.isAdmin,
+  role: user.role,
+  collegeSlug: user.collegeSlug || null  // 🔥 include this
+}, process.env.JWT_SECRET, { expiresIn: "24h" });
 
     // Send response with explicit boolean conversion
-    res.status(200).json({
-      message: "Login successful",
-      success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        isAdmin: Boolean(user.isAdmin), // Ensure boolean
-        role: user.role
-      },
-      token
-    });
+  res.status(200).json({
+  message: "Login successful",
+  success: true,
+  user: {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    isAdmin: Boolean(user.isAdmin),
+    role: user.role,
+    collegeSlug: user.collegeSlug || null   // 🔥 include this
+  },
+  token
+});
 
   } catch (error) {
     console.error('Login error:', error);
@@ -216,10 +215,59 @@ const googleLogin = async (req, res) => {
   }
 };
 
+// google signup
+const googleSignup = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name } = payload;
+
+    let existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists. Please login instead."
+      });
+    }
+
+    const newUser = new UserModel({
+      name,
+      email,
+      password: "google-auth", // optional placeholder
+      role: "student"
+    });
+
+    await newUser.save();
+
+    const jwtToken = jwt.sign(
+      { _id: newUser._id, role: newUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Google sign up successful",
+      jwtToken,
+      user: newUser
+    });
+  } catch (err) {
+    console.error("Google Signup Error:", err);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
 module.exports = {
   signup,
   login,
   forgotPassword,
   resetPassword,
   googleLogin,
+  googleSignup,
 };

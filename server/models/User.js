@@ -24,7 +24,13 @@ const UserSchema = new Schema({
     enum: ["student", "admin", "hr", "college"],
     default: "student",
   },
+  collegeSlug: {
+    type: String,
+    required: function () {
+      return this.role === "college";
+    },
+  }
 });
 
-const UserModel = mongoose.model("users", UserSchema);
+const UserModel = mongoose.model("user", UserSchema,"user");
 module.exports = UserModel;

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { handleError, handleSuccess } from '../../utils/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { GoogleLogin } from '@react-oauth/google';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -12,26 +13,25 @@ const Register = () => {
     confirmPassword: '',
     role: 'student'
   });
+
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
+    setFormData(prev => ({
+      ...prev,
       [name]: value
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Check for empty fields
-    if(!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.confirmPassword.trim()) {
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.confirmPassword.trim()) {
       handleError('All fields are required');
       return;
     }
 
-    // Check password match
     if (formData.password !== formData.confirmPassword) {
       handleError('Passwords do not match!');
       return;
@@ -53,19 +53,10 @@ const Register = () => {
       });
 
       const responseData = await response.json();
-      console.log('Server response:', responseData); // Debug log
+      console.log('Server response:', responseData);
 
       if (!response.ok) {
-        // Handle validation errors
-        if (responseData.error && Array.isArray(responseData.error) && responseData.error[0]?.message) {
-          handleError(responseData.error[0].message);
-        } else if (responseData.error && responseData.error.details && responseData.error.details.length > 0) {
-          handleError(responseData.error.details[0].message);
-        } else if (responseData.error && responseData.error.message) {
-          handleError(responseData.error.message);
-        } else {
-          handleError(responseData.message || 'Registration failed');
-        }
+        handleError(responseData.message || 'Registration failed');
         return;
       }
 
@@ -79,38 +70,51 @@ const Register = () => {
       }
 
     } catch (error) {
-      // Try to extract Joi validation error from error.response if available
-      if (error && error.response && error.response.error && Array.isArray(error.response.error) && error.response.error[0]?.message) {
-        handleError(error.response.error[0].message);
-      } else if (error && error.message && error.message.includes('"')) {
-        // If error.message itself contains a Joi message
-        handleError(error.message);
+      handleError(error.message || 'Registration failed');
+    }
+  };
+
+  // ✅ Google Signup handler
+  const handleGoogleSignup = async (credentialResponse) => {
+    const token = credentialResponse.credential;
+
+    try {
+      const res = await fetch("http://localhost:8080/auth/google-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+
+      const data = await res.json();
+      console.log("Google Signup Response:", data);
+
+      if (data.success) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('token', data.jwtToken);
+        handleSuccess(data.message || "Signup successful!");
+
+        setTimeout(() => {
+          navigate("/student-dashboard");
+        }, 1500);
       } else {
-        handleError('Registration failed');
+        handleError(data.message || "Signup failed");
       }
+    } catch (err) {
+      console.error("Google Signup Error:", err);
+      handleError("Something went wrong during Google signup");
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 py-12 px-4 sm:px-6 lg:px-8">
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+      <ToastContainer position="top-right" autoClose={3000} theme="light" />
       <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 space-y-8">
         <div>
           <h2 className="text-center text-3xl font-extrabold text-gray-900">Create Account</h2>
           <p className="mt-2 text-center text-sm text-gray-600">Join us today and get started</p>
         </div>
-        
+
+        {/* Manual Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -176,8 +180,6 @@ const Register = () => {
                 onChange={handleChange}
               />
             </div>
-
-
           </div>
 
           <div>
@@ -190,7 +192,22 @@ const Register = () => {
           </div>
         </form>
 
-        <div className="text-center text-sm">
+        {/* Divider */}
+        <div className="flex items-center my-4">
+          <hr className="flex-grow border-t border-gray-300" />
+          <span className="mx-2 text-sm text-gray-500">OR</span>
+          <hr className="flex-grow border-t border-gray-300" />
+        </div>
+
+        {/* Google Signup Button */}
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSignup}
+            onError={() => console.log("Google Signup Failed")}
+          />
+        </div>
+
+        <div className="text-center text-sm mt-4">
           <span className="text-gray-600">Already have an account? </span>
           <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
             Sign in
