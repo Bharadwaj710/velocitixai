@@ -8,9 +8,12 @@ import UserList from './UserList';
 import StudentList from './StudentList';
 import Colleges from './Colleges';
 import HRList from './HRList';
+import ProfileSettings from './ProfileSettings';
 import AdminHeader from '../../components/AdminDashboard/AdminHeader';
 import AdminSidebar from '../../components/AdminDashboard/AdminSidebar';
 import { fetchOverviewStats } from '../../services/api';
+import RecentActivityPage from './RecentActivityPage';
+
 
 
 const Dashboard = () => {
@@ -35,6 +38,22 @@ const Dashboard = () => {
   const [statsError, setStatsError] = useState(null);
 
   // Reset selectedRole when changing tabs
+
+
+useEffect(() => {
+   const handleNavigate = () => setActiveTab('recent-activity');
+  window.addEventListener('navigateToRecentActivity', handleNavigate);
+  return () => window.removeEventListener('navigateToRecentActivity', handleNavigate);
+}, []);
+useEffect(() => {
+  const listener = () => setActiveTab('settings');
+  window.addEventListener('navigateToSettings', listener);
+  return () => window.removeEventListener('navigateToSettings', listener);
+}, []);
+
+
+
+
   const notifications = [
     { id: 1, message: "New college registration request" },
     { id: 2, message: "New HR approval pending" },
@@ -285,64 +304,32 @@ const Dashboard = () => {
 
           {activeTab === "students" && (
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6 mb-6">
-                <h2 className="text-lg sm:text-xl font-semibold">
-                  Student Details
-                </h2>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:flex-none">
-                    <Search className="h-4 w-4 sm:h-5 sm:w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search students..."
-                      className="w-full sm:w-auto pl-9 sm:pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex gap-3 sm:gap-4">
-                    <select
-                      value={selectedCourse}
-                      onChange={(e) => setSelectedCourse(e.target.value)}
-                      className="flex-1 sm:flex-none text-sm border border-gray-300 rounded-lg px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    >
-                      <option value="">All Courses</option>
-                      <option value="Computer Science">Computer Science</option>
-                      <option value="Information Technology">
-                        Information Technology
-                      </option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Electrical">Electrical</option>
-                      <option value="Mechanical">Mechanical</option>
-                    </select>
-                    <select
-                      value={selectedCollege}
-                      onChange={(e) => setSelectedCollege(e.target.value)}
-                      className="flex-1 sm:flex-none text-sm border border-gray-300 rounded-lg px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    >
-                      <option value="">All Colleges</option>
-                      {dashboardStats.colleges > 0 &&
-                        Array.from({
-                          length: Math.min(5, dashboardStats.colleges),
-                        }).map((_, idx) => (
-                          <option key={idx} value={`College ${idx + 1}`}>
-                            College {idx + 1}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <StudentList
+              <StudentList 
                 students={students}
                 loading={loading}
                 setSelectedUser={setSelectedUser}
                 setShowUserModal={setShowUserModal}
               />
+             </div>
+          )}
+
+  
+
+          {activeTab === 'settings' && (
+  <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
+    <ProfileSettings />
+  </div>
+)}
+          {activeTab === 'colleges' && (
+             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
+            <Colleges />
             </div>
           )}
-          {activeTab === "colleges" && <Colleges />}
-          {activeTab === "hrs" && <HRList />}
+          {activeTab === 'hrs' && (
+  <HRList />
+)}
+{activeTab === 'recent-activity' && <RecentActivityPage />}
+
         </main>
       </div>
     </div>

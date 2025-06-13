@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users, GraduationCap, Settings, Search, Edit,
-  LucideFileBarChart, Building2, Briefcase
+  LucideFileBarChart, Building2, Briefcase,Clock
 } from 'lucide-react';
 
 const AdminSidebar = ({
@@ -28,7 +28,9 @@ const AdminSidebar = ({
     { key: 'students', label: 'Student Details', Icon: GraduationCap },
     { key: 'colleges', label: 'Partner Colleges', Icon: Building2 },
     { key: 'hrs', label: 'HR Management', Icon: Briefcase },
-    { key: 'settings', label: 'Settings', Icon: Settings }
+    { key: 'settings', label: 'Settings', Icon: Settings },
+    { key: 'recent-activity', label: 'Recent Activity', Icon: Clock }
+
   ];
 
   const handleItemClick = (item) => {
