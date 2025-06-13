@@ -8,10 +8,14 @@ require("./config/db");
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/admin', require('./routes/admin'));
+app.use("/admin", require("./routes/admin"));
+app.use("/api/users", require("./routes/user"));
 app.get("/", (req, res) => {
   res.send("Velocitix AI Backend is Running");
 });
+
+const { getOverviewStats } = require("./controller/userController");
+app.get("/api/stats/overview", getOverviewStats);
 
 app.use(bodyParser.json());
 app.use("/auth", AuthRouter);

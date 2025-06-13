@@ -11,7 +11,9 @@ import HRList from './HRList';
 import ProfileSettings from './ProfileSettings';
 import AdminHeader from '../../components/AdminDashboard/AdminHeader';
 import AdminSidebar from '../../components/AdminDashboard/AdminSidebar';
+import { fetchOverviewStats } from '../../services/api';
 import RecentActivityPage from './RecentActivityPage';
+
 
 
 const Dashboard = () => {
@@ -26,8 +28,18 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedCollege, setSelectedCollege] = useState('');
+  const [dashboardStats, setDashboardStats] = useState({
+    totalUsers: 0,
+    activeStudents: 0,
+    partnerColleges: 0,
+    activeHRs: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
 
   // Reset selectedRole when changing tabs
+
+
 useEffect(() => {
    const handleNavigate = () => setActiveTab('recent-activity');
   window.addEventListener('navigateToRecentActivity', handleNavigate);
@@ -39,27 +51,39 @@ useEffect(() => {
   return () => window.removeEventListener('navigateToSettings', listener);
 }, []);
 
-  const dashboardStats = {
-    totalUsers: 45,
-    students: 4,
-    colleges: 1,
-    hrs: 2,
-    pendingApprovals: 3,
-    collegesOnboarded: 156,
-    placementRate: 87.5
-  };
+
+
 
   const notifications = [
-    { id: 1, message: 'New college registration request' },
-    { id: 2, message: 'New HR approval pending' },
-    { id: 3, message: 'System update available' }
+    { id: 1, message: "New college registration request" },
+    { id: 2, message: "New HR approval pending" },
+    { id: 3, message: "System update available" },
   ];
 
   const user = {
-    name: 'Admin User',
-    email: 'admin@velocitix.ai',
-    role: 'admin'
+    name: "Admin User",
+    email: "admin@velocitix.ai",
+    role: "admin",
   };
+  useEffect(() => {
+    setStatsLoading(true);
+    fetchOverviewStats()
+      .then(res => {
+        console.log('Overview stats:', res.data);
+        setDashboardStats({
+          totalUsers: res.data.totalUsers,
+          activeStudents: res.data.activeStudents,
+          partnerColleges: res.data.partnerColleges,
+          activeHRs: res.data.activeHRs,
+        });
+        setStatsError(null);
+      })
+      .catch((err) => {
+        setStatsError('Failed to load stats');
+        console.error('Failed to fetch overview stats:', err);
+      })
+      .finally(() => setStatsLoading(false));
+  }, []);
 
   const handleCardClick = (filterType) => {
     setActiveTab('users');
@@ -132,18 +156,19 @@ useEffect(() => {
       </button>
     );
   };
-  return (    <div className="min-h-screen bg-gray-50">
-      <AdminHeader 
-        notifications={notifications} 
-        user={user} 
-        sidebarOpen={sidebarOpen} 
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <AdminHeader
+        notifications={notifications}
+        user={user}
+        sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Fixed sidebar for desktop, sliding for mobile */}
         <div className="md:relative md:block">
-          <AdminSidebar 
-            activeTab={activeTab} 
+          <AdminSidebar
+            activeTab={activeTab}
             setActiveTab={(tab) => {
               setActiveTab(tab);
               setSidebarOpen(false);
@@ -156,107 +181,129 @@ useEffect(() => {
         </div>
 
         {/* Main content - automatically adjusts for sidebar */}
-        <main className={`flex-1 overflow-y-auto transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'md:pl-64' : ''} w-full
-          p-4 md:p-6 pb-16`}>
-          {activeTab === 'overview' && (
+        <main
+          className={`flex-1 overflow-y-auto transition-all duration-300 ease-in-out
+          ${sidebarOpen ? "md:pl-64" : ""} w-full
+          p-4 md:p-6 pb-16`}
+        >
+          {activeTab === "overview" && (
             <div className="space-y-4 md:space-y-6">
-              {/* Stat Cards */}              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                <StatCard 
-                  title="Total Users" 
-                  value={dashboardStats.totalUsers.toLocaleString()} 
-                  icon={Users} 
-                  change={12.5} 
-                  color="blue" 
-                  onClick={() => handleCardClick('total')}
-                />
-                <StatCard 
-                  title="Active Students" 
-                  value={dashboardStats.students.toLocaleString()} 
-                  icon={GraduationCap} 
-                  change={8.3} 
-                  color="green" 
-                  onClick={() => setActiveTab('students')}
-                />
-                <StatCard 
-                  title="Partner Colleges" 
-                  value={dashboardStats.colleges} 
-                  icon={GraduationCap} 
-                  change={15.2} 
-                  color="purple" 
-                  onClick={() => setActiveTab('colleges')}
-                />
-                <StatCard 
-                  title="Active HRs" 
-                  value={dashboardStats.hrs} 
-                  icon={Briefcase} 
-                  change={22.1} 
-                  color="orange" 
-                  onClick={() => setActiveTab('hrs')}
-                />
-              </div>
-
-              {/* Quick Actions */}              <div className="bg-white p-4 sm:p-6 rounded-xl border">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  <QuickAction
-                    icon={Users}
-                    title="View User Details"
-                    description="Manage user accounts"
-                    onClick={() => {
-                      setActiveTab('users');
-                      setSelectedRole('all');
-                    }}
-                    color="green"
-                  />
-                  <QuickAction
-                    icon={UserPlus}
-                    title="Student Details"
-                    description="Course and college info"
-                    onClick={() => setActiveTab('students')}
-                    color="blue"
-                  />
-                  <QuickAction
-                    icon={CheckCircle}
-                    title="Pending Approvals"
-                    description={`${dashboardStats.pendingApprovals} waiting`}
-                    onClick={() => setActiveTab('approvals')}
-                    color="yellow"
-                  />
-                </div>
-              </div>
-
-              {/* Recent Activity */}              <div className="bg-white p-4 sm:p-6 rounded-xl border">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Recent Activity</h3>
-                <div className="space-y-2 sm:space-y-3">
-                  {notifications.map((notification, index) => (
-                    <div key={notification.id} className="flex items-center p-2 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 sm:mr-3 flex-shrink-0"></div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-gray-900 break-words">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{index + 1} hour{index !== 0 ? 's' : ''} ago</p>
-                      </div>
+              {statsError && (
+                <div className="text-red-500 text-sm">{statsError}</div>
+              )}
+              {statsLoading ? (
+                <div className="text-center py-8">Loading stats...</div>
+              ) : (
+                <>
+                  {/* Stat Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                    <StatCard 
+                      title="Total Users" 
+                      value={dashboardStats.totalUsers?.toLocaleString?.() ?? 0} 
+                      icon={Users} 
+                      change={12.5} 
+                      color="blue" 
+                      onClick={() => handleCardClick('total')}
+                    />
+                    <StatCard 
+                      title="Active Students" 
+                      value={dashboardStats.activeStudents?.toLocaleString?.() ?? 0} 
+                      icon={GraduationCap} 
+                      change={8.3} 
+                      color="green" 
+                      onClick={() => setActiveTab('students')}
+                    />
+                    <StatCard 
+                      title="Partner Colleges" 
+                      value={dashboardStats.partnerColleges?.toLocaleString?.() ?? 0} 
+                      icon={GraduationCap} 
+                      change={15.2} 
+                      color="purple" 
+                      onClick={() => setActiveTab('colleges')}
+                    />
+                    <StatCard 
+                      title="Active HRs" 
+                      value={dashboardStats.activeHRs?.toLocaleString?.() ?? 0} 
+                      icon={Briefcase} 
+                      change={22.1} 
+                      color="orange" 
+                      onClick={() => setActiveTab('hrs')}
+                    />
+                  </div>
+                  {/* Quick Actions */}
+                  <div className="bg-white p-6 rounded-xl border">
+                    <h3 className="text-lg font-semibold mb-4">
+                      Quick Actions
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {" "}
+                      <QuickAction
+                        icon={Users}
+                        title="View User Details"
+                        description="Manage user accounts"
+                        onClick={() => {
+                          setActiveTab("users");
+                          setSelectedRole("all");
+                        }}
+                        color="green"
+                      />
+                      <QuickAction
+                        icon={UserPlus}
+                        title="Student Details"
+                        description="Course and college info"
+                        onClick={() => setActiveTab("students")}
+                        color="blue"
+                      />
+                      <QuickAction
+                        icon={CheckCircle}
+                        title="Pending Approvals"
+                        description={`${dashboardStats.pendingApprovals} waiting`}
+                        onClick={() => setActiveTab("approvals")}
+                        color="yellow"
+                      />
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                  {/* Recent Activity */}
+                  <div className="bg-white p-6 rounded-xl border">
+                    <h3 className="text-lg font-semibold mb-4">
+                      Recent Activity
+                    </h3>
+                    <div className="space-y-3">
+                      {notifications.map((notification, index) => (
+                        <div
+                          key={notification.id}
+                          className="flex items-center p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <div>
+                            <p className="text-sm text-gray-900">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {index + 1} hour{index !== 0 ? "s" : ""} ago
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
-          {(activeTab === 'users' || activeTab === 'search-users') && (
+          {(activeTab === "users" || activeTab === "search-users") && (
             <UserList
-              setShowUserModal={setShowUserModal} 
-              setSelectedUser={setSelectedUser} 
-              showUserModal={showUserModal} 
+              setShowUserModal={setShowUserModal}
+              setSelectedUser={setSelectedUser}
+              showUserModal={showUserModal}
               selectedUser={selectedUser}
               selectedRole={selectedRole}
             />
           )}
 
-          {activeTab === 'students' && (
+          {activeTab === "students" && (
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
-              
-             
               <StudentList 
                 students={students}
                 loading={loading}
@@ -265,6 +312,9 @@ useEffect(() => {
               />
              </div>
           )}
+
+  
+
           {activeTab === 'settings' && (
   <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
     <ProfileSettings />
@@ -279,7 +329,6 @@ useEffect(() => {
   <HRList />
 )}
 {activeTab === 'recent-activity' && <RecentActivityPage />}
-
 
         </main>
       </div>
