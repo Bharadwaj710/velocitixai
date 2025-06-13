@@ -1,57 +1,104 @@
-import React, { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit3, Trash2, CheckCircle, XCircle } from 'lucide-react';
-import EditUser from './EditUser';
+import React, { useState, useEffect } from "react";
+import {
+  Search,
+  UserPlus,
+  Edit3,
+  Trash2,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import EditUser from "./EditUser";
+import { fetchUsers, updateUser, deleteUser } from "../../services/api";
 
-const UserList = ({ setShowUserModal, setSelectedUser, showUserModal, selectedUser, selectedRole = 'all' }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const UserList = ({
+  setShowUserModal,
+  setSelectedUser,
+  showUserModal,
+  selectedUser,
+  selectedRole = "all",
+}) => {
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentRole, setCurrentRole] = useState(selectedRole);
-  
-  // Reset both role and search when selectedRole prop changes
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
   useEffect(() => {
     setCurrentRole(selectedRole);
-    setSearchTerm(''); // Reset search term when role changes
+    setSearchTerm("");
   }, [selectedRole]);
 
-  const [users, setUsers] = useState([
-    {
-      id: 1, name: 'John Doe', email: 'john@example.com', role: 'student', college: 'MIT',
-      phone: '+1234567890', location: 'Cambridge, MA', status: 'active', joinDate: '2024-01-15', lastActive: '2025-06-05'
-    },
-    {
-      id: 2, name: 'Jane Smith', email: 'jane@college.edu', role: 'college', company: 'Harvard University',
-      phone: '+1234567891', location: 'Boston, MA', status: 'pending', joinDate: '2024-03-20', lastActive: '2025-06-04'
-    },
-    {
-      id: 3, name: 'Mike Johnson', email: 'mike@techcorp.com', role: 'hr', company: 'TechCorp Inc.',
-      phone: '+1234567892', location: 'San Francisco, CA', status: 'active', joinDate: '2024-02-10', lastActive: '2025-06-05'
-    },
-     {
-      id: 4, name: 'John', email: 'john@example.com', role: 'student', college: 'MIT',
-      phone: '+123456790', location: 'Cambr, MA', status: 'active', joinDate: '2024-01-15', lastActive: '2025-06-05'
-    },
-     {
-      id: 5, name: 'Uday', email: 'Uday@example.com', role: '', college: 'MIT',
-      phone: '+1234567890', location: 'Cambridge, MA', status: 'active', joinDate: '2024-01-15', lastActive: '2025-06-05'
-    },
-  ]);
+  useEffect(() => {
+    setLoading(true);
+    fetchUsers()
+      .then((res) => {
+        setUsers(res.data);
+        setError(null);
+      })
+      .catch(() => setError("Failed to fetch users"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = currentRole === 'all' || user.role === currentRole;
+    const matchesRole = currentRole === "all" || user.role === currentRole;
     return matchesSearch && matchesRole;
   });
 
-  const handleRoleChange = (userId, newRole) => {
-    setUsers(users.map(user => user.id === userId ? { ...user, role: newRole } : user));
+  const handleRoleChange = async (userId, newRole) => {
+    const user = users.find((u) => u._id === userId);
+    if (!user) return;
+    try {
+      setLoading(true);
+      const { data } = await updateUser(userId, { ...user, role: newRole });
+      setUsers(users.map((u) => (u._id === userId ? data : u)));
+    } catch {
+      setError("Failed to update user role");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStatusChange = (userId, newStatus) => {
-    setUsers(users.map(user => user.id === userId ? { ...user, status: newStatus } : user));
+    // Implement if status is part of user schema and backend
   };
 
-  const handleDeleteUser = (userId) => {
-    setUsers(users.filter(user => user.id !== userId));
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    try {
+      setLoading(true);
+      const res = await deleteUser(userId);
+      console.log('Delete user response:', res.data);
+      setUsers(users.filter((u) => u._id !== userId));
+      setError(null);
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        setError("User not found (404)");
+      } else {
+        setError("Failed to delete the user. Server error.");
+      }
+      console.error('Delete user error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async (userData) => {
+    if (!userData._id) return;
+    try {
+      setLoading(true);
+      const { data } = await updateUser(userData._id, userData);
+      setUsers(users.map((u) => (u._id === userData._id ? data : u)));
+      setShowUserModal(false);
+      setSelectedUser(null);
+      setError(null);
+    } catch {
+      setError("Failed to update user");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -84,80 +131,79 @@ const UserList = ({ setShowUserModal, setSelectedUser, showUserModal, selectedUs
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map(user => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-sm font-medium text-gray-700">{user.name.split(' ').map(n => n[0]).join('')}</span>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <select
-                      value={user.role}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                      className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="student">Student</option>
-                      <option value="college">College</option>
-                      <option value="hr">HR</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.status === 'active' ? 'bg-green-100 text-green-800' :
-                      user.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{user.lastActive}</td>
-                  <td className="px-6 py-4 text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <button onClick={() => { setSelectedUser(user); setShowUserModal(true); }} className="text-blue-600 hover:text-blue-900">
-                        <Edit3 className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                      {user.status === 'pending' && (
-                        <>
-                          <button onClick={() => handleStatusChange(user.id, 'active')} className="text-green-600 hover:text-green-900">
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => handleStatusChange(user.id, 'suspended')} className="text-red-600 hover:text-red-900">
-                            <XCircle className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+      {error && <div className="text-red-500 text-sm px-6">{error}</div>}
+      {loading ? (
+        <div className="text-center py-8">Loading...</div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    isAdmin
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredUsers.map((user) => (
+                  <tr key={user._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">{user.name}</td>
+                    <td className="px-6 py-4">{user.email}</td>
+                    <td className="px-6 py-4">
+                      <select
+                        value={user.role}
+                        onChange={(e) =>
+                          handleRoleChange(user._id, e.target.value)
+                        }
+                        className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="student">Student</option>
+                        <option value="college">College</option>
+                        <option value="hr">HR</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4">{user.isAdmin ? "Yes" : "No"}</td>
+                    <td className="px-6 py-4 text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowUserModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user._id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        {/* Add status actions if needed */}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {showUserModal && (
         <EditUser
@@ -166,15 +212,7 @@ const UserList = ({ setShowUserModal, setSelectedUser, showUserModal, selectedUs
             setShowUserModal(false);
             setSelectedUser(null);
           }}
-          onSave={(userData) => {
-            if (selectedUser) {
-              setUsers(users.map(user => user.id === selectedUser.id ? { ...user, ...userData } : user));
-            } else {
-              setUsers([...users, { ...userData, id: Date.now() }]);
-            }
-            setShowUserModal(false);
-            setSelectedUser(null);
-          }}
+          onSave={handleSave}
         />
       )}
     </div>
