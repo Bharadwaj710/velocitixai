@@ -1,16 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const CourseSchema = new Schema({
-  name: String,
-  duration: Number, // in years
-  type: {
-    type: String,
-    enum: ["UG", "PG", "Diploma", "PhD"],
-    default: "UG"
-  }
-}, { _id: false });
-
 const CollegeSchema = new Schema({
 
   user: {
@@ -18,13 +8,6 @@ const CollegeSchema = new Schema({
     ref: 'user',
     required: true
   },
-  name: {
-    type: String,
-    required: true,
-    unique: true
-  },
-=======
-  name: { type: String, required: true, unique: true },
 
   slug: {
     type: String,
@@ -55,19 +38,10 @@ const CollegeSchema = new Schema({
     phone: String,
     website: String
   },
-  courses: [CourseSchema],
-  status: {
-    type: String,
-    enum: ["pending", "active", "suspended"],
-    default: "pending"
-  }
 }, { timestamps: true });
 
 
 const CollegeModel = mongoose.model("colleges", CollegeSchema);
 module.exports = CollegeModel;
-=======
 
-const CollegeModel = mongoose.model("college", CollegeSchema);
-module.exports = CollegeModel;
 
