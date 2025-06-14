@@ -15,19 +15,29 @@ import StudentDashboard from './pages/student/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 
-
-
 const AppContent = () => {
   const location = useLocation();
-  const isAdminRoute = location.pathname.startsWith('/admin-');
-  
+
+  // List of routes where Navbar should be hidden
+  const hideNavbarRoutes = [
+    '/admin-dashboard',
+    '/hr',
+    '/college-dashboard',
+    '/student',
+  ];
+
+  const shouldHideNavbar = hideNavbarRoutes.some(path =>
+    location.pathname.startsWith(path)
+  );
+
   return (
     <>
-      {!isAdminRoute && <Navbar />}
-      <main className={isAdminRoute ? 'w-full' : 'pt-16 w-full'}>
+      {!shouldHideNavbar && <Navbar />}
+      <main className={shouldHideNavbar ? 'w-full' : 'pt-16 w-full'}>
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={<Home />} />          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
@@ -54,15 +64,15 @@ const AppContent = () => {
 
           {/* College routes */}
           <Route 
-            path="/college/*" 
-            element={
-              <ProtectedRoute requireCollege={true}>
-                <CollegeDashboard />
-              </ProtectedRoute>
-            } 
-          />
+  path="/college-dashboard/:slug" 
+  element={
+    <ProtectedRoute requireCollege={true}>
+      <CollegeDashboard />
+    </ProtectedRoute>
+  }
+/>
 
-          {/* Student routes - protected but no specific role requirement */}
+          {/* Student routes */}
           <Route 
             path="/student/*" 
             element={

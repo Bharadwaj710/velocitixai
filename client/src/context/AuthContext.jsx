@@ -42,10 +42,11 @@ export const AuthProvider = ({ children }) => {
           console.log('Redirecting to HR dashboard'); // Debug log
           navigate('/hr-dashboard');
           break;
-        case 'college':
-          console.log('Redirecting to college dashboard'); // Debug log
-          navigate('/college-dashboard');
-          break;
+       case 'college':
+  console.log('Redirecting to college dashboard'); // Debug log
+  navigate(`/college-dashboard/${userData.collegeSlug}`);
+  break;
+
         case 'student':
           console.log('Redirecting to student dashboard'); // Debug log
           navigate('/student-dashboard');

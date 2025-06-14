@@ -2,18 +2,21 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const CollegeSchema = new Schema({
+
   user: {
     type: Schema.Types.ObjectId,
     ref: 'user',
     required: true
   },
+  
   slug: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true
   },
+
   address: {
     street: String,
     city: String,
@@ -35,7 +38,11 @@ const CollegeSchema = new Schema({
     phone: String,
     website: String
   },
+
 });
+
 
 const CollegeModel = mongoose.model("colleges", CollegeSchema);
 module.exports = CollegeModel;
+
+
