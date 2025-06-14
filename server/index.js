@@ -10,6 +10,8 @@ app.use(cors());
 app.use(express.json());
 app.use("/admin", require("./routes/admin"));
 app.use("/api/users", require("./routes/user"));
+app.use('/api/courses', require('./routes/courseRoutes'));
+
 app.get("/", (req, res) => {
   res.send("Velocitix AI Backend is Running");
 });

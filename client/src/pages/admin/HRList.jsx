@@ -56,7 +56,7 @@ const HRList = () => {
               <th className="p-3 text-left font-medium">Name</th>
               <th className="p-3 text-left font-medium">Email</th>
               <th className="p-3 text-left font-medium">Company</th>
-              <th className="p-3 text-left font-medium">Actions</th>
+              <th className="p-3 text-left font-medium">HR Info</th>
             </tr>
           </thead>
           <tbody>

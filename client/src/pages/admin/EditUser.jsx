@@ -128,55 +128,6 @@ const EditUser = ({ user, onClose, onSave }) => {
               <p className="mt-1 text-xs text-red-500">{errors.role}</p>
             )}
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              name="status"
-              value={editedUser.status || "active"}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="suspended">Suspended</option>
-            </select>
-          </div>
-
-          {editedUser.role === "student" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                College
-              </label>
-              <input
-                type="text"
-                name="college"
-                value={editedUser.college || ""}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter college name"
-              />
-            </div>
-          )}
-
-          {editedUser.role === "hr" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company
-              </label>
-              <input
-                type="text"
-                name="company"
-                value={editedUser.company || ""}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter company name"
-              />
-            </div>
-          )}
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               isAdmin

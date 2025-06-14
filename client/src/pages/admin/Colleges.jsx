@@ -41,7 +41,7 @@ const Colleges = () => {
             <th className="p-2">Name</th>
             <th className="p-2">Email</th>
             <th className="p-2">Status</th>
-            <th className="p-2">Actions</th>
+            <th className="p-2">College Details</th>
           </tr>
         </thead>
         <tbody>

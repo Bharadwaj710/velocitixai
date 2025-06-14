@@ -42,9 +42,18 @@ const AdminHeader = ({ notifications = [], sidebarOpen, setSidebarOpen }) => {
           >
             <Menu className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
           </button>
-          <Link to="/admin-dashboard" className="flex items-center">
-            <span className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">Velocitix AI</span>
-          </Link>
+         <button
+  onClick={() => {
+    window.dispatchEvent(new CustomEvent('navigateToOverview'));
+    setSidebarOpen(false);
+  }}
+  className="flex items-center"
+>
+  <span className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">
+    Velocitix AI
+  </span>
+</button>
+
         </div>
 
         <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">

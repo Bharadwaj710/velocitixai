@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, GraduationCap, Briefcase, TrendingUp, UserPlus, 
-  Search, CheckCircle, Calendar, Book
+  Search, CheckCircle, Calendar, Book,Building
 } from 'lucide-react';
 import UserList from './UserList';
 import StudentList from './StudentList';
@@ -13,6 +13,7 @@ import AdminHeader from '../../components/AdminDashboard/AdminHeader';
 import AdminSidebar from '../../components/AdminDashboard/AdminSidebar';
 import { fetchOverviewStats } from '../../services/api';
 import RecentActivityPage from './RecentActivityPage';
+import CourseManager from './CourseManager';
 
 
 
@@ -50,6 +51,11 @@ useEffect(() => {
   window.addEventListener('navigateToSettings', listener);
   return () => window.removeEventListener('navigateToSettings', listener);
 }, []);
+useEffect(() => {
+  const handleNavigate = () => setActiveTab('overview');
+  window.addEventListener('navigateToOverview', handleNavigate);
+  return () => window.removeEventListener('navigateToOverview', handleNavigate);
+}, []);
 
 
 
@@ -60,11 +66,6 @@ useEffect(() => {
     { id: 3, message: "System update available" },
   ];
 
-  const user = {
-    name: "Admin User",
-    email: "admin@velocitix.ai",
-    role: "admin",
-  };
   useEffect(() => {
     setStatsLoading(true);
     fetchOverviewStats()
@@ -160,7 +161,6 @@ useEffect(() => {
     <div className="min-h-screen bg-gray-50">
       <AdminHeader
         notifications={notifications}
-        user={user}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
@@ -255,11 +255,11 @@ useEffect(() => {
                         color="blue"
                       />
                       <QuickAction
-                        icon={CheckCircle}
-                        title="Pending Approvals"
-                        description={`${dashboardStats.pendingApprovals} waiting`}
-                        onClick={() => setActiveTab("approvals")}
-                        color="yellow"
+                        icon={Building}
+                        title="Course Content"
+                        description="Manage courses and content"
+                        onClick={() => setActiveTab("courses")}
+                        color="purple"
                       />
                     </div>
                   </div>
@@ -329,6 +329,7 @@ useEffect(() => {
   <HRList />
 )}
 {activeTab === 'recent-activity' && <RecentActivityPage />}
+{activeTab === 'courses' && <CourseManager/>}
 
         </main>
       </div>

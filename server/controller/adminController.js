@@ -40,7 +40,8 @@ const getAllStudents = async (req, res) => {
         yearOfStudy: student?.yearOfStudy || 'Not updated',
         college: student?.college || 'Not updated',
         phoneNumber: student?.phoneNumber || 'Not provided',
-        skills: student?.skills || []
+        skills: student?.skills || [],
+        scorecard: student?.scorecard 
       };
     });
     

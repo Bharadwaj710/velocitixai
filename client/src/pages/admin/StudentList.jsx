@@ -61,8 +61,8 @@ const Student = () => {
               <th className="p-3 text-left font-medium">Name</th>
               <th className="p-3 text-left font-medium">Email</th>
               <th className="p-3 text-left font-medium">Course</th>
-              <th className="p-3 text-left font-medium">College</th>
-              <th className="p-3 text-left font-medium">Actions</th>
+              <th className="p-3 text-left font-medium">Scorecard</th>
+              <th className="p-3 text-left font-medium">Student Info</th>
             </tr>
           </thead>
           <tbody>
@@ -76,7 +76,7 @@ const Student = () => {
                   <td className="p-3">{s.name}</td>
                   <td className="p-3">{s.email}</td>
                   <td className="p-3">{s.course || 'Not updated'}</td>
-                  <td className="p-3">{s.college || 'Not updated'}</td>
+                  <td className="p-3">{s.scorecard || 'Not updated'}</td>
                   <td className="p-3">
                     <button onClick={() => setSelectedStudent(s)} className="text-blue-600 hover:underline">View More</button>
                   </td>
