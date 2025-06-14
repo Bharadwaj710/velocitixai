@@ -30,6 +30,7 @@ const UserSchema = new Schema({
       return this.role === "college";
     },
   }
+
 });
 
 

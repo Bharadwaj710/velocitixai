@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { X } from "lucide-react";
 
 const EditUser = ({ user, onClose, onSave }) => {
   const [editedUser, setEditedUser] = useState(user || {});
@@ -12,15 +12,15 @@ const EditUser = ({ user, onClose, onSave }) => {
   const validateForm = () => {
     const newErrors = {};
     if (!editedUser.name?.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = "Name is required";
     }
     if (!editedUser.email?.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(editedUser.email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = "Email is invalid";
     }
     if (!editedUser.role) {
-      newErrors.role = 'Role is required';
+      newErrors.role = "Role is required";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -31,7 +31,7 @@ const EditUser = ({ user, onClose, onSave }) => {
       // Make sure we're passing all the user data, including the role
       const updatedUser = {
         ...user,
-        ...editedUser
+        ...editedUser,
       };
       onSave(updatedUser);
     }
@@ -39,15 +39,15 @@ const EditUser = ({ user, onClose, onSave }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setEditedUser(prev => ({
+    setEditedUser((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: undefined
+        [name]: undefined,
       }));
     }
   };
@@ -62,9 +62,7 @@ const EditUser = ({ user, onClose, onSave }) => {
           <X className="h-5 w-5 text-gray-500" />
         </button>
 
-        <h3 className="text-lg font-semibold mb-4 pr-8">
-          Edit User Details
-        </h3>
+        <h3 className="text-lg font-semibold mb-4 pr-8">Edit User Details</h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -75,10 +73,10 @@ const EditUser = ({ user, onClose, onSave }) => {
             <input
               type="text"
               name="name"
-              value={editedUser.name || ''}
+              value={editedUser.name || ""}
               onChange={handleChange}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+                errors.name ? "border-red-500" : "border-gray-300"
               }`}
               placeholder="Enter user's name"
             />
@@ -95,10 +93,10 @@ const EditUser = ({ user, onClose, onSave }) => {
             <input
               type="email"
               name="email"
-              value={editedUser.email || ''}
+              value={editedUser.email || ""}
               onChange={handleChange}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.email ? 'border-red-500' : 'border-gray-300'
+                errors.email ? "border-red-500" : "border-gray-300"
               }`}
               placeholder="Enter user's email"
             />
@@ -114,12 +112,14 @@ const EditUser = ({ user, onClose, onSave }) => {
             </label>
             <select
               name="role"
-              value={editedUser.role || 'student'}
+              value={editedUser.role || "student"}
               onChange={handleChange}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.role ? 'border-red-500' : 'border-gray-300'
+                errors.role ? "border-red-500" : "border-gray-300"
               }`}
-            >              <option value="student">Student</option>
+            >
+              {" "}
+              <option value="student">Student</option>
               <option value="college">College</option>
               <option value="hr">HR</option>
               <option value="admin">Admin</option>
@@ -128,54 +128,25 @@ const EditUser = ({ user, onClose, onSave }) => {
               <p className="mt-1 text-xs text-red-500">{errors.role}</p>
             )}
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
+              isAdmin
             </label>
             <select
-              name="status"
-              value={editedUser.status || 'active'}
-              onChange={handleChange}
+              name="isAdmin"
+              value={editedUser.isAdmin ? "true" : "false"}
+              onChange={(e) =>
+                setEditedUser((prev) => ({
+                  ...prev,
+                  isAdmin: e.target.value === "true",
+                }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="suspended">Suspended</option>
+              <option value="false">No</option>
+              <option value="true">Yes</option>
             </select>
           </div>
-
-          {editedUser.role === 'student' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                College
-              </label>
-              <input
-                type="text"
-                name="college"
-                value={editedUser.college || ''}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter college name"
-              />
-            </div>
-          )}
-
-          {editedUser.role === 'hr' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company
-              </label>
-              <input
-                type="text"
-                name="company"
-                value={editedUser.company || ''}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter company name"
-              />
-            </div>
-          )}
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button

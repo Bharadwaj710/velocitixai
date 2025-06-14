@@ -8,7 +8,7 @@ const CollegeSchema = new Schema({
     ref: 'user',
     required: true
   },
-
+  
   slug: {
     type: String,
     required: true,
@@ -38,7 +38,8 @@ const CollegeSchema = new Schema({
     phone: String,
     website: String
   },
-}, { timestamps: true });
+
+});
 
 
 const CollegeModel = mongoose.model("colleges", CollegeSchema);
