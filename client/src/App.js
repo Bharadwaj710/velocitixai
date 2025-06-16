@@ -64,13 +64,13 @@ const AppContent = () => {
 
           {/* HR routes */}
           <Route
-            path="/hr/*"
+            path="/hr-dashboard"
             element={
               <ProtectedRoute requireHR={true}>
                 <HRDashboard />
               </ProtectedRoute>
             }
-          />
+          /> 
 
           {/* College routes */}
           <Route

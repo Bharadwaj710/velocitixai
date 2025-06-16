@@ -134,10 +134,12 @@ const CollegeDashboard = () => {
     <div className="min-h-screen bg-white">
       {/* Navbar */}
       <header className="bg-white shadow-sm border-b">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-blue-700">velocitiXai</h1>
-            <span className="ml-3 font-bold text-sm text-gray-600 capitalize">{slug} College Dashboard</span>
+        <div className="flex items-center justify-between px-6 py-4 relative">
+          <div className="absolute left-6 flex items-center">
+            <h1 className="text-2xl font-bold text-purple-700">velocitiXai</h1>
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <span className="font-extrabold text-lg text-gray-900 capitalize tracking-wide">{slug} College Dashboard</span>
           </div>
           <div className="flex items-center space-x-4">
             <button
