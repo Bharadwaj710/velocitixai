@@ -103,6 +103,12 @@ const handleNavigation = (path) => {
                 >
                   Login
                 </button>
+                <button
+                  onClick={() => handleNavigation('/login')}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-200"
+                >
+                  Sign Up 
+                </button>
               </div>
             </div>
 

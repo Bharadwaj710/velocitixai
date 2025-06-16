@@ -2,52 +2,76 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, GraduationCap, Briefcase, TrendingUp, UserPlus, 
-  Search, CheckCircle, Calendar, Book
+  Building
 } from 'lucide-react';
 import UserList from './UserList';
 import StudentList from './StudentList';
 import Colleges from './Colleges';
 import HRList from './HRList';
+import ProfileSettings from './ProfileSettings';
 import AdminHeader from '../../components/AdminDashboard/AdminHeader';
 import AdminSidebar from '../../components/AdminDashboard/AdminSidebar';
-
+import { fetchOverviewStats } from '../../services/api';
+import RecentActivityPage from './RecentActivityPage';
+import CourseManager from './CourseManager';
+import HiredStudents from './HiredStudents';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState('');
-  const [selectedCollege, setSelectedCollege] = useState('');
+  const [dashboardStats, setDashboardStats] = useState({
+    totalUsers: 0,
+    activeStudents: 0,
+    partnerColleges: 0,
+    activeHRs: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
 
-  // Reset selectedRole when changing tabs
-
-  const dashboardStats = {
-    totalUsers: 8,
-    students: 4,
-    colleges: 1,
-    hrs: 2,
-    pendingApprovals: 3,
-    collegesOnboarded: 156,
-    placementRate: 87.5
-  };
+  useEffect(() => {
+    const handleNavigate = () => setActiveTab('recent-activity');
+    window.addEventListener('navigateToRecentActivity', handleNavigate);
+    return () => window.removeEventListener('navigateToRecentActivity', handleNavigate);
+  }, []);
+  useEffect(() => {
+    const listener = () => setActiveTab('settings');
+    window.addEventListener('navigateToSettings', listener);
+    return () => window.removeEventListener('navigateToSettings', listener);
+  }, []);
+  useEffect(() => {
+    const handleNavigate = () => setActiveTab('overview');
+    window.addEventListener('navigateToOverview', handleNavigate);
+    return () => window.removeEventListener('navigateToOverview', handleNavigate);
+  }, []);
 
   const notifications = [
-    { id: 1, message: 'New college registration request' },
-    { id: 2, message: 'New HR approval pending' },
-    { id: 3, message: 'System update available' }
+    { id: 1, message: "New college registration request" },
+    { id: 2, message: "New HR approval pending" },
+    { id: 3, message: "System update available" },
   ];
 
-  const user = {
-    name: 'Admin User',
-    email: 'admin@velocitix.ai',
-    role: 'admin'
-  };
+  useEffect(() => {
+    setStatsLoading(true);
+    fetchOverviewStats()
+      .then(res => {
+        setDashboardStats({
+          totalUsers: res.data.totalUsers,
+          activeStudents: res.data.activeStudents,
+          partnerColleges: res.data.partnerColleges,
+          activeHRs: res.data.activeHRs,
+        });
+        setStatsError(null);
+      })
+      .catch((err) => {
+        setStatsError('Failed to load stats');
+        console.error('Failed to fetch overview stats:', err);
+      })
+      .finally(() => setStatsLoading(false));
+  }, []);
 
   const handleCardClick = (filterType) => {
     setActiveTab('users');
@@ -59,6 +83,7 @@ const Dashboard = () => {
     };
     setSelectedRole(filterStates[filterType]);
   };
+
   const StatCard = ({ title, value, icon: Icon, change, color = 'blue', onClick }) => (
     <div 
       className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border hover:shadow-md cursor-pointer transition-all duration-200 transform hover:-translate-y-1 select-none"
@@ -120,18 +145,14 @@ const Dashboard = () => {
       </button>
     );
   };
-  return (    <div className="min-h-screen bg-gray-50">
-      <AdminHeader 
-        notifications={notifications} 
-        user={user} 
-        sidebarOpen={sidebarOpen} 
-        setSidebarOpen={setSidebarOpen}
-      />
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <AdminHeader notifications={notifications} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* Fixed sidebar for desktop, sliding for mobile */}
         <div className="md:relative md:block">
-          <AdminSidebar 
-            activeTab={activeTab} 
+          <AdminSidebar
+            activeTab={activeTab}
             setActiveTab={(tab) => {
               setActiveTab(tab);
               setSidebarOpen(false);
@@ -143,160 +164,57 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Main content - automatically adjusts for sidebar */}
-        <main className={`flex-1 overflow-y-auto transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'md:pl-64' : ''} w-full
-          p-4 md:p-6 pb-16`}>
-          {activeTab === 'overview' && (
+        <main className={`flex-1 overflow-y-auto transition-all duration-300 ease-in-out ${sidebarOpen ? "md:pl-64" : ""} w-full p-4 md:p-6 pb-16`}>
+          {activeTab === "overview" && (
             <div className="space-y-4 md:space-y-6">
-              {/* Stat Cards */}              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                <StatCard 
-                  title="Total Users" 
-                  value={dashboardStats.totalUsers.toLocaleString()} 
-                  icon={Users} 
-                  change={12.5} 
-                  color="blue" 
-                  onClick={() => handleCardClick('total')}
-                />
-                <StatCard 
-                  title="Active Students" 
-                  value={dashboardStats.students.toLocaleString()} 
-                  icon={GraduationCap} 
-                  change={8.3} 
-                  color="green" 
-                  onClick={() => setActiveTab('students')}
-                />
-                <StatCard 
-                  title="Partner Colleges" 
-                  value={dashboardStats.colleges} 
-                  icon={GraduationCap} 
-                  change={15.2} 
-                  color="purple" 
-                  onClick={() => setActiveTab('colleges')}
-                />
-                <StatCard 
-                  title="Active HRs" 
-                  value={dashboardStats.hrs} 
-                  icon={Briefcase} 
-                  change={22.1} 
-                  color="orange" 
-                  onClick={() => setActiveTab('hrs')}
-                />
-              </div>
+              {statsError && <div className="text-red-500 text-sm">{statsError}</div>}
+              {statsLoading ? (
+                <div className="text-center py-8">Loading stats...</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                    <StatCard title="Total Users" value={dashboardStats.totalUsers ?? 0} icon={Users} change={12.5} color="blue" onClick={() => handleCardClick('total')} />
+                    <StatCard title="Active Students" value={dashboardStats.activeStudents ?? 0} icon={GraduationCap} change={8.3} color="green" onClick={() => setActiveTab('students')} />
+                    <StatCard title="Partner Colleges" value={dashboardStats.partnerColleges ?? 0} icon={GraduationCap} change={15.2} color="purple" onClick={() => setActiveTab('colleges')} />
+                    <StatCard title="Active HRs" value={dashboardStats.activeHRs ?? 0} icon={Briefcase} change={22.1} color="orange" onClick={() => setActiveTab('hrs')} />
+                  </div>
 
-              {/* Quick Actions */}              <div className="bg-white p-4 sm:p-6 rounded-xl border">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  <QuickAction
-                    icon={Users}
-                    title="View User Details"
-                    description="Manage user accounts"
-                    onClick={() => {
-                      setActiveTab('users');
-                      setSelectedRole('all');
-                    }}
-                    color="green"
-                  />
-                  <QuickAction
-                    icon={UserPlus}
-                    title="Student Details"
-                    description="Course and college info"
-                    onClick={() => setActiveTab('students')}
-                    color="blue"
-                  />
-                  <QuickAction
-                    icon={CheckCircle}
-                    title="Pending Approvals"
-                    description={`${dashboardStats.pendingApprovals} waiting`}
-                    onClick={() => setActiveTab('approvals')}
-                    color="yellow"
-                  />
-                </div>
-              </div>
-
-              {/* Recent Activity */}              <div className="bg-white p-4 sm:p-6 rounded-xl border">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Recent Activity</h3>
-                <div className="space-y-2 sm:space-y-3">
-                  {notifications.map((notification, index) => (
-                    <div key={notification.id} className="flex items-center p-2 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 sm:mr-3 flex-shrink-0"></div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-gray-900 break-words">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{index + 1} hour{index !== 0 ? 's' : ''} ago</p>
-                      </div>
+                  <div className="bg-white p-6 rounded-xl border">
+                    <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <QuickAction icon={Users} title="View User Details" description="Manage user accounts" onClick={() => { setActiveTab("users"); setSelectedRole("all"); }} color="green" />
+                      <QuickAction icon={UserPlus} title="Student Details" description="Course and college info" onClick={() => setActiveTab("students")} color="blue" />
+                      <QuickAction icon={Building} title="Course Content" description="Manage courses and content" onClick={() => setActiveTab("courses")} color="purple" />
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {(activeTab === 'users' || activeTab === 'search-users') && (
-            <UserList
-              setShowUserModal={setShowUserModal} 
-              setSelectedUser={setSelectedUser} 
-              showUserModal={showUserModal} 
-              selectedUser={selectedUser}
-              selectedRole={selectedRole}
-            />
-          )}
-
-          {activeTab === 'students' && (
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6 mb-6">
-                <h2 className="text-lg sm:text-xl font-semibold">Student Details</h2>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:flex-none">
-                    <Search className="h-4 w-4 sm:h-5 sm:w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search students..."
-                      className="w-full sm:w-auto pl-9 sm:pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
                   </div>
-                  <div className="flex gap-3 sm:gap-4">
-                    <select 
-                      value={selectedCourse}
-                      onChange={(e) => setSelectedCourse(e.target.value)}
-                      className="flex-1 sm:flex-none text-sm border border-gray-300 rounded-lg px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    >
-                      <option value="">All Courses</option>
-                      <option value="Computer Science">Computer Science</option>
-                      <option value="Information Technology">Information Technology</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Electrical">Electrical</option>
-                      <option value="Mechanical">Mechanical</option>
-                    </select>
-                    <select 
-                      value={selectedCollege}
-                      onChange={(e) => setSelectedCollege(e.target.value)}
-                      className="flex-1 sm:flex-none text-sm border border-gray-300 rounded-lg px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    >
-                      <option value="">All Colleges</option>
-                      {dashboardStats.colleges > 0 && Array.from({ length: Math.min(5, dashboardStats.colleges) }).map((_, idx) => (
-                        <option key={idx} value={`College ${idx + 1}`}>College {idx + 1}</option>
+
+                  <div className="bg-white p-6 rounded-xl border">
+                    <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+                    <div className="space-y-3">
+                      {notifications.map((notification, index) => (
+                        <div key={notification.id} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <div>
+                            <p className="text-sm text-gray-900">{notification.message}</p>
+                            <p className="text-xs text-gray-500">{index + 1} hour{index !== 0 ? "s" : ""} ago</p>
+                          </div>
+                        </div>
                       ))}
-                    </select>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <StudentList 
-                students={students}
-                loading={loading}
-                setSelectedUser={setSelectedUser}
-                setShowUserModal={setShowUserModal}
-              />
+                </>
+              )}
             </div>
           )}
-          {activeTab === 'colleges' && (
-            <Colleges />
-          )}
-          {activeTab === 'hrs' && (
-  <HRList />
-)}
 
+          {activeTab === "users" && <UserList setShowUserModal={setShowUserModal} setSelectedUser={setSelectedUser} showUserModal={showUserModal} selectedUser={selectedUser} selectedRole={selectedRole} />}
+          {activeTab === "students" && <StudentList />}
+          {activeTab === "colleges" && <Colleges />}
+          {activeTab === "hrs" && <HRList />}
+          {activeTab === "settings" && <ProfileSettings />}
+          {activeTab === "recent-activity" && <RecentActivityPage />}
+          {activeTab === "courses" && <CourseManager />}
+          {activeTab === "hired" && <HiredStudents />}
         </main>
       </div>
     </div>

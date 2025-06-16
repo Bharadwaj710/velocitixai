@@ -1,3 +1,4 @@
+// ✅ Updated Login.jsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
@@ -9,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
-  const { login } = useAuth(); // ✅ Using AuthContext
+  const { login } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,8 +37,15 @@ const Login = () => {
 
       const { user, token } = result;
 
-      // ✅ Store token and call login from context
+      // ✅ Save user data properly
       localStorage.setItem('token', token);
+      localStorage.setItem('admin', JSON.stringify({
+        name: user.name,
+        email: user.email,
+        id: user._id,
+        imageUrl: user.imageUrl || ''
+      }));
+
       login(user);
       handleSuccess('Login successful!');
     } catch (err) {
@@ -59,6 +67,12 @@ const Login = () => {
 
       if (success) {
         localStorage.setItem('token', jwtToken);
+        localStorage.setItem('admin', JSON.stringify({
+          name: user.name,
+          email: user.email,
+          id: user._id,
+          imageUrl: user.imageUrl || ''
+        }));
         login(user);
         handleSuccess('Google login successful!');
       } else {
@@ -117,7 +131,6 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Google Login */}
         <div className="flex justify-center mt-4">
           <GoogleLogin
             onSuccess={handleGoogleLogin}

@@ -15,25 +15,8 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center">
-              <span className="text-2xl font-bold text-blue-600">Velocitix AI</span>
+              <span className="text-2xl font-bold text-black-600">Velocitix AI</span>
             </Link>
-          </div>
-
-          <div className="hidden md:block">
-            <div className="ml-4 flex items-center md:ml-6 space-x-3">
-              <Link 
-                to="/login" 
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
-              >
-                Login
-              </Link>
-              <Link 
-                to="/register" 
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
-              >
-                Sign Up
-              </Link>
-            </div>
           </div>
 
           <div className="md:hidden">
