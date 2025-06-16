@@ -108,7 +108,6 @@ const AdminHeader = ({ notifications = [], sidebarOpen, setSidebarOpen }) => {
               </div>
             )}
           </div>
-
           {/* Profile Menu */}
           <div ref={profileRef} className="relative">
             <button

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { fetchCourses, createCourse, deleteCourse } from '../../services/api';
-
+import { fetchCourses, createCourse, deleteCourse, updateCourse } from '../../services/api';
+import CourseEditModal from './CourseEditModal';
 const CourseManager = () => {
   const [courses, setCourses] = useState([]);
+  const [editCourse, setEditCourse] = useState(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -72,14 +73,13 @@ const CourseManager = () => {
     setForm({ ...form, modules: updatedModules });
   };
 
- const handleDelete = async (id) => {
-  const confirm = window.confirm("Are you sure you want to delete this course?");
-  if (!confirm) return;
+  const handleDelete = async (id) => {
+    const confirm = window.confirm("Are you sure you want to delete this course?");
+    if (!confirm) return;
 
-  await deleteCourse(id);
-  loadCourses();
-};
-
+    await deleteCourse(id);
+    loadCourses();
+  };
 
   return (
     <div className="p-6 bg-white rounded-xl shadow">
@@ -137,7 +137,10 @@ const CourseManager = () => {
                 <p className="text-sm text-gray-600">{c.description}</p>
                 <p className="text-xs text-gray-500">Duration: {c.durationWeeks} weeks</p>
               </div>
-              <button onClick={() => handleDelete(c._id)} className="text-red-600 font-semibold">Delete</button>
+              <div className="space-x-4">
+                <button onClick={() => handleDelete(c._id)} className="text-red-600 font-semibold">Delete</button>
+                <button onClick={() => setEditCourse(c)} className="text-blue-600 font-semibold">Edit</button>
+              </div>
             </div>
             <div className="mt-2">
               <h4 className="font-semibold">Modules:</h4>
@@ -159,6 +162,18 @@ const CourseManager = () => {
           </li>
         ))}
       </ul>
+
+      {editCourse && (
+        <CourseEditModal
+          course={editCourse}
+          onClose={() => setEditCourse(null)}
+          onSave={async (updatedData) => {
+            await updateCourse(editCourse._id, updatedData);
+            loadCourses();
+            setEditCourse(null);
+          }}
+        />
+      )}
     </div>
   );
 };
