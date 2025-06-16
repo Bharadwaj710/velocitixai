@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   ArrowRight,
   ClipboardList,
@@ -7,13 +7,53 @@ import {
   FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Dashboard = () => {
   const user = JSON.parse(localStorage.getItem("student")) || {};
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Check for incomplete student details after login
+    const checkStudentDetails = async () => {
+      try {
+        const userObj = JSON.parse(localStorage.getItem("user"));
+        if (!userObj?.id && !userObj?._id) return;
+        const res = await axios.get(
+          `/api/students/details/${userObj.id || userObj._id}`
+        );
+        const details = res.data || {};
+        // Only check if details exist
+        if (Object.keys(details).length > 0) {
+          // Required fields
+          const requiredFields = ["enrollmentNumber", "course"];
+          const isIncomplete = requiredFields.some((field) => !details[field]);
+          if (isIncomplete) {
+            setTimeout(() => {
+              toast.warn("Please complete your profile details", {
+                autoClose: 4000,
+              });
+            }, 2000);
+          }
+        } else {
+          setTimeout(() => {
+            toast.warn("Please complete your profile details", {
+              autoClose: 4000,
+            });
+          }, 2000);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+    checkStudentDetails();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer position="top-right" autoClose={3000} />
       <main className="pt-24 pb-12 px-4 sm:px-8 max-w-6xl mx-auto">
         {/* Hero Section */}
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto mb-12">

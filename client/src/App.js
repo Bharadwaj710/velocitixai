@@ -23,6 +23,7 @@ import Assessments from "./pages/student/Assessments";
 import Practice from "./pages/student/Practice";
 import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
+import StudentDetails from "./pages/student/StudentDetails";
 
 const AppContent = () => {
   const location = useLocation();
@@ -96,6 +97,7 @@ const AppContent = () => {
                     path="profilesettings"
                     element={<StudentProfileSettings />}
                   />
+                  <Route path="details" element={<StudentDetails />} />
                   <Route path="*" element={<StudentDashboard />} />
                 </Routes>
               </ProtectedRoute>

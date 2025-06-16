@@ -29,6 +29,11 @@ const StudentNavbar = () => {
     window.location.href = "/login";
   };
 
+  const handleStudentDetails = () => {
+    setShowProfileMenu(false);
+    navigate("/student/details");
+  };
+
   const navLinks = [
     { name: "Dashboard", path: "/student/dashboard" },
     { name: "Assessments", path: "/student/assessments" },
@@ -120,6 +125,12 @@ const StudentNavbar = () => {
                   Profile
                 </button>
                 <button
+                  onClick={handleStudentDetails}
+                  className="flex items-center w-full px-3 sm:px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200"
+                >
+                  Student Details
+                </button>
+                <button
                   onClick={handleLogout}
                   className="flex items-center w-full px-3 sm:px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors duration-200 border-t"
                 >
@@ -161,6 +172,12 @@ const StudentNavbar = () => {
               className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200"
             >
               Profile
+            </button>
+            <button
+              onClick={handleStudentDetails}
+              className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-200"
+            >
+              Student Details
             </button>
             <button
               onClick={handleLogout}
