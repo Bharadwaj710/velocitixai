@@ -39,3 +39,13 @@ exports.deleteCourse = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+// Update course
+exports.updateCourse = async (req, res) => {
+  try {
+    const updated = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.status(200).json(updated);
+  } catch (err) {
+    res.status(500).json({ message: 'Update failed' });
+  }
+};
+
