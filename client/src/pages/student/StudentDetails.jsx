@@ -3,7 +3,13 @@ import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const courseOptions = ["B.Tech", "BBA", "BCA", "MBA", "MCA", "B.Sc", "M.Tech"];
+const courseOptions = [
+  "Intro to Python",
+  "Web Dev Basics",
+  "AI Fundamentals",
+  "Data Science 101",
+  "Cloud Computing",
+];
 const domainOptions = [
   "Technology and Innovation",
   "Healthcare and Wellness",
@@ -94,7 +100,11 @@ const StudentDetails = () => {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
   }
 
   return (

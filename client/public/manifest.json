@@ -1,0 +1,9 @@
+{
+  "name": "VelotexAI App",
+  "short_name": "VelotexAI",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "description": "VelotexAI Student Portal",
+  "icons": []
+}
