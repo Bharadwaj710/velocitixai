@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import { UploadCloud } from "lucide-react";
 
 const questions = [
@@ -42,23 +43,68 @@ const questions = [
 const Assessments = () => {
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user")) || {};
+  const userId = user.id || user._id;
 
-  const handleChange = (index, val) => {
-    setAnswers({ ...answers, [index]: val });
+  // Store answers by question.id
+  const handleChange = (id, val) => {
+    setAnswers((prev) => ({ ...prev, [id]: val }));
+    console.debug(`[Assessment] handleChange: id=${id}, val=`, val);
   };
 
-  const handleFileChange = (index, file) => {
-    setAnswers({ ...answers, [index]: file });
+  const handleFileChange = (id, file) => {
+    setAnswers((prev) => ({ ...prev, [id]: file }));
+    console.debug(`[Assessment] handleFileChange: id=${id}, file=`, file);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    // Submit logic goes here
-    setTimeout(() => {
-      alert("Assessment submitted!");
+    try {
+      // Debug: log all answers before submission
+      console.debug("[Assessment] Submitting assessment");
+      console.debug("[Assessment] userId:", userId);
+      for (let i = 1; i <= 5; i++) {
+        console.debug(`[Assessment] Question ${i} value:`, answers[i]);
+      }
+      const formData = new FormData();
+      formData.append("userId", userId);
+      formData.append("question1", answers[1] || "");
+      formData.append("question2", answers[2] || "");
+      if (answers[3]) formData.append("question3Video", answers[3]);
+      formData.append("question4", answers[4] || "");
+      if (answers[5]) formData.append("question5Audio", answers[5]);
+      // Debug: log FormData keys
+      for (let pair of formData.entries()) {
+        console.debug(`[Assessment] FormData: ${pair[0]} =`, pair[1]);
+      }
+      const response = await axios.post(
+        "http://localhost:8080/api/assessment/submit",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      console.debug("[Assessment] Server response:", response.data);
+      if (
+        response.data &&
+        response.data.message === "Assessment submitted successfully"
+      ) {
+        alert("Assessment submitted successfully!");
+      } else {
+        alert("Submission failed. Please try again.");
+        console.error("[Assessment] Unexpected server response:", response.data);
+      }
+    } catch (err) {
+      alert("Submission failed. Please try again.");
+      if (err.response) {
+        console.error("[Assessment] Server error:", err.response.data);
+      } else {
+        console.error("[Assessment] Error:", err);
+      }
+    } finally {
       setSubmitting(false);
-    }, 1000);
+    }
   };
 
   const completedCount = Object.keys(answers).length;
@@ -82,13 +128,13 @@ const Assessments = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-10">
-          {questions.map((q, index) => (
+          {questions.map((q) => (
             <div
-              key={index}
+              key={q.id}
               className="bg-gray-50 border p-6 rounded-xl shadow-sm"
             >
               <label className="block text-lg font-semibold text-gray-800 mb-3">
-                {index + 1}. {q.label}
+                {q.id}. {q.label}
               </label>
 
               {q.type === "radio" && (
@@ -97,10 +143,10 @@ const Assessments = () => {
                     <label key={opt} className="flex items-center space-x-3">
                       <input
                         type="radio"
-                        name={`radio-${index}`}
+                        name={`radio-${q.id}`}
                         value={opt}
-                        checked={answers[index] === opt}
-                        onChange={() => handleChange(index, opt)}
+                        checked={answers[q.id] === opt}
+                        onChange={() => handleChange(q.id, opt)}
                         className="form-radio text-blue-600"
                       />
                       <span className="text-gray-700">{opt}</span>
@@ -113,8 +159,8 @@ const Assessments = () => {
                 <textarea
                   rows={4}
                   maxLength={q.maxWords * 6}
-                  value={answers[index] || ""}
-                  onChange={(e) => handleChange(index, e.target.value)}
+                  value={answers[q.id] || ""}
+                  onChange={(e) => handleChange(q.id, e.target.value)}
                   placeholder={`Max ${q.maxWords} words`}
                   className="w-full border border-gray-300 rounded-lg p-3 mt-1 shadow-sm focus:ring-2 focus:ring-blue-500"
                 />
@@ -129,7 +175,7 @@ const Assessments = () => {
                   <input
                     type="file"
                     accept={q.type === "video" ? "video/*" : "audio/*"}
-                    onChange={(e) => handleFileChange(index, e.target.files[0])}
+                    onChange={(e) => handleFileChange(q.id, e.target.files[0])}
                     className="border rounded p-2 bg-white file:bg-blue-600 file:text-white file:rounded file:px-4 file:py-2 cursor-pointer"
                   />
                 </label>

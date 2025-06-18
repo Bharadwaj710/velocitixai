@@ -19,6 +19,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/college", collegeRoutes);
+app.use("/api/assessment", require("./routes/assessment"));
+app.use("/uploads", express.static("uploads"));
 
 const { getOverviewStats } = require("./controller/userController");
 app.get("/api/stats/overview", getOverviewStats);
