@@ -22,12 +22,15 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/college", collegeRoutes);
+app.use("/api/assessment", require("./routes/assessment"));
+app.use("/uploads", express.static("uploads"));
 
 const { getOverviewStats } = require("./controller/userController");
 app.get("/api/stats/overview", getOverviewStats);
 
 app.use(bodyParser.json());
 app.use("/auth", AuthRouter);
+app.use("/api/career-assessment", require("./routes/careerAssessment"));
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
