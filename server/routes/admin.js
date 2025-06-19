@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getRecentNotifications, getAllNotifications, markAsRead,getAllUsers, getAllStudents, getAllColleges, getAllHRs, getStudentFilters, getHRFilters, getAdminProfile,updateAdminProfile, deleteAdminProfile, getHiredStudents} = require('../controller/adminController');
+const { getRecentNotifications, getAllNotifications, markAsRead,getAllUsers, getAllStudents, clearAllNotifications,getAllColleges, getAllHRs, getStudentFilters, getHRFilters, getAdminProfile,updateAdminProfile, deleteAdminProfile, getHiredStudents} = require('../controller/adminController');
 const auth = require('../middleware/auth');
 const multer = require('../middleware/multerConfig');
 
@@ -13,6 +13,8 @@ router.get('/hrs/filters', getHRFilters);
 router.get('/notifications/recent', getRecentNotifications);
 router.get('/notifications/all', getAllNotifications);
 router.put('/notifications/:id/read', markAsRead);
+router.delete('/notifications/clear', auth, clearAllNotifications);
+
 router.get('/hired-students',getHiredStudents);
 // ✅ Profile Settings Routes
 router.get('/profile',auth, getAdminProfile);

@@ -1,4 +1,3 @@
-// ✅ Updated ProfileSettings.jsx with password change + account deletion
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
@@ -8,7 +7,10 @@ const ProfileSettings = () => {
   const [profile, setProfile] = useState({});
   const [imagePreview, setImagePreview] = useState(null);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
-  const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' });
+  const [passwords, setPasswords] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -18,8 +20,12 @@ const ProfileSettings = () => {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         });
+
         setProfile(res.data);
-        setImagePreview(res.data.imageUrl || null);
+        // ✅ Cloudinary URL is public and stored directly
+        if (res.data.imageUrl) {
+          setImagePreview(res.data.imageUrl);
+        }
       } catch (err) {
         toast.error('Failed to load profile');
       }
@@ -29,7 +35,9 @@ const ProfileSettings = () => {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    setImagePreview(URL.createObjectURL(file));
+    if (!file) return;
+
+    setImagePreview(URL.createObjectURL(file)); // for preview
     setProfile({ ...profile, newImage: file });
   };
 
@@ -40,7 +48,11 @@ const ProfileSettings = () => {
       formData.append('email', profile.email);
       formData.append('phone', profile.phone || '');
       formData.append('bio', profile.bio || '');
-      if (profile.newImage) formData.append('image', profile.newImage);
+
+      if (profile.newImage) {
+        formData.append('image', profile.newImage);
+      }
+
       if (showPasswordFields) {
         if (passwords.newPassword !== passwords.confirmPassword) {
           toast.error('Passwords do not match');
@@ -49,19 +61,33 @@ const ProfileSettings = () => {
         formData.append('password', passwords.newPassword);
       }
 
-      const res = await axios.put('http://localhost:8080/admin/profile', formData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'multipart/form-data'
+      const res = await axios.put(
+        'http://localhost:8080/admin/profile',
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'multipart/form-data'
+          }
         }
-      });
+      );
 
       toast.success('Profile updated!');
-      localStorage.setItem('admin', JSON.stringify({
-        id: res.data._id,
-        name: res.data.name,
-        email: res.data.email
-      }));
+
+      // ✅ Update localStorage (Cloudinary URL)
+      localStorage.setItem(
+        'admin',
+        JSON.stringify({
+          id: res.data._id,
+          name: res.data.name,
+          email: res.data.email,
+          imageUrl: res.data.imageUrl || null
+        })
+      );
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (err) {
       console.error(err);
       toast.error('Failed to update profile');
@@ -69,7 +95,13 @@ const ProfileSettings = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm('Are you sure you want to delete your account? This action is irreversible.')) return;
+    if (
+      !window.confirm(
+        'Are you sure you want to delete your account? This action is irreversible.'
+      )
+    )
+      return;
+
     try {
       await axios.delete('http://localhost:8080/admin/profile', {
         headers: {
@@ -99,10 +131,25 @@ const ProfileSettings = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        <input type="text" value={profile.name || ''} onChange={e => setProfile({ ...profile, name: e.target.value })} placeholder="Full Name" className="p-2 border rounded" />
-        <input type="email" value={profile.email || ''} onChange={e => setProfile({ ...profile, email: e.target.value })} placeholder="Email" className="p-2 border rounded" />
+        <input
+          type="text"
+          value={profile.name || ''}
+          onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+          placeholder="Full Name"
+          className="p-2 border rounded"
+        />
+        <input
+          type="email"
+          value={profile.email || ''}
+          onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+          placeholder="Email"
+          className="p-2 border rounded"
+        />
 
-        <button className="text-blue-600 underline text-sm w-fit" onClick={() => setShowPasswordFields(!showPasswordFields)}>
+        <button
+          className="text-blue-600 underline text-sm w-fit"
+          onClick={() => setShowPasswordFields(!showPasswordFields)}
+        >
           {showPasswordFields ? 'Cancel Password Change' : 'Change Password'}
         </button>
 
@@ -113,21 +160,31 @@ const ProfileSettings = () => {
               placeholder="New Password"
               className="p-2 border rounded"
               value={passwords.newPassword}
-              onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+              onChange={(e) =>
+                setPasswords({ ...passwords, newPassword: e.target.value })
+              }
             />
             <input
               type="password"
               placeholder="Confirm Password"
               className="p-2 border rounded"
               value={passwords.confirmPassword}
-              onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+              onChange={(e) =>
+                setPasswords({
+                  ...passwords,
+                  confirmPassword: e.target.value
+                })
+              }
             />
           </div>
         )}
       </div>
 
       <div className="flex items-center justify-between mt-6">
-        <button onClick={handleSave} className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">
+        <button
+          onClick={handleSave}
+          className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+        >
           Save Changes
         </button>
         <button
