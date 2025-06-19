@@ -16,7 +16,7 @@ const Student = () => {
         const studentRes = await fetchStudents();
         setStudents(studentRes.data);
 
-        const filterRes = await axios.get('admin/students/filters');
+        const filterRes = await axios.get('/admin/students/filters');
         setFilters(filterRes.data);
       } catch (err) {
         console.error('Error loading data:', err);
@@ -28,7 +28,7 @@ const Student = () => {
   const filtered = students.filter(std =>
     (std.name?.toLowerCase().includes(filter.toLowerCase()) ||
       std.college?.toLowerCase().includes(filter.toLowerCase())) &&
-    (!selectedCourse || std.course === selectedCourse) &&
+    (!selectedCourse || std.courseId?.toString() === selectedCourse) &&
     (!selectedCollege || std.college === selectedCollege)
   );
 
@@ -46,7 +46,9 @@ const Student = () => {
         />
         <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} className="border p-2 rounded">
           <option value="">All Courses</option>
-          {filters.courses.map((c, i) => <option key={i} value={c}>{c}</option>)}
+          {filters.courses.map((c) => (
+            <option key={c._id} value={c._id}>{c.title}</option>
+          ))}
         </select>
         <select value={selectedCollege} onChange={(e) => setSelectedCollege(e.target.value)} className="border p-2 rounded">
           <option value="">All Colleges</option>
