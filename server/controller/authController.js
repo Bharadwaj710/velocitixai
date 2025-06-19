@@ -3,6 +3,7 @@ const UserModel = require("../models/User");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const { OAuth2Client } = require('google-auth-library');
+const HRModel = require("../models/HR");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -51,18 +52,15 @@ const signup = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
     // Debug log
     console.log('Login attempt for:', email);
     const user = await UserModel.findOne({ email });
-
     if (!user) {
       return res.status(401).json({
         message: "Invalid email or password",
         success: false
       });
     }
-
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -70,42 +68,35 @@ const login = async (req, res) => {
         success: false
       });
     }
-
-    console.log('User found:', {
-      id: user._id,
-      name: user.name,
-      isAdmin: user.isAdmin
-    });
-
     // Create token with proper user data
     const token = jwt.sign({
-  userId: user._id,
-  isAdmin: user.isAdmin,
-  role: user.role,
-  collegeSlug: user.collegeSlug || null  // 🔥 include this
-}, process.env.JWT_SECRET, { expiresIn: "24h" });
-
-    // Send response with explicit boolean conversion
-  res.status(200).json({
-  message: "Login successful",
-  success: true,
-  user: {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    isAdmin: Boolean(user.isAdmin),
-    role: user.role,
-    collegeSlug: user.collegeSlug || null   // 🔥 include this
-  },
-  token
-});
-
+      userId: user._id,
+      isAdmin: user.isAdmin,
+      role: user.role,
+      collegeSlug: user.collegeSlug || null
+    }, process.env.JWT_SECRET, { expiresIn: "24h" });
+    // Attach HR info if user is HR
+    let hrInfo = null;
+    if (user.role === 'hr') {
+      hrInfo = await HRModel.findOne({ user: user._id });
+    }
+    res.status(200).json({
+      message: "Login successful",
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isAdmin: Boolean(user.isAdmin),
+        role: user.role,
+        collegeSlug: user.collegeSlug || null
+      },
+      token,
+      hrInfo
+    });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
-      message: "Internal server error",
-      success: false
-    });
+    res.status(500).json({ message: "Internal server error", success: false });
   }
 };
 

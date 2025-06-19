@@ -13,7 +13,12 @@ const StudentSchema = new Schema({
   address: String,
   skills: [String],
   scorecard: Number, // Array of scores for each module, , // Overall score
-  
-}); 
+  hired: {
+    isHired: { type: Boolean, default: false },
+  companyName: String,
+  hiredDate: Date,
+  },
+
+});
 
 module.exports = mongoose.model("students", StudentSchema);

@@ -35,18 +35,17 @@ const Login = () => {
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || 'Login failed');
 
-      const { user, token } = result;
+      const { user, token, hrInfo } = result;
 
-      // ✅ Save user data properly
+      // Save user and hrInfo (if present) in localStorage
+      const userToStore = { ...user };
+      if (hrInfo) {
+        userToStore.hrInfo = hrInfo;
+      }
+      localStorage.setItem('user', JSON.stringify(userToStore));
       localStorage.setItem('token', token);
-      localStorage.setItem('admin', JSON.stringify({
-        name: user.name,
-        email: user.email,
-        id: user._id,
-        imageUrl: user.imageUrl || ''
-      }));
 
-      login(user);
+      login(userToStore);
       handleSuccess('Login successful!');
     } catch (err) {
       handleError(err.message || 'Login failed');

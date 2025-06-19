@@ -38,7 +38,7 @@ const CollegeSchema = new Schema({
     phone: String,
     website: String
   },
-
+ 
 });
 
 

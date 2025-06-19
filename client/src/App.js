@@ -24,6 +24,7 @@ import Practice from "./pages/student/Practice";
 import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
 import StudentDetails from "./pages/student/StudentDetails";
+import HRProfile from "./pages/hr/Profile";
 
 const AppContent = () => {
   const location = useLocation();
@@ -70,7 +71,15 @@ const AppContent = () => {
                 <HRDashboard />
               </ProtectedRoute>
             }
-          /> 
+          />
+          <Route
+            path="/hr/profile"
+            element={
+              <ProtectedRoute requireHR={true}>
+                <HRProfile />
+              </ProtectedRoute>
+            }
+          />
 
           {/* College routes */}
           <Route

@@ -1,11 +1,11 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const AuthRouter = require("./routes/auth");
 const collegeRoutes = require("./routes/college");
-require("dotenv").config();
 require("./config/db");
-
+const hrRoutes = require('./routes/hr');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -31,3 +31,4 @@ app.listen(PORT, () => {
 });
 
 app.use("/college", collegeRoutes);
+app.use('/api/hr', hrRoutes);
