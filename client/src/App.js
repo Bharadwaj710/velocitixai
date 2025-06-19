@@ -19,7 +19,7 @@ import CollegeDashboard from "./pages/college/Dashboard";
 import StudentDashboard from "./pages/student/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import StudentNavbar from "./components/StudentNavbar";
-import Assessments from "./pages/student/Assessments";
+import Assessments from "./pages/student/CareerAssessment";
 import Practice from "./pages/student/Practice";
 import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";

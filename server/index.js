@@ -27,6 +27,7 @@ app.get("/api/stats/overview", getOverviewStats);
 
 app.use(bodyParser.json());
 app.use("/auth", AuthRouter);
+app.use("/api/career-assessment", require("./routes/careerAssessment"));
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

@@ -63,19 +63,31 @@ router.post(
         question3VideoPath,
         question5AudioPath,
       };
-      console.log("[Assessment] Creating CareerAssessment with data:", assessmentData);
+      console.log(
+        "[Assessment] Creating CareerAssessment with data:",
+        assessmentData
+      );
       try {
         const newAssessment = new CareerAssessment(assessmentData);
         const saved = await newAssessment.save();
         console.log("[Assessment] Assessment saved successfully:", saved);
-        return res.status(200).json({ message: "Assessment submitted successfully" });
+        return res
+          .status(200)
+          .json({ message: "Assessment submitted successfully" });
       } catch (saveErr) {
         console.error("[Assessment] Error saving assessment:", saveErr);
-        return res.status(500).json({ error: "Failed to save assessment", details: saveErr.message });
+        return res
+          .status(500)
+          .json({
+            error: "Failed to save assessment",
+            details: saveErr.message,
+          });
       }
     } catch (error) {
       console.error("[Assessment] Unexpected error:", error);
-      return res.status(500).json({ error: "Unexpected server error", details: error.message });
+      return res
+        .status(500)
+        .json({ error: "Unexpected server error", details: error.message });
     }
   }
 );
