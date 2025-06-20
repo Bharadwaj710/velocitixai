@@ -14,6 +14,9 @@ app.use("/api/users", require("./routes/user"));
 app.use("/api/courses", require("./routes/courseRoutes"));
 app.use("/api/students", require("./routes/student"));
 
+const recommendationsRoute = require("./routes/recommendations");
+app.use("/api", recommendationsRoute);
+
 app.get("/", (req, res) => {
   res.send("Velocitix AI Backend is Running");
 });

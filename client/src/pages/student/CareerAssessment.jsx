@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const DOMAIN_OPTIONS = [
   "Technology and Innovation",
@@ -291,6 +292,7 @@ const getInstructions = (question) => {
 const CareerAssessment = () => {
   const user = JSON.parse(localStorage.getItem("user")) || {};
   const userId = user.id || user._id;
+  const navigate = useNavigate();
 
   const [domain, setDomain] = useState("");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -437,6 +439,10 @@ const CareerAssessment = () => {
       setAnswers([]);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      // Redirect to student courses page after successful submit
+      setTimeout(() => {
+        navigate("/student/courses");
+      }, 800);
     } catch (err) {
       setErrorMsg("Failed to submit assessment. Try again.");
       setSubmitting(false);
