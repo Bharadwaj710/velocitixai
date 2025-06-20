@@ -28,8 +28,8 @@ const AdminSidebar = ({
     { key: 'students', label: 'Student Details', Icon: GraduationCap },
     { key: 'colleges', label: 'Partner Colleges', Icon: Building2 },
     { key: 'hrs', label: 'HR Management', Icon: Briefcase },
-    { key: 'courses', label: 'Course Content', Icon: Book }
-    
+    { key: 'courses', label: 'Course Content', Icon: Book },
+    { key: 'hired', label: 'Hired Students', Icon: Briefcase }
   ];
 
   const handleItemClick = (item) => {

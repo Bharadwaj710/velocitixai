@@ -25,6 +25,8 @@ import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
 import StudentDetails from "./pages/student/StudentDetails";
 import StudentCourses from "./pages/student/StudentCourses";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const AppContent = () => {
   const location = useLocation();
@@ -65,13 +67,13 @@ const AppContent = () => {
 
           {/* HR routes */}
           <Route
-            path="/hr/*"
+            path="/hr-dashboard"
             element={
               <ProtectedRoute requireHR={true}>
                 <HRDashboard />
               </ProtectedRoute>
             }
-          />
+          /> 
 
           {/* College routes */}
           <Route
@@ -119,6 +121,7 @@ function App() {
         <AuthProvider>
           <AppContent />
           <Toaster position="top-right" />
+          <ToastContainer position="top-right" autoClose={3000} />
         </AuthProvider>
       </Router>
     </div>

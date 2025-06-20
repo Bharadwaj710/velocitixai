@@ -4,8 +4,8 @@ const Student = require('../models/Student');
 const College = require('../models/College');
 const bcrypt = require('bcrypt');
 const Notification = require('../models/Notification');
-
-
+const mongoose = require('mongoose');
+const Course = require('../models/Course');
 // 1. Get ALL users
 const getAllUsers = async (req, res) => {
   try {
@@ -19,14 +19,13 @@ const getAllUsers = async (req, res) => {
 // 2. Get ONLY Students
 const getAllStudents = async (req, res) => {
   try {
-    // Get users with student role
     const users = await User.find({ role: 'student' }).lean();
     const userIds = users.map(u => u._id);
 
-    // Get matching student info
-    const studentInfo = await Student.find({ user: { $in: userIds } }).lean();
+    const studentInfo = await Student.find({ user: { $in: userIds } })
+      .populate('course', 'title') // title from course collection
+      .lean();
 
-    // Merge user and student info
     const merged = users.map(user => {
       const student = studentInfo.find(std => std.user.toString() === user._id.toString());
 
@@ -35,22 +34,48 @@ const getAllStudents = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        course: student?.course || 'Not updated',
+        course: student?.course?.title || 'Not updated',
+        courseId: student?.course?._id?.toString() || '',
         branch: student?.branch || 'Not updated',
         yearOfStudy: student?.yearOfStudy || 'Not updated',
         college: student?.college || 'Not updated',
         phoneNumber: student?.phoneNumber || 'Not provided',
         skills: student?.skills || [],
-        scorecard: student?.scorecard 
+        scorecard: student?.scorecard
       };
     });
-    
+
     res.status(200).json(merged);
   } catch (err) {
     console.error("Fetch Students Failed:", err);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+const getHiredStudents = async (req, res) => {
+  try {
+    const students = await Student.find({ 'hired.isHired': true })
+      .populate('user', 'name email')
+      .populate('course', 'title')
+      .lean();
+
+    const result = students.map(s => ({
+      id: s._id,
+      name: s.user.name,
+      email: s.user.email,
+      college: s.college,
+      course: s.course?.title || 'Not updated',
+      courseId: s.course?._id?.toString() || '',
+      companyName: s.hired?.companyName || '',
+      hiredDate: s.hired?.hiredDate
+    }));
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Fetch Hired Students Failed:", err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 // 3. Get Colleges
 const getAllPartnerColleges = async (req, res) => {
   try {
@@ -116,18 +141,30 @@ const getAllHRs = async (req, res) => {
 // 4. Get unique filter options for Students
 const getStudentFilters = async (req, res) => {
   try {
-    const courses = await Student.distinct('course', { course: { $ne: null } });
+    const rawCourseIds = await Student.distinct('course');
+
+    // Filter out invalid ObjectIds
+    const validCourseIds = rawCourseIds.filter(id =>
+      mongoose.Types.ObjectId.isValid(id?.toString?.())
+    );
+
+    const courses = await Course.find({ _id: { $in: validCourseIds } })
+      .select('title')
+      .lean();
+
     const colleges = await Student.distinct('college', { college: { $ne: null } });
+    const validColleges = colleges.filter(c => typeof c === 'string' && c.trim() !== '');
 
     res.status(200).json({
-      courses: courses.filter(c => c && c.trim() !== ''),
-      colleges: colleges.filter(c => c && c.trim() !== '')
+      courses: courses.map(c => ({ _id: c._id.toString(), title: c.title })),
+      colleges: validColleges
     });
   } catch (err) {
     console.error("Fetch Student Filters Failed:", err);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
 
 // 5. Get unique filter options for HRs
 const getHRFilters = async (req, res) => {
@@ -164,9 +201,9 @@ const updateAdminProfile = async (req, res) => {
     if (phone) user.phone = phone;
     if (bio) user.bio = bio;
 
-    if (req.file) {
-      user.imageUrl = `/uploads/${req.file.filename}`;
-    }
+   if (req.file) {
+  user.imageUrl = req.file.path; // Cloudinary returns full URL
+}
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -175,6 +212,7 @@ const updateAdminProfile = async (req, res) => {
 
     await user.save();
     const updatedUser = await User.findById(userId).select('-password');
+
     res.status(200).json(updatedUser);
   } catch (err) {
     console.error('Update error:', err);
@@ -219,15 +257,25 @@ const markAsRead = async (req, res) => {
     res.status(500).json({ message: 'Failed to update' });
   }
 };
+const clearAllNotifications = async (req, res) => {
+  try {
+    await Notification.deleteMany({});
+    res.status(200).json({ message: 'All notifications cleared' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to clear notifications' });
+  }
+};
+
 
 module.exports = {
   getAllUsers,
   getAllStudents,
+  getHiredStudents,
   getAllColleges: getAllPartnerColleges,
   getAllHRs,
   getStudentFilters,
   getHRFilters,
   getAdminProfile,
-  updateAdminProfile, deleteAdminProfile,getRecentNotifications,getAllNotifications,markAsRead
+  updateAdminProfile, deleteAdminProfile,getRecentNotifications,getAllNotifications,markAsRead,clearAllNotifications
 };
 

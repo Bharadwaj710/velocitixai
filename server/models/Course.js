@@ -1,25 +1,25 @@
-// models/Course.js
 const mongoose = require("mongoose");
 
+const ResourceSchema = new mongoose.Schema({
+  url: String,
+  name: String,
+}, { _id: false }); // avoid extra _id for subdocs
+
+const ModuleSchema = new mongoose.Schema({
+  title: String,
+  content: String,
+  resources: [ResourceSchema], // ✅ Accepts array of {url, name}
+});
+
 const CourseSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-    unique: true
-  },
+  title: { type: String, required: true, unique: true },
   description: String,
   durationWeeks: Number,
-  modules: [
-    {
-      title: String,
-      content: String,
-      resources: [String] // URLs or file references
-    }
-  ],
+  modules: [ModuleSchema],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'user' // admin
-  }
-}); 
+    ref: 'user',
+  },
+});
 
 module.exports = mongoose.model("course", CourseSchema);

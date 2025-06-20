@@ -14,7 +14,11 @@ const Register = () => {
     role: 'student'
   });
 
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
   const navigate = useNavigate();
+
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&^_-])[A-Za-z\d@$!%*?#&^_-]{4,}$/;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -22,59 +26,71 @@ const Register = () => {
       ...prev,
       [name]: value
     }));
+
+    // Validate password
+    if (name === 'password') {
+      if (!passwordRegex.test(value)) {
+        setPasswordError(
+          'Password must be at least 4 characters and include uppercase, lowercase, number, and special character.'
+        );
+      } else {
+        setPasswordError('');
+      }
+    }
+
+    // Validate confirm password
+    if (name === 'confirmPassword') {
+      if (value !== formData.password) {
+        setConfirmError('Passwords do not match');
+      } else {
+        setConfirmError('');
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const { name, email, password, confirmPassword } = formData;
 
-    if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.confirmPassword.trim()) {
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       handleError('All fields are required');
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      handleError('Passwords do not match!');
+    if (password !== confirmPassword) {
+      setConfirmError('Passwords do not match');
+      return;
+    }
+
+    if (passwordError) {
+      handleError('Fix the password error');
       return;
     }
 
     try {
-      const url = 'http://localhost:8080/auth/signup';
-      const response = await fetch(url, {
+      const res = await fetch('http://localhost:8080/auth/signup', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          role: 'student',
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, role: 'student' }),
       });
 
-      const responseData = await response.json();
-      console.log('Server response:', responseData);
-
-      if (!response.ok) {
-        handleError(responseData.message || 'Registration failed');
+      const result = await res.json();
+      if (!res.ok) {
+        handleError(result.message || 'Registration failed');
         return;
       }
 
-      if (responseData.success) {
-        handleSuccess(responseData.message || 'Registration successful!');
-        setTimeout(() => {
-          navigate('/login');
-        }, 1500);
+      if (result.success) {
+        handleSuccess(result.message || 'Registration successful!');
+        setTimeout(() => navigate('/login'), 1500);
       } else {
-        handleError(responseData.message || 'Registration failed');
+        handleError(result.message || 'Registration failed');
       }
-
-    } catch (error) {
-      handleError(error.message || 'Registration failed');
+    } catch (err) {
+      handleError(err.message || 'Registration failed');
     }
   };
 
-  // ✅ Google Signup handler
   const handleGoogleSignup = async (credentialResponse) => {
     const token = credentialResponse.credential;
 
@@ -86,21 +102,15 @@ const Register = () => {
       });
 
       const data = await res.json();
-      console.log("Google Signup Response:", data);
-
       if (data.success) {
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('token', data.jwtToken);
         handleSuccess(data.message || "Signup successful!");
-
-        setTimeout(() => {
-          navigate("/student-dashboard");
-        }, 1500);
+        setTimeout(() => navigate("/student-dashboard"), 1500);
       } else {
         handleError(data.message || "Signup failed");
       }
     } catch (err) {
-      console.error("Google Signup Error:", err);
       handleError("Something went wrong during Google signup");
     }
   };
@@ -114,7 +124,6 @@ const Register = () => {
           <p className="mt-2 text-center text-sm text-gray-600">Join us today and get started</p>
         </div>
 
-        {/* Manual Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -126,7 +135,7 @@ const Register = () => {
                 name="name"
                 type="text"
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border rounded-md"
                 placeholder="Enter your full name"
                 value={formData.name}
                 onChange={handleChange}
@@ -142,7 +151,7 @@ const Register = () => {
                 name="email"
                 type="email"
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border rounded-md"
                 placeholder="Enter your email"
                 value={formData.email}
                 onChange={handleChange}
@@ -158,11 +167,12 @@ const Register = () => {
                 name="password"
                 type="password"
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border rounded-md"
                 placeholder="Create a password"
                 value={formData.password}
                 onChange={handleChange}
               />
+              {passwordError && <p className="text-xs text-red-500 mt-1">{passwordError}</p>}
             </div>
 
             <div>
@@ -174,32 +184,29 @@ const Register = () => {
                 name="confirmPassword"
                 type="password"
                 required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border rounded-md"
                 placeholder="Confirm your password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
               />
+              {confirmError && <p className="text-xs text-red-500 mt-1">{confirmError}</p>}
             </div>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transform transition hover:-translate-y-0.5"
-            >
-              Create Account
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="w-full py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium rounded-md hover:from-blue-600 hover:to-purple-700"
+          >
+            Create Account
+          </button>
         </form>
 
-        {/* Divider */}
         <div className="flex items-center my-4">
           <hr className="flex-grow border-t border-gray-300" />
           <span className="mx-2 text-sm text-gray-500">OR</span>
           <hr className="flex-grow border-t border-gray-300" />
         </div>
 
-        {/* Google Signup Button */}
         <div className="flex justify-center">
           <GoogleLogin
             onSuccess={handleGoogleSignup}
