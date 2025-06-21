@@ -4,15 +4,13 @@ const multer = require("multer");
 const path = require("path");
 const CareerAssessment = require("../models/CareerAssessment");
 const User = require("../models/User");
+const { videoStorage } = require("../utlis/cloudinary");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
   filename: (req, file, cb) => cb(null, Date.now() + "_" + file.originalname),
 });
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
-});
+const upload = multer({ storage: videoStorage });
 
 router.post("/", upload.single("file"), async (req, res) => {
   try {
@@ -37,9 +35,9 @@ router.post("/", upload.single("file"), async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // If file uploaded, inject file path into Q10
+    // ✅ Cloudinary URL will be in req.file.path
     if (req.file) {
-      const filePath = `/uploads/${req.file.filename}`;
+      const filePath = req.file.path;
       const q10Index = answers.findIndex((a) => a.questionNumber === 10);
       if (q10Index !== -1) {
         answers[q10Index].answer = filePath;
@@ -54,7 +52,6 @@ router.post("/", upload.single("file"), async (req, res) => {
       }
     }
 
-    // Update existing or insert new (upsert)
     const doc = await CareerAssessment.findOneAndUpdate(
       { userId },
       {
@@ -72,6 +69,6 @@ router.post("/", upload.single("file"), async (req, res) => {
     console.error("[CareerAssessment] Error:", err);
     res.status(500).json({ error: "Server error", details: err.message });
   }
-});  
+});
 
 module.exports = router;

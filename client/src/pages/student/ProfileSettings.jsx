@@ -44,36 +44,39 @@ const ProfileSettings = () => {
     fetchProfile();
   }, [userId]);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    setImagePreview(file ? URL.createObjectURL(file) : null);
-    setProfile({ ...profile, newImage: file });
-  };
+const handleImageChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    setProfile(prev => ({ ...prev, newImage: file }));
+    setImagePreview(URL.createObjectURL(file));
+  }
+};
 
-  const handleSave = async () => {
-    if (!userId) return toast.error("User not found");
-    try {
-      const formData = new FormData();
-      formData.append("name", profile.name);
-      formData.append("email", profile.email);
-      if (profile.newImage) formData.append("profilePicture", profile.newImage);
-      const res = await axios.put(`/api/users/${userId}`, formData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      toast.success("Profile updated!");
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          ...res.data,
-        })
-      );
-    } catch (err) {
-      toast.error("Failed to update profile");
-    }
-  };
+ const handleSave = async () => {
+  if (!userId) return toast.error("User not found");
+
+  const formData = new FormData();
+  formData.append("name", profile.name);
+  formData.append("email", profile.email);
+  if (profile.newImage) {
+    formData.append("profilePicture", profile.newImage);
+  }
+
+  try {
+    const res = await axios.put(`/api/users/${userId}`, formData, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    toast.success("Profile updated!");
+    setProfile(prev => ({ ...prev, newImage: null }));
+    localStorage.setItem("user", JSON.stringify(res.data));
+  } catch (err) {
+    toast.error("Failed to update profile");
+  }
+};
 
   const handleChangePassword = async () => {
     if (!userId) return toast.error("User not found");

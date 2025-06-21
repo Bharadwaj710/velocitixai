@@ -68,11 +68,13 @@ const Register = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:8080/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, role: 'student' }),
-      });
+     const { name, email, password } = formData;
+const res = await fetch('http://localhost:8080/auth/signup', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name, email, password, role: 'student' }),
+});
+
 
       const result = await res.json();
       if (!res.ok) {

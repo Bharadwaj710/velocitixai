@@ -16,8 +16,17 @@ const storage = new CloudinaryStorage({
     transformation: [{ width: 300, height: 300, crop: 'limit' }],
   },
 });
+const videoStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'career_assessment_videos',
+    resource_type: 'video', // 🔥 critical
+    allowed_formats: ['mp4', 'webm', 'mp3', 'wav'],
+  },
+});
 
 module.exports = {
   cloudinary,
   storage,
+    videoStorage
 };
