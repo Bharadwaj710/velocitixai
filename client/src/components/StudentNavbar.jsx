@@ -7,9 +7,8 @@ const StudentNavbar = () => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const profileRef = useRef(null);
   const user = JSON.parse(localStorage.getItem("student")) || {};
-  const profileImage = user.imageUrl
-    ? `http://localhost:8080${user.imageUrl}`
-    : null;
+const profileImage = user.imageUrl || null;
+
   const navigate = useNavigate();
   const location = useLocation();
 
