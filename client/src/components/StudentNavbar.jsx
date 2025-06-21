@@ -36,6 +36,7 @@ const profileImage = user.imageUrl || null;
   const navLinks = [
     { name: "Dashboard", path: "/student/dashboard" },
     { name: "Assessments", path: "/student/assessments" },
+    { name: "Courses", path: "/student/courses" },
     { name: "Practice", path: "/student/practice" },
     { name: "Jobs", path: "/student/jobs" },
   ];

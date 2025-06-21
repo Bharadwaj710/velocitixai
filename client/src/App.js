@@ -24,6 +24,7 @@ import Practice from "./pages/student/Practice";
 import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
 import StudentDetails from "./pages/student/StudentDetails";
+import StudentCourses from "./pages/student/StudentCourses";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -100,6 +101,8 @@ const AppContent = () => {
                     element={<StudentProfileSettings />}
                   />
                   <Route path="details" element={<StudentDetails />} />
+                  <Route path="courses" element={<StudentCourses />} />
+                  <Route path="student/courses" element={<StudentCourses />} />
                   <Route path="*" element={<StudentDashboard />} />
                 </Routes>
               </ProtectedRoute>

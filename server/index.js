@@ -17,6 +17,9 @@ app.use("/api/students", require("./routes/student"));
 app.use('/api/upload', require("./routes/upload"));
 //app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+const recommendationsRoute = require("./routes/recommendations");
+app.use("/api", recommendationsRoute);
+
 app.get("/", (req, res) => {
   res.send("Velocitix AI Backend is Running");
 });
