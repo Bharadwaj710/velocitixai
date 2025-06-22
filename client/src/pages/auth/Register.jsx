@@ -91,6 +91,12 @@ const Register = () => {
       }
 
       if (result.success) {
+        // Save imageUrl if present
+        if (result.user && result.user.imageUrl) {
+          localStorage.setItem("user", JSON.stringify({ ...result.user, imageUrl: result.user.imageUrl }));
+        } else {
+          localStorage.setItem("user", JSON.stringify(result.user));
+        }
         handleSuccess(result.message || "Registration successful!");
         setTimeout(() => navigate("/login"), 1500);
       } else {

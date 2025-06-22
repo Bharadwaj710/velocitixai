@@ -104,6 +104,7 @@ const AppContent = () => {
                   <Route path="courses" element={<StudentCourses />} />
                   <Route path="student/courses" element={<StudentCourses />} />
                   <Route path="*" element={<StudentDashboard />} />
+                  
                 </Routes>
               </ProtectedRoute>
             }

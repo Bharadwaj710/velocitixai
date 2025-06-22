@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
+const { cloudinary } = require("../utlis/cloudinary");
 
 // GET /api/users - fetch all users
 const getAllUsers = async (req, res) => {
@@ -16,23 +17,34 @@ const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     let updateFields = {};
+
     if (req.body.name) updateFields.name = req.body.name;
     if (req.body.email) updateFields.email = req.body.email;
     if (req.body.role) updateFields.role = req.body.role;
     if (req.body.isAdmin !== undefined) updateFields.isAdmin = req.body.isAdmin;
+
+    // ✅ If image file is present, upload to Cloudinary
     if (req.file) {
-      updateFields.profilePicture = "/uploads/" + req.file.filename;
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "profilePictures",
+        public_id: `user_${id}`,
+        overwrite: true,
+      });
+      updateFields.profilePicture = result.secure_url;
     }
+
     const updatedUser = await User.findByIdAndUpdate(id, updateFields, {
       new: true,
       runValidators: true,
-      context: "query",
     }).select("-password");
+
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
+
     res.status(200).json(updatedUser);
   } catch (error) {
+    console.error("Update Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
@@ -98,6 +110,30 @@ const changePassword = async (req, res) => {
   }
 };
 
+// PUT /api/users/upload-profile/:id
+const uploadProfileImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ message: "No image uploaded" });
+    }
+
+    // req.file.path is already the Cloudinary URL (from multer-storage-cloudinary)
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { imageUrl: req.file.path }, // Save Cloudinary URL
+      { new: true }
+    ).select("-password");
+
+    if (!updated) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json(updated);
+  } catch (err) {
+    console.error("Profile image upload error:", err);
+    res.status(500).json({ message: "Image upload failed" });
+  }
+};
+
 module.exports = {
   getAllUsers,
   updateUser,
@@ -105,4 +141,5 @@ module.exports = {
   getOverviewStats,
   getUserById,
   changePassword,
+  uploadProfileImage,
 };
