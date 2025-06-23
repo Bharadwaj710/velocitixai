@@ -2,11 +2,11 @@
 const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema({
+  type: { type: String, required: true }, // e.g., "user_registered"
   message: { type: String, required: true },
-  type: { type: String, enum: ["student", "college", "hr", "system"], default: "system" },
-  extraData: { type: Object, default: {} },
-  read: { type: Boolean, default: false },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
   createdAt: { type: Date, default: Date.now },
+  meta: { type: Object }, // Any extra info
 });
 
 module.exports = mongoose.model("notifications", notificationSchema);

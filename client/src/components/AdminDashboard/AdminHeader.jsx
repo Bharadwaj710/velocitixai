@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, LogOut, ChevronDown, Menu } from 'lucide-react';
 
-const AdminHeader = ({ notifications = [], sidebarOpen, setSidebarOpen }) => {
+const AdminHeader = ({ notifications = [], recentActivity = [], sidebarOpen, setSidebarOpen }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const profileRef = useRef(null);
@@ -29,6 +29,12 @@ const AdminHeader = ({ notifications = [], sidebarOpen, setSidebarOpen }) => {
     localStorage.removeItem('token');
     window.location.href = '/login';
   };
+
+const activityCount = Math.max(
+  (Array.isArray(recentActivity) ? recentActivity.length : 0),
+  (Array.isArray(notifications) ? notifications.length : 0)
+);
+
 
   return (
     <header className="bg-white shadow-sm border-b sticky top-0 z-50 h-14 sm:h-16">
@@ -59,9 +65,10 @@ const AdminHeader = ({ notifications = [], sidebarOpen, setSidebarOpen }) => {
               className="relative p-2 text-gray-600 hover:text-gray-900"
             >
               <Bell className="h-5 w-5" />
-              {notifications.length > 0 && (
+              {activityCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">
-                  {notifications.length > 9 ? '9+' : notifications.length}
+                  {/* Show "9+" if more than 9 notifications */}
+                  {activityCount > 9 ? '9+' : activityCount}
                 </span>
               )}
             </button>

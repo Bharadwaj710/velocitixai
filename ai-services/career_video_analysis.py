@@ -1,6 +1,3 @@
-# career_video_analysis.py
-print("✅ career_video_analysis.py loaded")
-
 import os
 import requests
 import cloudinary
