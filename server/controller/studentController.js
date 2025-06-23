@@ -84,6 +84,67 @@ exports.getStudentDetails = async (req, res) => {
   }
 };
 
+
+exports.enrollCourse = async (req, res) => {
+  const { userId, courseId } = req.body;
+
+  if (!userId || !courseId) {
+    return res.status(400).json({ error: "Missing userId or courseId" });
+  }
+
+  try {
+    let student = await Student.findOne({ user: userId });
+
+    if (!student) {
+      // Create student if not exists
+      student = new Student({ user: userId, course: [courseId] });
+    } else {
+      // Avoid duplicates
+      if (!student.course.includes(courseId)) {
+        student.course.push(courseId);
+      }
+    }
+
+    await student.save();
+    res.json({ message: "Course enrolled", student });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.unenrollCourse = async (req, res) => {
+  const { userId, courseId } = req.body;
+
+  if (!userId || !courseId) {
+    return res.status(400).json({ error: "Missing userId or courseId" });
+  }
+
+  try {
+    const student = await Student.findOne({ user: userId });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    student.course = student.course.filter((c) => c.toString() !== courseId);
+    await student.save();
+
+    res.json({ message: "Course unenrolled", student });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getEnrolledCourses = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const student = await Student.findOne({ user: userId }).populate("course");
+    if (!student) return res.json([]);
+    res.json(student.course);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 exports.getStudentLearningProgress = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -166,3 +227,4 @@ exports.getStudentLearningProgress = async (req, res) => {
     res.status(500).json({ message: err.message || "Server error" });
   }
 };
+

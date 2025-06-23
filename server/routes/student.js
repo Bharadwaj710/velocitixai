@@ -3,6 +3,9 @@ const router = express.Router();
 const {
   saveStudentDetails,
   getStudentDetails,
+  enrollCourse,
+  unenrollCourse,
+  getEnrolledCourses,
   getStudentLearningProgress,
 } = require("../controller/studentController");
 
@@ -12,5 +15,9 @@ router.post("/details", saveStudentDetails);
 router.get("/details/:userId", getStudentDetails);
 // GET /api/students/progress/:userId
 router.get("/progress/:userId", getStudentLearningProgress);
+
+router.post("/enroll", enrollCourse);
+router.post("/unenroll", unenrollCourse);
+router.get("/enrollments/:userId", getEnrolledCourses);
 
 module.exports = router;
