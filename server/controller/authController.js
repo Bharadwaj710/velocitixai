@@ -54,6 +54,14 @@ const signup = async (req, res) => {
       });
     }
 
+    // Create notification for admin dashboard
+    await Notification.create({
+      type: "user_registered",
+      message: `${user.name} registered as ${user.role}`,
+      userId: user._id,
+      meta: { email: user.email, role: user.role }
+    });
+
     res.status(201).json({
       message: "Signup successful",
       success: true,

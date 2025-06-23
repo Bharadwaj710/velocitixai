@@ -33,7 +33,7 @@ def extract_json(text):
     if not text:
         raise ValueError("Gemini returned empty output.")
 
-    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    match = re.search(r"(?:json)?\s*(\{.*?\})\s*", text, re.DOTALL)
     return json.loads(match.group(1)) if match else json.loads(text)
 
 def analyze_with_gemini(answers: dict) -> dict:
@@ -97,6 +97,51 @@ def extract_video_keywords(feedback: str) -> list:
             return [kw.strip().lower() for kw in keyword_line.split(",")]
     return []
 
+def calculate_readiness_score(student_id):
+    """
+    Calculate and cache the readiness score for a student in the careerassessments collection.
+    The score is based on confidence, communication, and tone from the AI feedback.
+    """
+    try:
+        user_object_id = ObjectId(student_id)
+    except Exception:
+        raise ValueError("Invalid student_id format")
+
+    data = assessments_col.find_one({"userId": user_object_id})
+    if not data or "profile_analysis" not in data:
+        raise ValueError("Assessment data not found")
+
+    pa = data["profile_analysis"]
+    # Accept both string and number
+    confidence = float(pa.get("confidenceScore") or pa.get("confidence_score") or 0)
+    communication = float(pa.get("communicationClarity") or pa.get("communication_clarity") or 0)
+    tone = (pa.get("tone") or "").lower()
+    # Assign a numeric value for tone
+    if tone in ["confident", "passionate"]:
+        tone_score = 10
+    elif tone in ["intermediate", "neutral"]:
+        tone_score = 7
+    elif tone == "hesitant":
+        tone_score = 5
+    elif tone == "unsure":
+        tone_score = 3
+    else:
+        tone_score = 0
+
+    scores = [confidence, communication, tone_score]
+    valid_scores = [s for s in scores if s > 0]
+    if valid_scores:
+        readiness_percent = round(sum(valid_scores) / (len(valid_scores) * 10) * 100)
+    else:
+        readiness_percent = 0
+
+    # Cache the score in the document
+    assessments_col.update_one(
+        {"userId": user_object_id},
+        {"$set": {"readiness_score": readiness_percent}}
+    )
+    return readiness_percent
+
 def recommend_courses(student_id: str):
     try:
         user_object_id = ObjectId(student_id)
@@ -157,6 +202,8 @@ def recommend_courses(student_id: str):
             "recommended_courses": recommended
         }}
     )
+    # Calculate and cache readiness score
+    calculate_readiness_score(student_id)
 
     return {
         "student_id": student_id,

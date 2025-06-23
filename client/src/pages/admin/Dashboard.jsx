@@ -14,6 +14,7 @@ import { fetchOverviewStats, fetchRecentNotifications } from '../../services/api
 import RecentActivityPage from './RecentActivityPage';
 import CourseManager from './CourseManager';
 import HiredStudents from './HiredStudents';
+import axios from 'axios';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const Dashboard = () => {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
 
   useEffect(() => {
     const loadNotifications = async () => {
@@ -43,6 +45,22 @@ const Dashboard = () => {
       }
     };
     loadNotifications();
+  }, []);
+
+  useEffect(() => {
+    const fetchRecentActivity = async () => {
+      try {
+        const res = await axios.get("/admin/recent-activity", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        setRecentActivity(res.data);
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    fetchRecentActivity();
   }, []);
 
   useEffect(() => {
