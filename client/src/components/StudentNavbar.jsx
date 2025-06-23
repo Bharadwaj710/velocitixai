@@ -6,15 +6,9 @@ const StudentNavbar = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const profileRef = useRef(null);
+  const user = JSON.parse(localStorage.getItem("student")) || {};
+const profileImage = user.imageUrl || null;
 
-  // Prefer "user" over "student" for localStorage
-  const user =
-    JSON.parse(localStorage.getItem("user")) ||
-    JSON.parse(localStorage.getItem("student")) ||
-    {};
-
-  // Always use imageUrl if present
-  const profileImage = user.imageUrl ? user.imageUrl : null;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -42,6 +36,7 @@ const StudentNavbar = () => {
   const navLinks = [
     { name: "Dashboard", path: "/student/dashboard" },
     { name: "Assessments", path: "/student/assessments" },
+    { name: "Courses", path: "/student/courses" },
     { name: "Practice", path: "/student/practice" },
     { name: "Jobs", path: "/student/jobs" },
   ];

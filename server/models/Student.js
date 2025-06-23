@@ -2,12 +2,12 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const StudentSchema = new Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
-  rollNumber: { type: String, required: true, unique: true },
-  course: { type: mongoose.Schema.Types.ObjectId, ref: 'course' }, // LINK
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
+  rollNumber: { type: String, required: false, unique: true },
+  course: [{ type: mongoose.Schema.Types.ObjectId, ref: "course" }],
   branch: String,
   yearOfStudy: Number,
-  collegecourse:String, // This can be used to store the course name if needed
+  collegecourse: String, // This can be used to store the course name if needed
   college: String,
   phoneNumber: String,
   address: String,
