@@ -76,13 +76,16 @@ exports.getStudentDetails = async (req, res) => {
   try {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ message: "User ID required" });
-    const student = await Student.findOne({ user: userId });
+
+    const student = await Student.findOne({ user: userId }).populate("course"); 
+
     if (!student) return res.json({});
     res.json(student);
   } catch (err) {
     res.status(500).json({ message: err.message || "Server error" });
   }
 };
+
 
 
 exports.enrollCourse = async (req, res) => {
@@ -162,48 +165,55 @@ exports.getEnrolledCourses = async (req, res) => {
 exports.getStudentLearningProgress = async (req, res) => {
   try {
     const { userId } = req.params;
-
-    const student = await Student.findOne({ user: userId }).populate("course");
-    if (!student || !student.course) {
-      return res.status(404).json({ message: "No course found for student" });
-    }
-
-    const totalModules = Array.isArray(student.course.modules) ? student.course.modules.length : 0;
-    const completedModules = Array.isArray(student.scorecard)
-      ? student.scorecard.length
-      : typeof student.scorecard === "number"
-      ? student.scorecard
-      : 0;
-
-    const progressPercent = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+    if (!userId)
+      return res.status(400).json({ message: "User ID is required" });
 
     const assessment = await CareerAssessment.findOne({ userId });
+
     let readinessPercent = null;
     let readinessDetails = null;
+    let level = "Beginner";
 
     if (assessment) {
-      if (typeof assessment.readiness_score === "number") {
-        readinessPercent = assessment.readiness_score;
+      const pa = assessment.profile_analysis || {};
+      const confidence = Number(pa.confidenceScore || pa.confidence_score || 0);
+      const communication = Number(
+        pa.communicationClarity || pa.communication_clarity || 0
+      );
+      const tone = (pa.tone || "").toLowerCase();
 
-        if (assessment.profile_analysis) {
-          const pa = assessment.profile_analysis;
-          readinessDetails = {
-            confidenceScore: pa.confidenceScore || pa.confidence_score || "",
-            communicationClarity: pa.communicationClarity || pa.communication_clarity || "",
-            tone: pa.tone || "",
-            toneScore: pa.toneScore || pa.tone_score || "",
-          };
-        }
-      } 
+      let toneScore = 0;
+      if (tone === "confident" || tone === "passionate") toneScore = 10;
+      else if (tone === "intermediate" || tone === "neutral") toneScore = 7;
+      else if (tone === "hesitant") toneScore = 5;
+      else if (tone === "unsure") toneScore = 3;
+
+      const scores = [confidence, communication, toneScore].filter(
+        (v) => v > 0
+      );
+      if (scores.length > 0) {
+        readinessPercent = Math.round(
+          (scores.reduce((a, b) => a + b, 0) / (scores.length * 10)) * 100
+        );
+
+        // Infer level based on score
+        if (readinessPercent >= 80) level = "Proficient";
+        else if (readinessPercent >= 50) level = "Intermediate";
+        else level = "Beginner";
+
+        readinessDetails = {
+          confidenceScore: confidence,
+          communicationClarity: communication,
+          tone,
+          toneScore,
+        };
+      }
     }
 
     res.json({
-      courseTitle: student.course.title,
-      progressPercent,
-      completedModules,
-      totalModules,
       readinessPercent,
       readinessDetails,
+      level,
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Server error" });

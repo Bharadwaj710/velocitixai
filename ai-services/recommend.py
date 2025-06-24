@@ -167,6 +167,7 @@ def recommend_courses(student_id: str):
             if "_id" in course:
                 course["_id"] = str(course["_id"])
         return {
+            "isProcessed": True,
             "student_id": student_id,
             "profile_analysis": data["profile_analysis"],
             "video_transcript": data["video_transcript"],
@@ -224,6 +225,7 @@ def recommend_courses(student_id: str):
             "eye_contact_percent": eye_contact_percent,
             "corrected_level": corrected_level,
             "recommended_courses": recommended
+            "isProcessed": True
         }}
     )
 
@@ -235,4 +237,5 @@ def recommend_courses(student_id: str):
         "eye_contact_percent": eye_contact_percent,
         "corrected_level": corrected_level,
         "recommended_courses": recommended
+        "isProcessed": True
     }

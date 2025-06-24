@@ -71,4 +71,21 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
+// GET /api/assessments/:userId
+router.get("/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const assessment = await CareerAssessment.findOne({ userId });
+
+    if (!assessment) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
+
+    res.json(assessment);
+  } catch (err) {
+    console.error("Error fetching assessment:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;
