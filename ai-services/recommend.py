@@ -159,6 +159,7 @@ def recommend_courses(student_id: str):
             if "_id" in course:
                 course["_id"] = str(course["_id"])
         return {
+            "isProcessed": True,
             "student_id": student_id,
             "profile_analysis": data["profile_analysis"],
             "video_transcript": data["video_transcript"],
@@ -199,7 +200,8 @@ def recommend_courses(student_id: str):
             "video_transcript": video_analysis["transcript"],
             "video_feedback": video_analysis["ai_feedback"],
             "eye_contact_percent": video_analysis["eye_contact_percent"],
-            "recommended_courses": recommended
+            "recommended_courses": recommended,
+            "isProcessed": True
         }}
     )
     # Calculate and cache readiness score
@@ -211,5 +213,6 @@ def recommend_courses(student_id: str):
         "video_transcript": video_analysis["transcript"],
         "video_feedback": video_analysis["ai_feedback"],
         "eye_contact_percent": video_analysis["eye_contact_percent"],
-        "recommended_courses": recommended
+        "recommended_courses": recommended,
+        "isProcessed": True
     }

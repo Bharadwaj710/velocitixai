@@ -40,3 +40,6 @@ app.listen(PORT, () => {
 });
 
 app.use("/college", collegeRoutes);
+
+const assessmentRoutes = require("./routes/careerAssessment");
+app.use("/api/assessments", assessmentRoutes);

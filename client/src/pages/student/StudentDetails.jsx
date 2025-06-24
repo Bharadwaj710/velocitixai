@@ -46,7 +46,7 @@ const StudentDetails = () => {
         if (res.data && Object.keys(res.data).length > 0) {
           setForm({
             rollNumber: res.data.rollNumber || "",
-            collegecourse: res.data.course?.title || res.data.course || "",
+            collegecourse: res.data.collegecourse || "",
             branch: res.data.branch || "",
             yearOfStudy: res.data.yearOfStudy || "",
             college: res.data.college || "",
@@ -148,20 +148,15 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             <label className="block text-gray-700 font-medium mb-1">
               College Course *
             </label>
-            <select
+            <input
+              type="text"
               name="collegecourse"
               value={form.collegecourse}
               onChange={handleChange}
               required
+              placeholder="Enter your course (e.g., B.Tech CSE)"
               className="w-full border rounded-lg p-2"
-            >
-              <option value="">Select Course</option>
-              {courseOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-1">
@@ -225,7 +220,6 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
               className="w-full border rounded-lg p-2"
             />
           </div>
-          
         </div>
         <button
           type="submit"
