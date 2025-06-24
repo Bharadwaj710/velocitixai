@@ -14,9 +14,8 @@ const DOMAIN_QUESTIONS = {
   "Technology and Innovation": [
     {
       questionNumber: 2,
-      questionText: "How would you rate your technical/coding skills?",
-      questionType: "mcq",
-      options: ["Beginner", "Intermediate", "Proficient"],
+      questionText: "What motivates you to pursue a career in technology and innovation?",
+      questionType: "paragraph",
     },
     {
       questionNumber: 3,
@@ -56,10 +55,8 @@ const DOMAIN_QUESTIONS = {
   "Healthcare and Wellness": [
     {
       questionNumber: 2,
-      questionText:
-        "How would you rate your understanding of healthcare/wellness topics?",
-      questionType: "mcq",
-      options: ["Beginner", "Intermediate", "Proficient"],
+      questionText: "What motivates you to pursue a career in healthcare and wellness?",
+      questionType: "paragraph",
     },
     {
       questionNumber: 3,
@@ -105,10 +102,8 @@ const DOMAIN_QUESTIONS = {
   "Business and Finance": [
     {
       questionNumber: 2,
-      questionText:
-        "Rate your understanding of finance, business, or strategy concepts.",
-      questionType: "mcq",
-      options: ["Beginner", "Intermediate", "Proficient"],
+      questionText: "What motivates you to pursue a career in business and finance?",
+      questionType: "paragraph",
     },
     {
       questionNumber: 3,
@@ -155,9 +150,8 @@ const DOMAIN_QUESTIONS = {
   "Arts and Creativity": [
     {
       questionNumber: 2,
-      questionText: "How would you rate your creative/artistic skill?",
-      questionType: "mcq",
-      options: ["Beginner", "Intermediate", "Proficient"],
+      questionText: "What motivates you to pursue a career in arts and creativity?",
+      questionType: "paragraph",
     },
     {
       questionNumber: 3,
@@ -206,10 +200,8 @@ const DOMAIN_QUESTIONS = {
   "Education and Social Services": [
     {
       questionNumber: 2,
-      questionText:
-        "Rate your confidence in mentoring, teaching, or communication skills.",
-      questionType: "mcq",
-      options: ["Beginner", "Intermediate", "Proficient"],
+      questionText: "What motivates you to pursue a career in education and social services?",
+      questionType: "paragraph",
     },
     {
       questionNumber: 3,
