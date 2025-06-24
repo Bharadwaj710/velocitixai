@@ -16,6 +16,9 @@ const courseOptions = [
   "Bachelor of Education (B.Ed)"
 ];
 
+const generateSlug = (str) =>
+  str?.toLowerCase().trim().replace(/\s+/g, "-");
+
 const StudentDetails = () => {
   const student = JSON.parse(localStorage.getItem("student")) || {};
   const [form, setForm] = useState({
@@ -74,18 +77,30 @@ const StudentDetails = () => {
     setSubmitting(true);
     try {
       const user = JSON.parse(localStorage.getItem("user"));
-    const payload = {
-  ...form,
-  user: user?.id || user?._id,
-};
-   await axios.post("/api/students/details", payload, {
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  },
-});
-toast.success("Details saved successfully");
-setTimeout(() => navigate("/student/dashboard"), 1000);
 
+      const slug = generateSlug(form.college);
+
+      const payload = {
+        ...form,
+        user: user?.id || user?._id,
+        skills: form.skills
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        collegeSlug: slug, // 🆕 Add generated slug
+      };
+
+      await axios.post("/api/students/details", payload, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // Optionally update localStorage.user with new slug if you want dynamic routing later
+      const updatedUser = { ...user, collegeSlug: slug };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
+      toast.success("Details saved successfully");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Submission failed");
     } finally {
@@ -121,9 +136,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Email
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Email</label>
             <input
               type="email"
               value={student.email || ""}
@@ -135,6 +148,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             <label className="block text-gray-700 font-medium mb-1">
               Roll Number *
             </label>
+
             <input
               type="text"
               name="rollNumber"
@@ -145,6 +159,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             />
           </div>
           <div>
+
             <label className="block text-gray-700 font-medium mb-1">
               College Course *
             </label>
@@ -152,6 +167,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
               type="text"
               name="collegecourse"
               value={form.collegecourse}
+
               onChange={handleChange}
               required
               placeholder="Enter your course (e.g., B.Tech CSE)"
@@ -159,9 +175,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Branch
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Branch</label>
             <input
               type="text"
               name="branch"
@@ -171,9 +185,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Year of Study
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Year of Study</label>
             <input
               type="number"
               name="yearOfStudy"
@@ -185,9 +197,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              College
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">College</label>
             <input
               type="text"
               name="college"
@@ -197,9 +207,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Phone Number
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Phone Number</label>
             <input
               type="text"
               name="phoneNumber"
@@ -208,10 +216,9 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
               className="w-full border rounded-lg p-2"
             />
           </div>
+
           <div className="md:col-span-2">
-            <label className="block text-gray-700 font-medium mb-1">
-              Address
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Address</label>
             <input
               type="text"
               name="address"
@@ -220,6 +227,7 @@ setTimeout(() => navigate("/student/dashboard"), 1000);
               className="w-full border rounded-lg p-2"
             />
           </div>
+
         </div>
         <button
           type="submit"

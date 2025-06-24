@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Student = require("../models/Student");
+const { onboardCollege } = require("../controller/collegeController");
 
 router.get("/students/:slug", async (req, res) => {
   try {
@@ -12,5 +13,8 @@ router.get("/students/:slug", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
+// Onboard college
+router.post("/onboard", onboardCollege);
 
 module.exports = router;

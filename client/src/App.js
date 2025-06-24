@@ -27,6 +27,10 @@ import StudentDetails from "./pages/student/StudentDetails";
 import StudentCourses from "./pages/student/StudentCourses";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import HRProfile from "./pages/hr/Profile";
+import CollegeOnboarding from "./pages/college/CollegeOnboarding";
+import CoursePlayer from './pages/student/CoursePlayer'; // Adjust path if needed
+
 
 const AppContent = () => {
   const location = useLocation();
@@ -73,7 +77,15 @@ const AppContent = () => {
                 <HRDashboard />
               </ProtectedRoute>
             }
-          /> 
+          />
+          <Route
+            path="/hr/profile"
+            element={
+              <ProtectedRoute requireHR={true}>
+                <HRProfile />
+              </ProtectedRoute>
+            }
+          />
 
           {/* College routes */}
           <Route
@@ -84,6 +96,7 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="/college/onboarding" element={<CollegeOnboarding />} />
 
           {/* Student routes */}
           <Route
@@ -103,6 +116,7 @@ const AppContent = () => {
                   <Route path="details" element={<StudentDetails />} />
                   <Route path="courses" element={<StudentCourses />} />
                   <Route path="student/courses" element={<StudentCourses />} />
+                  <Route path="CoursePlayer" element={<CoursePlayer />} />
                   <Route path="*" element={<StudentDashboard />} />
                   
                 </Routes>

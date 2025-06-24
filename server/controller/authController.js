@@ -6,6 +6,7 @@ const Course = require("../models/Course");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const { OAuth2Client } = require('google-auth-library');
+const HRModel = require("../models/HR");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -79,11 +80,13 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Debug log
+    console.log('Login attempt for:', email);
+
     const user = await UserModel.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password", success: false });
     }
-
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid email or password", success: false });
@@ -95,6 +98,26 @@ const login = async (req, res) => {
       role: user.role,
       collegeSlug: user.collegeSlug || null
     }, process.env.JWT_SECRET, { expiresIn: "24h" });
+
+    // Attach HR info if user is HR
+    let hrInfo = null;
+    if (user.role === 'hr') {
+      hrInfo = await HRModel.findOne({ user: user._id });
+    }
+    res.status(200).json({
+  message: "Login successful",
+  success: true,
+  token,
+  user: {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    isAdmin: Boolean(user.isAdmin),
+    role: user.role,
+    collegeSlug: user.collegeSlug || null, // include this 🔥
+  }
+});
+
 
     res.status(200).json({
       message: "Login successful",
