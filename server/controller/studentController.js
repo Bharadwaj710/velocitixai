@@ -87,9 +87,19 @@ exports.getStudentDetails = async (req, res) => {
 
 exports.enrollCourse = async (req, res) => {
   const { userId, courseId } = req.body;
+  console.log("Received enroll request:", { userId, courseId });
 
-  if (!userId || !courseId) {
-    return res.status(400).json({ error: "Missing userId or courseId" });
+  // Fix: Ensure courseId is a valid ObjectId and not undefined/empty/null/array/object
+  if (
+    !userId ||
+    !courseId ||
+    typeof courseId !== "string" ||
+  ! 
+    courseId === "" ||
+    Array.isArray(courseId) ||
+    typeof courseId === "object"
+  ) {
+    return res.status(400).json({ error: "Missing or invalid userId or courseId" });
   }
 
   try {
@@ -99,8 +109,12 @@ exports.enrollCourse = async (req, res) => {
       // Create student if not exists
       student = new Student({ user: userId, course: [courseId] });
     } else {
-      // Avoid duplicates
-      if (!student.course.includes(courseId)) {
+      // Avoid duplicates (convert ObjectId to string for comparison)
+      const courseIdStr = courseId.toString();
+      const hasCourse = student.course.some(
+        (c) => c.toString() === courseIdStr
+      );
+      if (!hasCourse) {
         student.course.push(courseId);
       }
     }
@@ -180,39 +194,7 @@ exports.getStudentLearningProgress = async (req, res) => {
             toneScore: pa.toneScore || pa.tone_score || "",
           };
         }
-      } else {
-        try {
-          // Call Flask only if readiness_score not cached
-          console.log("Fetching recommendation from Flask...");
-          const flaskResponse = await axios.post("http://localhost:5001/recommend", {
-            student_id: userId,
-          });
-
-          if (flaskResponse.data && flaskResponse.data.profile_analysis) {
-            const pa = flaskResponse.data.profile_analysis;
-
-            const confidence = Number(pa.confidenceScore || pa.confidence_score || 0);
-            const communication = Number(pa.communicationClarity || pa.communication_clarity || 0);
-            let toneScore = 0;
-            const tone = (pa.tone || "").toLowerCase();
-
-            if (tone === "confident" || tone === "passionate") toneScore = 10;
-            else if (tone === "intermediate" || tone === "neutral") toneScore = 7;
-            else if (tone === "hesitant") toneScore = 5;
-            else if (tone === "unsure") toneScore = 3;
-
-            const scores = [confidence, communication, toneScore].filter((v) => v > 0);
-            readinessPercent = Math.round((scores.reduce((a, b) => a + b, 0) / (scores.length * 10)) * 100);
-
-            readinessDetails = { confidenceScore: confidence, communicationClarity: communication, tone, toneScore };
-
-            assessment.readiness_score = readinessPercent;
-            await assessment.save();
-          }
-        } catch (err) {
-          console.error("Flask API error:", err.message);
-        }
-      }
+      } 
     }
 
     res.json({
