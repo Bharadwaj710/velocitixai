@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Users, GraduationCap, Briefcase, TrendingUp, UserPlus, 
-  Building
+import {
+  Users, GraduationCap, Briefcase, TrendingUp, UserPlus, Building
 } from 'lucide-react';
 import UserList from './UserList';
 import StudentList from './StudentList';
@@ -11,10 +10,11 @@ import HRList from './HRList';
 import ProfileSettings from './ProfileSettings';
 import AdminHeader from '../../components/AdminDashboard/AdminHeader';
 import AdminSidebar from '../../components/AdminDashboard/AdminSidebar';
-import { fetchOverviewStats } from '../../services/api';
+import { fetchOverviewStats, fetchRecentNotifications } from '../../services/api';
 import RecentActivityPage from './RecentActivityPage';
 import CourseManager from './CourseManager';
 import HiredStudents from './HiredStudents';
+import axios from 'axios';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,28 +31,55 @@ const Dashboard = () => {
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const res = await fetchRecentNotifications();
+        setNotifications(res.data);
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err);
+        setNotifications([]);
+      }
+    };
+    loadNotifications();
+  }, []);
+
+  useEffect(() => {
+    const fetchRecentActivity = async () => {
+      try {
+        const res = await axios.get("/admin/recent-activity", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        setRecentActivity(res.data);
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    fetchRecentActivity();
+  }, []);
 
   useEffect(() => {
     const handleNavigate = () => setActiveTab('recent-activity');
     window.addEventListener('navigateToRecentActivity', handleNavigate);
     return () => window.removeEventListener('navigateToRecentActivity', handleNavigate);
   }, []);
+
   useEffect(() => {
     const listener = () => setActiveTab('settings');
     window.addEventListener('navigateToSettings', listener);
     return () => window.removeEventListener('navigateToSettings', listener);
   }, []);
+
   useEffect(() => {
     const handleNavigate = () => setActiveTab('overview');
     window.addEventListener('navigateToOverview', handleNavigate);
     return () => window.removeEventListener('navigateToOverview', handleNavigate);
   }, []);
-
-  const notifications = [
-    { id: 1, message: "New college registration request" },
-    { id: 2, message: "New HR approval pending" },
-    { id: 3, message: "System update available" },
-  ];
 
   useEffect(() => {
     setStatsLoading(true);
@@ -83,12 +110,32 @@ const Dashboard = () => {
     };
     setSelectedRole(filterStates[filterType]);
   };
+  useEffect(() => {
+  const reloadHandler = () => {
+    if (activeTab === 'overview') {
+      setStatsLoading(true);
+      fetchOverviewStats()
+        .then(res => {
+          setDashboardStats({
+            totalUsers: res.data.totalUsers,
+            activeStudents: res.data.activeStudents,
+            partnerColleges: res.data.partnerColleges,
+            activeHRs: res.data.activeHRs,
+          });
+          setStatsError(null);
+        })
+        .catch(() => setStatsError('Failed to load stats'))
+        .finally(() => setStatsLoading(false));
+    }
+  };
+
+  window.addEventListener('reloadOverview', reloadHandler);
+  return () => window.removeEventListener('reloadOverview', reloadHandler);
+}, [activeTab]);
+
 
   const StatCard = ({ title, value, icon: Icon, change, color = 'blue', onClick }) => (
-    <div 
-      className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border hover:shadow-md cursor-pointer transition-all duration-200 transform hover:-translate-y-1 select-none"
-      onClick={onClick}
-    >
+    <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border hover:shadow-md cursor-pointer transition-all duration-200 transform hover:-translate-y-1 select-none" onClick={onClick}>
       <div className="flex items-center justify-between">
         <div className="space-y-1 sm:space-y-2">
           <p className="text-sm text-gray-600 line-clamp-1">{title}</p>
@@ -125,21 +172,12 @@ const Dashboard = () => {
     };
 
     return (
-      <button
-        onClick={onClick}
-        className={`group flex items-center p-4 bg-gradient-to-br ${colorMap[color]} 
-          border rounded-lg transition-all duration-300 
-          hover:shadow-md hover:-translate-y-0.5 transform 
-          relative overflow-hidden w-full`}
-      >
-        <div className={`flex items-center justify-center transition-transform duration-300 
-          group-hover:scale-110 relative z-10`}>
+      <button onClick={onClick} className={`group flex items-center p-4 bg-gradient-to-br ${colorMap[color]} border rounded-lg transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 transform relative overflow-hidden w-full`}>
+        <div className={`flex items-center justify-center transition-transform duration-300 group-hover:scale-110 relative z-10`}>
           <Icon className={`h-8 w-8 mr-3 transition-colors duration-300 ${iconColors[color]}`} />
           <div className="text-left">
-            <div className={`font-semibold text-gray-900 transition-colors duration-300 
-              group-hover:text-gray-800`}>{title}</div>
-            <div className="text-sm text-gray-600 group-hover:text-gray-700 
-              transition-colors duration-300">{description}</div>
+            <div className={`font-semibold text-gray-900 transition-colors duration-300 group-hover:text-gray-800`}>{title}</div>
+            <div className="text-sm text-gray-600 group-hover:text-gray-700 transition-colors duration-300">{description}</div>
           </div>
         </div>
       </button>
@@ -191,15 +229,23 @@ const Dashboard = () => {
                   <div className="bg-white p-6 rounded-xl border">
                     <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
                     <div className="space-y-3">
-                      {notifications.map((notification, index) => (
-                        <div key={notification.id} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                      {notifications.slice(0, 4).map((notification, index) => (
+                        <div key={notification._id || index} className="flex items-center p-3 bg-gray-50 rounded-lg">
                           <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
                           <div>
-                            <p className="text-sm text-gray-900">{notification.message}</p>
-                            <p className="text-xs text-gray-500">{index + 1} hour{index !== 0 ? "s" : ""} ago</p>
+                            <p className="text-sm text-gray-800 break-words">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
                           </div>
                         </div>
                       ))}
+                      {notifications.length > 4 && (
+                        <button
+                          onClick={() => setActiveTab("recent-activity")}
+                          className="text-blue-600 text-sm mt-2 underline"
+                        >
+                          View More
+                        </button>
+                      )}
                     </div>
                   </div>
                 </>

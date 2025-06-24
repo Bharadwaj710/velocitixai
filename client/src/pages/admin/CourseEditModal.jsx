@@ -1,31 +1,34 @@
-// src/components/CourseEditModal.jsx
 import React, { useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const CourseEditModal = ({ course, onClose, onSave }) => {
   const [editedCourse, setEditedCourse] = useState({
     ...course,
     durationWeeks: course.durationWeeks || '',
-    modules: course.modules?.length
-      ? course.modules.map(mod => ({ ...mod }))
-      : [{ title: '', content: '', resources: [''] }]
+    modules: course.modules.map(mod => ({
+      ...mod,
+      resources: mod.resources || [],
+      pdfs: [] // temporary file list for upload
+    }))
   });
 
-  const handleModuleChange = (index, key, value) => {
+  const handleModuleChange = (idx, key, value) => {
     const updated = [...editedCourse.modules];
-    updated[index][key] = value;
+    updated[idx][key] = value;
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
-  const handleResourceChange = (modIdx, resIdx, value) => {
+  const handleResourceChange = (modIdx, resIdx, field, value) => {
     const updated = [...editedCourse.modules];
-    updated[modIdx].resources[resIdx] = value;
+    updated[modIdx].resources[resIdx][field] = value;
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
   const addModule = () => {
     setEditedCourse({
       ...editedCourse,
-      modules: [...editedCourse.modules, { title: '', content: '', resources: [''] }]
+      modules: [...editedCourse.modules, { title: '', content: '', resources: [], pdfs: [] }]
     });
   };
 
@@ -36,7 +39,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
 
   const addResource = (modIdx) => {
     const updated = [...editedCourse.modules];
-    updated[modIdx].resources.push('');
+    updated[modIdx].resources.push({ url: '', name: '' });
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
@@ -46,12 +49,50 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
-  const handleSave = () => {
+  const handlePDFUpload = (modIdx, file) => {
+    const updated = [...editedCourse.modules];
+    updated[modIdx].pdfs.push(file);
+    setEditedCourse({ ...editedCourse, modules: updated });
+  };
+
+
+  const handleSave = async () => {
+    const newModules = [...editedCourse.modules];
+
+    for (let i = 0; i < newModules.length; i++) {
+      const mod = newModules[i];
+
+      if (mod.pdfs?.length) {
+        for (const file of mod.pdfs) {
+          const formData = new FormData();
+          formData.append('pdf', file);
+          const res = await axios.post('http://localhost:8080/api/upload/pdf', formData);
+          mod.resources.push({ url: res.data.url, name: res.data.name });
+        }
+      }
+
+      mod.resources = mod.resources.map(res => ({
+        url: res.url,
+        name: res.name || res.url.split('/').pop()
+      }));
+
+      delete mod.pdfs;
+    }
+
     const payload = {
       ...editedCourse,
-      durationWeeks: parseInt(editedCourse.durationWeeks, 10)
+      durationWeeks: parseInt(editedCourse.durationWeeks, 10),
+      modules: newModules
     };
-    onSave(payload);
+
+    try {
+      await onSave(payload);
+      toast.success('Course updated!');
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error('Update failed');
+    }
   };
 
   return (
@@ -87,6 +128,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                 <button onClick={() => removeModule(idx)} className="text-sm text-red-600">Remove</button>
               )}
             </div>
+
             <input
               className="border p-2 w-full mb-2"
               value={mod.title}
@@ -99,20 +141,41 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
               placeholder="Module Content"
               onChange={e => handleModuleChange(idx, 'content', e.target.value)}
             />
-            {mod.resources.map((r, rIdx) => (
-              <div key={rIdx} className="flex gap-2 mb-1">
-                <input
-                  className="border p-2 w-full"
-                  value={r}
-                  placeholder="Resource URL"
-                  onChange={e => handleResourceChange(idx, rIdx, e.target.value)}
-                />
-                {mod.resources.length > 1 && (
-                  <button onClick={() => removeResource(idx, rIdx)} className="text-red-600">✕</button>
-                )}
-              </div>
-            ))}
+
+            {mod.resources.map((res, rIdx) => {
+              const isCloudinaryPDF =  res.name?.toLowerCase().endsWith('.pdf');
+
+              return (
+                <div key={rIdx} className="flex items-center gap-2 mb-1">
+                  {!isCloudinaryPDF ? (
+                    <>
+                      <input
+                        className="border p-2 w-full"
+                        value={res.url}
+                        placeholder="Resource URL"
+                        onChange={e => handleResourceChange(idx, rIdx, 'url', e.target.value)}
+                      />
+                     
+                      <button onClick={() => removeResource(idx, rIdx)} className="text-red-600">✕</button>
+                    </>
+                  ) : (
+                    <div className="flex justify-between items-center w-full">
+                      <p className="text-blue-700">📄 {res.name}</p>
+                      <button onClick={() => removeResource(idx, rIdx)} className="text-red-600 text-sm">✕</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
             <button onClick={() => addResource(idx)} className="text-blue-600 text-sm mt-1">+ Add Resource</button>
+
+            <input
+              type="file"
+              accept="application/pdf"
+              className="mt-2"
+              onChange={e => handlePDFUpload(idx, e.target.files[0])}
+            />
           </div>
         ))}
 

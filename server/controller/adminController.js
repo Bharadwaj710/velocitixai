@@ -201,9 +201,9 @@ const updateAdminProfile = async (req, res) => {
     if (phone) user.phone = phone;
     if (bio) user.bio = bio;
 
-    if (req.file) {
-      user.imageUrl = `/uploads/${req.file.filename}`;
-    }
+   if (req.file) {
+  user.imageUrl = req.file.path; // Cloudinary returns full URL
+}
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -212,6 +212,7 @@ const updateAdminProfile = async (req, res) => {
 
     await user.save();
     const updatedUser = await User.findById(userId).select('-password');
+
     res.status(200).json(updatedUser);
   } catch (err) {
     console.error('Update error:', err);
@@ -256,6 +257,15 @@ const markAsRead = async (req, res) => {
     res.status(500).json({ message: 'Failed to update' });
   }
 };
+const clearAllNotifications = async (req, res) => {
+  try {
+    await Notification.deleteMany({});
+    res.status(200).json({ message: 'All notifications cleared' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to clear notifications' });
+  }
+};
+
 
 module.exports = {
   getAllUsers,
@@ -266,6 +276,6 @@ module.exports = {
   getStudentFilters,
   getHRFilters,
   getAdminProfile,
-  updateAdminProfile, deleteAdminProfile,getRecentNotifications,getAllNotifications,markAsRead
+  updateAdminProfile, deleteAdminProfile,getRecentNotifications,getAllNotifications,markAsRead,clearAllNotifications
 };
 

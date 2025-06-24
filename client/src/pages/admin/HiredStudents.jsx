@@ -22,7 +22,6 @@ const HiredStudents = () => {
               <th className="p-3 text-left">College</th>
               <th className="p-3 text-left">Course</th>
               <th className="p-3 text-left">Hired By</th>
-              <th className="p-3 text-left">Date</th>
             </tr>
           </thead>
           <tbody>
@@ -36,7 +35,6 @@ const HiredStudents = () => {
                   <td className="p-3">{s.college}</td>
                   <td className="p-3">{s.course}</td>
                   <td className="p-3">{s.companyName}</td>
-                  <td className="p-3">{s.hiredDate ? new Date(s.hiredDate).toLocaleDateString() : '-'}</td>
                 </tr>
               ))
             )}

@@ -1,110 +1,208 @@
-import React, { useEffect } from "react";
-import {
-  ArrowRight,
-  ClipboardList,
-  Briefcase,
-  CheckCircle,
-  FileText,
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { ArrowRight } from "lucide-react";
 
-const Dashboard = () => {
-  const user = JSON.parse(localStorage.getItem("student")) || {};
+const StudentDashboard = () => {
+  const user = JSON.parse(localStorage.getItem("user")) || {};
   const navigate = useNavigate();
 
+  const [loading, setLoading] = useState(true);
+  const [showAssessmentBtn, setShowAssessmentBtn] = useState(false);
+  const [level, setLevel] = useState("Beginner");
+  const [readinessPercent, setReadinessPercent] = useState(null);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
+
   useEffect(() => {
-    // Check for incomplete student details after login
-    const checkStudentDetails = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const userObj = JSON.parse(localStorage.getItem("user"));
-        if (!userObj?.id && !userObj?._id) return;
-        const res = await axios.get(
-          `/api/students/details/${userObj.id || userObj._id}`
-        );
-        const details = res.data || {};
-        // Only check if details exist
-        if (Object.keys(details).length > 0) {
-          // Required fields
-          const requiredFields = ["enrollmentNumber", "course"];
-          const isIncomplete = requiredFields.some((field) => !details[field]);
-          if (isIncomplete) {
-            setTimeout(() => {
-              toast.warn("Please complete your profile details", {
-                autoClose: 4000,
-              });
-            }, 2000);
-          }
+        const userId = user.id || user._id;
+
+        // 1. Check if career assessment is completed
+        const assessmentRes = await axios.get(`/api/assessments/${userId}`);
+        const assessmentExists =
+          assessmentRes.data && Object.keys(assessmentRes.data).length > 0;
+
+        // 2. Check if student details are filled
+        const detailsRes = await axios.get(`/api/students/details/${userId}`);
+        const progressRes = await axios.get(`/api/students/progress/${userId}`);
+
+        const details = detailsRes.data;
+        const hasFilledDetails =
+          details?.rollNumber && details?.college && details?.collegecourse;
+
+        if (assessmentExists && hasFilledDetails) {
+          setShowAssessmentBtn(false);
+          setReadinessPercent(progressRes.data.readinessPercent || 50);
+          setLevel(progressRes.data.level || "Beginner");
+
+          let courses = details.course || [];
+          if (!Array.isArray(courses)) courses = courses ? [courses] : [];
+          setEnrolledCourses(courses);
         } else {
-          setTimeout(() => {
-            toast.warn("Please complete your profile details", {
-              autoClose: 4000,
-            });
-          }, 2000);
+          // Show old dashboard with "Take Assessment" button
+          setShowAssessmentBtn(true);
         }
       } catch (err) {
-        // ignore
+        console.error("Dashboard load error:", err.message);
+        setShowAssessmentBtn(true);
+      } finally {
+        setLoading(false);
       }
     };
-    checkStudentDetails();
-  }, []);
 
+    if (user && user.id) {
+      fetchDashboardData();
+    }
+  }, []);
+  
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  // Minimal view before assessment
+  if (showAssessmentBtn) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <h1 className="text-3xl font-bold mb-6">
+          Welcome, {user.name?.split(" ")[0]}!
+        </h1>
+        <p className="mb-6 text-gray-600">
+          To get started, please take your Career Assessment.
+        </p>
+        <button
+          onClick={() => navigate("/student/assessments")}
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2"
+        >
+          Take Career Assessment <ArrowRight className="inline ml-1" />
+        </button>
+      </div>
+    );
+  }
+
+  // Redesigned dashboard after assessment
   return (
     <div className="min-h-screen bg-gray-50">
-      <ToastContainer position="top-right" autoClose={3000} />
-      <main className="pt-24 pb-12 px-4 sm:px-8 max-w-6xl mx-auto">
-        {/* Hero Section */}
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto mb-12">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-            <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Welcome, {user.name ? user.name.split(" ")[0] : "Student"}!
-            </span>
+      <main className="py-10 px-4 sm:px-8 max-w-5xl mx-auto space-y-10">
+        {/* Welcome Back */}
+        <section>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            Welcome back, {user.name?.split(" ")[0]}!
           </h1>
+        </section>
 
-          <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Velocitix AI is here to support your career readiness journey.
-            Explore personalized assessments, practice modules, and job
-            opportunities tailored just for you.
-          </p>
+        {/* Career Readiness Score Card */}
+        <section>
+          <h2 className="text-xl font-semibold text-gray-700 mb-3">
+            Career Readiness Score
+          </h2>
+          <div className="flex flex-col md:flex-row items-center justify-between bg-white rounded-xl shadow p-6 mb-2">
+            <div className="text-gray-600 text-base mb-4 md:mb-0">
+              Based on your assessment results.
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-3xl font-bold text-blue-700">
+                {readinessPercent != null ? `${readinessPercent}%` : level}
+              </span>
+              <span className="text-sm text-gray-500 mt-1">{level}</span>
+            </div>
+          </div>
+        </section>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        {/* Learning Path Progress */}
+        <section>
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-semibold text-gray-700">
+              Learning Path Progress
+            </h2>
             <button
-              onClick={() => navigate("/student/assessments")}
-              className="group bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center space-x-2"
+              onClick={() => navigate("/student/learning-path")}
+              className="text-sm text-blue-600 hover:underline"
             >
-              <span>Take Career Assessment</span>
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              View Learning Path
             </button>
           </div>
-        </div>
-
-        {/* Quick Stats Section */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
-          <div className="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
-            <ClipboardList className="w-10 h-10 text-blue-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold">Assessment Progress</h3>
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+              <span className="text-gray-700 text-base">
+                Proficiency Level:{" "}
+                <span className="font-semibold">{level}</span>
+              </span>
+              <span className="text-gray-500 text-sm">
+                (Progress tracking coming soon)
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 mt-2">
+              <div
+                className="h-3 rounded-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-700"
+                style={{ width: `0%` }}
+              ></div>
+            </div>
           </div>
+        </section>
 
-          <div className="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
-            <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold">Practice Modules</h3>
+        {/* AI Suggestions */}
+        <section>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">
+            AI Suggestions
+          </h2>
+          <div className="bg-white rounded-xl shadow p-6 flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="text-gray-600 mb-4 md:mb-0">
+              Based on your career assessment, we’ve selected recommended
+              courses for you.
+            </div>
+            <button
+              onClick={() => navigate("/student/courses")}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+            >
+              View Suggested Courses
+            </button>
           </div>
+        </section>
 
-          <div className="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
-            <Briefcase className="w-10 h-10 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold">Jobs Applied</h3>
+        {/* Enrolled Courses */}
+        <section>
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-semibold text-gray-700">
+              Enrolled Courses
+            </h2>
           </div>
-
-          <div className="bg-white shadow-md rounded-xl p-6 text-center hover:shadow-lg transition">
-            <FileText className="w-10 h-10 text-purple-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold">Resume Tips</h3>
-          </div>
+          {enrolledCourses.length === 0 ? (
+            <p className="text-gray-500 italic">
+              You have not enrolled in any courses yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {enrolledCourses.map((course, idx) => (
+                <div
+                  key={course._id || idx}
+                  className="bg-white p-4 rounded-xl shadow-md flex flex-col h-full"
+                >
+                  <h3 className="text-lg font-bold text-blue-700 mb-1">
+                    {course.title}
+                  </h3>
+                  <p className="text-gray-600 text-sm line-clamp-2 mb-2">
+                    {course.description}
+                  </p>
+                  <div className="mt-auto">
+                    <span className="font-medium text-gray-600">Level:</span>{" "}
+                    <span className="text-gray-900">
+                      {course.level || "Beginner"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>
   );
 };
 
-export default Dashboard;
+export default StudentDashboard;

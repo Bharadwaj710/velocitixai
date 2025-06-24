@@ -19,14 +19,18 @@ import CollegeDashboard from "./pages/college/Dashboard";
 import StudentDashboard from "./pages/student/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import StudentNavbar from "./components/StudentNavbar";
-import Assessments from "./pages/student/Assessments";
+import Assessments from "./pages/student/CareerAssessment";
 import Practice from "./pages/student/Practice";
 import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
 import StudentDetails from "./pages/student/StudentDetails";
+import StudentCourses from "./pages/student/StudentCourses";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import HRProfile from "./pages/hr/Profile";
 import CollegeOnboarding from "./pages/college/CollegeOnboarding";
 import CoursePlayer from './pages/student/CoursePlayer'; // Adjust path if needed
+
 
 const AppContent = () => {
   const location = useLocation();
@@ -110,8 +114,11 @@ const AppContent = () => {
                     element={<StudentProfileSettings />}
                   />
                   <Route path="details" element={<StudentDetails />} />
+                  <Route path="courses" element={<StudentCourses />} />
+                  <Route path="student/courses" element={<StudentCourses />} />
                   <Route path="CoursePlayer" element={<CoursePlayer />} />
                   <Route path="*" element={<StudentDashboard />} />
+                  
                 </Routes>
               </ProtectedRoute>
             }
@@ -129,6 +136,7 @@ function App() {
         <AuthProvider>
           <AppContent />
           <Toaster position="top-right" />
+          <ToastContainer position="top-right" autoClose={3000} />
         </AuthProvider>
       </Router>
     </div>
