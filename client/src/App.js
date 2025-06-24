@@ -25,6 +25,8 @@ import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
 import StudentDetails from "./pages/student/StudentDetails";
 import HRProfile from "./pages/hr/Profile";
+import CollegeOnboarding from "./pages/college/CollegeOnboarding";
+import CoursePlayer from './pages/student/CoursePlayer'; // Adjust path if needed
 
 const AppContent = () => {
   const location = useLocation();
@@ -90,6 +92,7 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="/college/onboarding" element={<CollegeOnboarding />} />
 
           {/* Student routes */}
           <Route
@@ -107,6 +110,7 @@ const AppContent = () => {
                     element={<StudentProfileSettings />}
                   />
                   <Route path="details" element={<StudentDetails />} />
+                  <Route path="CoursePlayer" element={<CoursePlayer />} />
                   <Route path="*" element={<StudentDashboard />} />
                 </Routes>
               </ProtectedRoute>

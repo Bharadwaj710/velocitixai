@@ -1,14 +1,24 @@
 // server/routes/hr.js
 const express = require('express');
 const router = express.Router();
-const { getAllStudents, getHRDetailsByUser } = require('../controller/hrController');
-const { sendHireInvite, getInvitedStudents, deleteInvitedStudent } = require('../controller/hireController');
 
-// GET all students
+// Import HR-related handlers
+const {
+  getAllStudents,
+  getHRDetailsByUser,
+  sendInvite
+} = require('../controller/hrController');
+
+// Import invitation-related handlers
+const {
+  getInvitedStudents,
+  deleteInvitedStudent
+} = require('../controller/hireController');
+
+// Routes
 router.get('/students', getAllStudents);
 router.get('/:userId/details', getHRDetailsByUser);
-// POST: send hire invitation
-router.post('/send-invite', sendHireInvite);
+router.post('/send-invite', sendInvite);
 router.get('/:hrId/invited-students', getInvitedStudents);
 router.delete('/invited-students/:invitationId', deleteInvitedStudent);
 

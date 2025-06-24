@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+require('./Student'); // Ensure Student model is registered before schema definition
 
 const InvitationSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },

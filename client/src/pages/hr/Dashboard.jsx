@@ -129,7 +129,7 @@ const StudentCard = ({ student, onHire }) => {
   const domain = student.domain || "N/A";
   const branch = student.branch || "N/A";
   return (
-    <div className="rounded-xl shadow-lg border-2 border-blue-100 bg-gradient-to-br from-white via-blue-50 to-purple-50 p-6 hover:shadow-2xl transition-shadow">
+    <div className="rounded-xl shadow-lg border-2 border-blue-100 bg-gradient-to-br from-white via-blue-50 to-white-50 p-6 hover:shadow-2xl transition-shadow">
       <div className="flex items-center mb-4">
         {/* Avatar */}
         <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow bg-blue-100 text-blue-700 mr-4`}>
@@ -234,7 +234,36 @@ const HRDashboard = () => {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [leaderboardFilter, setLeaderboardFilter] = useState('all');
   // Add invited students state
-  const [invitedStudents, setInvitedStudents] = useState([]);
+  const [invitedStudents, setInvitedStudents] = useState([
+    {
+      _id: '1',
+      name: 'luffy',
+      email: 'alice@example.com',
+      branch: 'CSE',
+      invitedAt: new Date().toISOString(),
+    },
+    {
+      _id: '2',
+      name: 'jane',
+      email: 'bob@example.com',
+      branch: 'ECE',
+      invitedAt: new Date(Date.now() - 86400000).toISOString(),
+    },
+    {
+      _id: '3',
+      name: 'Ankit mehra',
+      email: 'charlie@example.com',
+      branch: 'MECH',
+      invitedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    },
+    {
+      _id: '4',
+      name: 'celine',
+      email: 'diana@example.com',
+      branch: 'CIVIL',
+      invitedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    },
+  ]);
   const [showAllInvited, setShowAllInvited] = useState(false);
 
   useEffect(() => {
@@ -251,27 +280,27 @@ const HRDashboard = () => {
     fetchStudents();
   }, []);
 
-  useEffect(() => {
+  //useEffect(() => {
     // Fetch invited students for this HR
-    const fetchInvited = async () => {
-      try {
-        const loggedUser = JSON.parse(localStorage.getItem("user"));
-        const res = await axios.get(`http://localhost:8080/api/hr/${loggedUser.hrInfo?._id || loggedUser._id}/invited-students`);
-        setInvitedStudents(
-          (res.data.invitations || []).map(inv => ({
-            _id: inv._id,
-            name: inv.student?.user?.name,
-            email: inv.student?.user?.email,
-            branch: inv.student?.branch,
-            invitedAt: inv.invitedAt
-          }))
-        );
-      } catch (err) {
-        setInvitedStudents([]);
-      }
-    };
-    fetchInvited();
-  }, []);
+    //const fetchInvited = async () => {
+      //try {
+        //const loggedUser = JSON.parse(localStorage.getItem("user"));
+       // const res = await axios.get(`http://localhost:8080/api/hr/${loggedUser.hrInfo?._id || loggedUser._id}/invited-students`);
+       // setInvitedStudents(
+         // (res.data.invitations || []).map(inv => ({
+         //   _id: inv._id,
+         //   name: inv.student?.user?.name,
+         //   email: inv.student?.user?.email,
+          //  branch: inv.student?.branch,
+          //  invitedAt: inv.invitedAt
+        //  }))
+      //  );
+   //   } catch (err) {
+   //     setInvitedStudents([]);
+   //   }
+   // };
+   // fetchInvited();
+ // }, []);
 
   const filteredStudents = students.filter((student) => {
     return (
@@ -308,9 +337,10 @@ const HRDashboard = () => {
         hrId
       });
       if (!res.data.success) {
-        alert(res.data.message || 'Failed to send invitation.');
-        return;
-      }
+  alert(res.data.message || 'Failed to send invitation.');
+  return;
+}
+
       // Refetch invited students from backend
       const invitedRes = await axios.get(`http://localhost:8080/api/hr/${hrId}/invited-students`);
       setInvitedStudents(

@@ -10,13 +10,14 @@ exports.saveStudentDetails = async (req, res) => {
       branch,
       yearOfStudy,
       college,
+      collegeSlug,  // ✅ new field
       phoneNumber,
       domain,
       address,
       skills,
     } = req.body;
 
-    if (!user || !enrollmentNumber || !course) {
+    if (!user || !enrollmentNumber || !course || !collegeSlug) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
@@ -34,6 +35,10 @@ exports.saveStudentDetails = async (req, res) => {
 
     // Check if student already exists for this user
     let student = await Student.findOne({ user });
+    const User = require("../models/User");
+    const userDoc = await User.findById(user);
+    const userName = userDoc ? userDoc.name : undefined;
+
     if (student) {
       // Update existing
       student.enrollmentNumber = enrollmentNumber;
@@ -41,26 +46,32 @@ exports.saveStudentDetails = async (req, res) => {
       student.branch = branch;
       student.yearOfStudy = yearOfStudy;
       student.college = college;
+      student.collegeSlug = collegeSlug;  // ✅ store slug
       student.phoneNumber = phoneNumber;
       student.domain = domain;
       student.address = address;
       student.skills = Array.isArray(skills) ? skills : [];
+      if (userName) student.name = userName; // auto-fill name
       await student.save();
       return res.json({ message: "Student details updated", student });
     }
+
     // Create new
     student = new Student({
       user,
+      name: userName, // auto-fill name
       enrollmentNumber,
       course: courseId,
       branch,
       yearOfStudy,
       college,
+      collegeSlug,  // ✅ store slug
       phoneNumber,
       domain,
       address,
       skills: Array.isArray(skills) ? skills : [],
     });
+
     await student.save();
     res.status(201).json({ message: "Student details saved", student });
   } catch (err) {
@@ -77,6 +88,7 @@ exports.getStudentDetails = async (req, res) => {
   try {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ message: "User ID required" });
+
     const student = await Student.findOne({ user: userId });
     if (!student) return res.json({});
     res.json(student);

@@ -7,18 +7,23 @@ const StudentSchema = new Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: 'course' }, // LINK
   branch: String,
   yearOfStudy: Number,
-  college: String,
+  college: String, // Keep this if you still want the display name
+  collegeSlug: { type: String, required: true }, // ✅ NEW FIELD
   phoneNumber: String,
   domain: String, // Domain of interest
   address: String,
   skills: [String],
-  scorecard: Number, // Array of scores for each module, , // Overall score
+  scorecard: Number,
   hired: {
     isHired: { type: Boolean, default: false },
-  companyName: String,
-  hiredDate: Date,
+    companyName: String,
+    hiredDate: Date,
   },
-
+  name :
+  {
+    type: String,
+    required: true,
+  },
 });
 
 module.exports = mongoose.model("students", StudentSchema);

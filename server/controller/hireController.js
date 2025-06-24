@@ -60,7 +60,8 @@ const getInvitedStudents = async (req, res) => {
       .sort({ invitedAt: -1 });
     res.json({ success: true, invitations });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to fetch invited students" });
+    console.error('Error in getInvitedStudents:', error); // Added detailed logging
+    res.status(500).json({ success: false, message: 'Failed to fetch invited students', error: error.message });
   }
 };
 

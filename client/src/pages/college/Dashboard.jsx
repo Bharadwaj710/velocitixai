@@ -28,6 +28,12 @@ const CollegeDashboard = () => {
       try {
         const res = await axios.get(`http://localhost:8080/college/students/${collegeSlug}`);
         setStudentsData(res.data.students);
+        // Log the first student object for debugging
+        if (res.data.students && res.data.students.length > 0) {
+          console.log('Sample student object:', res.data.students[0]);
+        } else {
+          console.log('No students returned from backend');
+        }
       } catch (err) {
         setStudentsData([]);
       } finally {
@@ -274,10 +280,10 @@ const CollegeDashboard = () => {
                           {student.avatar}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{student.name}</h3>
+                         <h3 className="font-semibold text-lg">{student.name || "N/A"}</h3>
                           <div className="flex items-center text-sm text-gray-600 mt-1">
                             <Mail className="h-3 w-3 mr-1" />
-                            {student.email}
+                            {student.email || "N/A"}
                           </div>
                         </div>
                       </div>

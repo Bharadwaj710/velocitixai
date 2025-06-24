@@ -71,15 +71,16 @@ const getOverviewStats = async (req, res) => {
 // GET /api/users/:id - fetch single user
 const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findById(id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json(user);
+    const user = await User.findById(req.params.id);
+    if (!user)
+      return res.status(404).json({ success: false, message: "User not found" });
+
+    res.status(200).json({ success: true, user });
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Get user by ID failed:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 // PUT /api/users/change-password/:id
 const changePassword = async (req, res) => {
   try {

@@ -18,6 +18,9 @@ const domainOptions = [
   "Education and Social Services",
 ];
 
+const generateSlug = (str) =>
+  str?.toLowerCase().trim().replace(/\s+/g, "-");
+
 const StudentDetails = () => {
   const student = JSON.parse(localStorage.getItem("student")) || {};
   const [form, setForm] = useState({
@@ -78,6 +81,8 @@ const StudentDetails = () => {
     setSubmitting(true);
     try {
       const user = JSON.parse(localStorage.getItem("user"));
+      const slug = generateSlug(form.college);
+
       const payload = {
         ...form,
         user: user?.id || user?._id,
@@ -85,12 +90,19 @@ const StudentDetails = () => {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
+        collegeSlug: slug, // 🆕 Add generated slug
       };
+
       await axios.post("/api/students/details", payload, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
+
+      // Optionally update localStorage.user with new slug if you want dynamic routing later
+      const updatedUser = { ...user, collegeSlug: slug };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
       toast.success("Details saved successfully");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Submission failed");
@@ -127,9 +139,7 @@ const StudentDetails = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Email
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Email</label>
             <input
               type="email"
               value={student.email || ""}
@@ -138,9 +148,7 @@ const StudentDetails = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Enrollment Number *
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Enrollment Number *</label>
             <input
               type="text"
               name="enrollmentNumber"
@@ -151,9 +159,7 @@ const StudentDetails = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Course *
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Course *</label>
             <select
               name="course"
               value={form.course}
@@ -170,9 +176,7 @@ const StudentDetails = () => {
             </select>
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Branch
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Branch</label>
             <input
               type="text"
               name="branch"
@@ -182,9 +186,7 @@ const StudentDetails = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Year of Study
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Year of Study</label>
             <input
               type="number"
               name="yearOfStudy"
@@ -196,9 +198,7 @@ const StudentDetails = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              College
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">College</label>
             <input
               type="text"
               name="college"
@@ -208,9 +208,7 @@ const StudentDetails = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Phone Number
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Phone Number</label>
             <input
               type="text"
               name="phoneNumber"
@@ -220,9 +218,7 @@ const StudentDetails = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Domain
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Domain</label>
             <select
               name="domain"
               value={form.domain}
@@ -238,9 +234,7 @@ const StudentDetails = () => {
             </select>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-gray-700 font-medium mb-1">
-              Address
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Address</label>
             <input
               type="text"
               name="address"
@@ -250,9 +244,7 @@ const StudentDetails = () => {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-gray-700 font-medium mb-1">
-              Skills (comma separated)
-            </label>
+            <label className="block text-gray-700 font-medium mb-1">Skills (comma separated)</label>
             <input
               type="text"
               name="skills"

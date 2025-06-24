@@ -32,3 +32,9 @@ app.listen(PORT, () => {
 
 app.use("/college", collegeRoutes);
 app.use('/api/hr', hrRoutes);
+app.use("/api/college", require("./routes/college"));
+
+require("./models/Student"); // Ensure Student model is registered
+require("./models/HR"); // Ensure HR model is registered
+require("./models/User"); // Ensure User model is registered
+require("./models/Invitation"); // Ensure Invitation model is registered
