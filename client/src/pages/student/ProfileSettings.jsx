@@ -23,13 +23,13 @@ const ProfileSettings = () => {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         });
-        setProfile(res.data);
+       setProfile(res.data.user);
         // Use imageUrl if available, else fallback to profilePicture
-        if (res.data.imageUrl) {
-          setImagePreview(res.data.imageUrl);
-        } else if (res.data.profilePicture) {
-          setImagePreview(res.data.profilePicture);
-        }
+        if (res.data.user?.imageUrl) {
+          setImagePreview(res.data.user.imageUrl);
+        } else if (res.data.user?.profilePicture) {
+          setImagePreview(res.data.user.profilePicture);
+        }
       } catch (err) {
         toast.error("Failed to load profile");
       }
@@ -102,7 +102,11 @@ const ProfileSettings = () => {
           imageUrl: res.data.imageUrl || res.data.profilePicture || null,
         })
       );
-
+     const studentObj = JSON.parse(localStorage.getItem("student")) || {};
+      studentObj.name = res.data.name;
+      studentObj.email = res.data.email;
+      studentObj.imageUrl = res.data.imageUrl || res.data.profilePicture || null;
+      localStorage.setItem("student", JSON.stringify(studentObj));
       setTimeout(() => {
         window.location.reload();
       }, 1500);

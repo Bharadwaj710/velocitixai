@@ -1,61 +1,28 @@
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const UserModel = require("../models/User");
 const Notification = require("../models/Notification");
 const Student = require("../models/Student");
-const Course = require("../models/Course");
-const jwt = require("jsonwebtoken");
+const HRModel = require("../models/HR");
 const nodemailer = require("nodemailer");
 const { OAuth2Client } = require('google-auth-library');
-const HRModel = require("../models/HR");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const signup = async (req, res) => {
   try {
-    const {
-      name,
-      email,
-      password,
-      isAdmin = false,
-      role = "student",
-    } = req.body;
+    const { name, email, password, isAdmin = false, role = "student" } = req.body;
 
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({
-        message: "User already exists, you can login",
-        success: false,
-      });
+      return res.status(409).json({ message: "User already exists, you can login", success: false });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new UserModel({
-      name,
-      email,
-      password: hashedPassword,
-      isAdmin,
-      role,
-    });
-
+    const user = new UserModel({ name, email, password: hashedPassword, isAdmin, role });
     await user.save();
 
-    // 🔔 Notification creation
-    if (role === 'student') {
-      const student = await Student.findOne({ user: user._id }).populate('course', 'title');
-      await Notification.create({
-        message: `${user.name} signed up as Student${student?.course ? ` for ${student.course.title}` : ''}`,
-        type: 'student',
-        extraData: { userId: user._id }
-      });
-    } else {
-      await Notification.create({
-        message: `${user.name} signed up as ${role.charAt(0).toUpperCase() + role.slice(1)}`,
-        type: role,
-        extraData: { userId: user._id }
-      });
-    }
-
-    // Create notification for admin dashboard
+    // Create notification
     await Notification.create({
       type: "user_registered",
       message: `${user.name} registered as ${user.role}`,
@@ -63,16 +30,10 @@ const signup = async (req, res) => {
       meta: { email: user.email, role: user.role }
     });
 
-    res.status(201).json({
-      message: "Signup successful",
-      success: true,
-    });
+    res.status(201).json({ message: "Signup successful", success: true });
   } catch (error) {
     console.error("Signup error:", error);
-    res.status(500).json({
-      message: "Internal server error",
-      success: false,
-    });
+    res.status(500).json({ message: "Internal server error", success: false });
   }
 };
 
@@ -80,17 +41,13 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Debug log
     console.log('Login attempt for:', email);
 
     const user = await UserModel.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: "Invalid email or password", success: false });
-    }
+    if (!user) return res.status(401).json({ message: "Invalid email or password", success: false });
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: "Invalid email or password", success: false });
-    }
+    if (!isPasswordValid) return res.status(401).json({ message: "Invalid email or password", success: false });
 
     const token = jwt.sign({
       userId: user._id,
@@ -99,31 +56,16 @@ const login = async (req, res) => {
       collegeSlug: user.collegeSlug || null
     }, process.env.JWT_SECRET, { expiresIn: "24h" });
 
-    // Attach HR info if user is HR
     let hrInfo = null;
     if (user.role === 'hr') {
       hrInfo = await HRModel.findOne({ user: user._id });
     }
-    res.status(200).json({
-  message: "Login successful",
-  success: true,
-  token,
-  user: {
-    _id: user._id,
-    name: user.name,
-    email: user.email,
-    isAdmin: Boolean(user.isAdmin),
-    role: user.role,
-    collegeSlug: user.collegeSlug || null, // include this 🔥
-  }
-});
-
 
     res.status(200).json({
       message: "Login successful",
       success: true,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         isAdmin: Boolean(user.isAdmin),
@@ -143,26 +85,21 @@ const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
     const user = await UserModel.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found", success: false });
-    }
+    if (!user) return res.status(404).json({ message: "User not found", success: false });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "15m" }); // match email text
     const resetLink = `http://localhost:3000/reset-password/${token}`;
 
     const transporter = nodemailer.createTransport({
       service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
     });
 
     await transporter.sendMail({
       from: `"Velocitix AI" <${process.env.EMAIL_USER}>`,
       to: user.email,
       subject: "Reset Your Password",
-      html: `<p>Click <a href="${resetLink}">here</a> to reset your password. This link expires in 15 minutes.</p>`,
+      html: `<p>Click <a href="${resetLink}">here</a> to reset your password. This link expires in 15 minutes.</p>`
     });
 
     res.json({ message: "Reset link sent to your email", success: true });
@@ -175,15 +112,22 @@ const forgotPassword = async (req, res) => {
 const resetPassword = async (req, res) => {
   const { token } = req.params;
   const { newPassword } = req.body;
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await UserModel.findById(decoded.id);
+
+    if (!user) return res.status(404).json({ message: "User not found", success: false });
+
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
     if (isSamePassword) {
       return res.status(400).json({ message: "New password cannot be the same as the old password", success: false });
     }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await UserModel.findByIdAndUpdate(decoded.id, { password: hashedPassword });
+    user.password = hashedPassword;
+    await user.save();
+
     res.json({ message: "Password reset successful", success: true });
   } catch (error) {
     console.error("Reset password error:", error);
@@ -194,9 +138,14 @@ const resetPassword = async (req, res) => {
 const googleLogin = async (req, res) => {
   try {
     const { token } = req.body;
-    const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload();
-    const { email, name } = payload;
+
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const { email, name } = ticket.getPayload();
+
     let user = await UserModel.findOne({ email });
 
     if (!user) {
@@ -204,23 +153,29 @@ const googleLogin = async (req, res) => {
       await user.save();
 
       await Notification.create({
-        message: `${name} signed up via Google as Student`,
-        type: 'student',
-        extraData: { userId: user._id }
+        type: "user_registered",
+        message: `${user.name} registered via Google as ${user.role}`,
+        userId: user._id
       });
     }
 
     const jwtToken = jwt.sign({
-      _id: user._id,
-      email: user.email,
+      userId: user._id,
+      isAdmin: user.isAdmin,
       role: user.role
     }, process.env.JWT_SECRET, { expiresIn: "24h" });
 
     res.status(200).json({
       message: "Google login successful",
       success: true,
-      jwtToken,
-      user
+      token: jwtToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        imageUrl: user.imageUrl || null
+      }
     });
   } catch (err) {
     console.error("Google Login Error:", err);
@@ -231,11 +186,15 @@ const googleLogin = async (req, res) => {
 const googleSignup = async (req, res) => {
   try {
     const { token } = req.body;
-    const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload();
-    const { email, name } = payload;
 
-    let existingUser = await UserModel.findOne({ email });
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const { email, name } = ticket.getPayload();
+
+    const existingUser = await UserModel.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ success: false, message: "User already exists. Please login instead." });
     }
@@ -244,18 +203,28 @@ const googleSignup = async (req, res) => {
     await newUser.save();
 
     await Notification.create({
-      message: `${name} signed up via Google as Student`,
-      type: 'student',
-      extraData: { userId: newUser._id }
+      type: "user_registered",
+      message: `${newUser.name} registered via Google as ${newUser.role}`,
+      userId: newUser._id
     });
 
-    const jwtToken = jwt.sign({ _id: newUser._id, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: "24h" });
+    const jwtToken = jwt.sign({
+      userId: newUser._id,
+      isAdmin: newUser.isAdmin,
+      role: newUser.role
+    }, process.env.JWT_SECRET, { expiresIn: "24h" });
 
     res.status(201).json({
       success: true,
-      message: "Google sign up successful",
-      jwtToken,
-      user: newUser
+      message: "Google signup successful",
+      token: jwtToken,
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        imageUrl: newUser.imageUrl || null
+      }
     });
   } catch (err) {
     console.error("Google Signup Error:", err);
@@ -269,5 +238,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   googleLogin,
-  googleSignup,
+  googleSignup
 };
