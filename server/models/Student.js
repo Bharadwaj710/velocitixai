@@ -10,7 +10,7 @@ const StudentSchema = new Schema({
 
   collegecourse: String, // This can be used to store the course name if needed
   college: String,
-  collegeSlug: { type: String, required: true }, // ✅ NEW FIELD
+  collegeSlug: { type: String, required: false }, // ✅ NEW FIELD
 
   phoneNumber: String,
   address: String,
@@ -26,7 +26,7 @@ const StudentSchema = new Schema({
   name :
   {
     type: String,
-    required: true,
+    required: false,
   },
 });
 

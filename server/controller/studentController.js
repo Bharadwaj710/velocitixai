@@ -91,19 +91,14 @@ exports.saveStudentDetails = async (req, res) => {
 
 exports.getStudentDetails = async (req, res) => {
   try {
-    const { userId } = req.params;
-    if (!userId) return res.status(400).json({ message: "User ID required" });
+    const student = await Student.findOne({ user: req.params.userId }).populate("course");
+    if (!student) return res.status(404).json({ message: "Student not found" });
 
-
-    const student = await Student.findOne({ user: userId });
-
-    if (!student) return res.json({});
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: err.message || "Server error" });
-  }
+    res.status(500).json({ message: "Server error" });
+  }
 };
-
 
 
 exports.enrollCourse = async (req, res) => {

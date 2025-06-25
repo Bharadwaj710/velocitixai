@@ -224,7 +224,7 @@ def recommend_courses(student_id: str):
             "video_feedback": feedback,
             "eye_contact_percent": eye_contact_percent,
             "corrected_level": corrected_level,
-            "recommended_courses": recommended
+            "recommended_courses": recommended,
             "isProcessed": True
         }}
     )
@@ -236,6 +236,6 @@ def recommend_courses(student_id: str):
         "video_feedback": feedback,
         "eye_contact_percent": eye_contact_percent,
         "corrected_level": corrected_level,
-        "recommended_courses": recommended
+        "recommended_courses": recommended,
         "isProcessed": True
     }
