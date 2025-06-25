@@ -1,12 +1,14 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const AuthRouter = require("./routes/auth");
 const collegeRoutes = require("./routes/college");
 const path = require('path');
-require("dotenv").config();
-require("./config/db");
 
+
+require("./config/db");
+const hrRoutes = require('./routes/hr');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -41,5 +43,15 @@ app.listen(PORT, () => {
 
 app.use("/college", collegeRoutes);
 
+
 const assessmentRoutes = require("./routes/careerAssessment");
 app.use("/api/assessments", assessmentRoutes);
+
+app.use('/api/hr', hrRoutes);
+app.use("/api/college", require("./routes/college"));
+
+require("./models/Student"); // Ensure Student model is registered
+require("./models/HR"); // Ensure HR model is registered
+require("./models/User"); // Ensure User model is registered
+require("./models/Invitation"); // Ensure Invitation model is registered
+

@@ -26,36 +26,61 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   }, []);
-  const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-    if (userData.role === "admin" || userData.isAdmin === true) {
-      navigate("/admin-dashboard");
-    } else {
-      switch (userData.role) {
-        case "hr":
-          navigate("/hr-dashboard");
-          break;
-        case "college":
-          navigate(`/college-dashboard/${userData.collegeSlug}`);
-          break;
-        case "student":
-          localStorage.setItem(
-            "student",
-            JSON.stringify({
-              name: userData.name,
-              email: userData.email,
-              id: userData._id,
-              imageUrl: userData.imageUrl || "",
-            })
-          );
-          navigate("/student/dashboard");
-          break;
-        default:
-          navigate("/");
+ const login = (userData) => {
+  // Basic validation
+  if (!userData || !userData.role || !userData._id) {
+    console.error("Invalid user data received:", userData);
+    alert("Login failed. Please try again.");
+    return;
+  }
+
+  // Save user globally and locally
+  setUser(userData);
+  localStorage.setItem("user", JSON.stringify(userData));
+
+  // Admins (either role or isAdmin)
+  if (userData.role === "admin" || userData.isAdmin === true) {
+    navigate("/admin-dashboard");
+    return;
+  }
+
+  // Handle different roles
+  switch (userData.role) {
+    case "hr":
+      navigate("/hr-dashboard");
+      break;
+
+    case "college":
+      // If no slug → onboarding, else → redirect to their dashboard
+      if (!userData.collegeSlug) {
+        navigate("/college/onboarding");
+      } else {
+        navigate(`/college-dashboard/${userData.collegeSlug}`);
       }
-    }
-  };
+      break;
+
+    case "student":
+      // Store extra student info
+      localStorage.setItem(
+        "student",
+        JSON.stringify({
+          name: userData.name,
+          email: userData.email,
+          id: userData._id,
+          imageUrl: userData.imageUrl || "",
+        })
+      );
+      navigate("/student/dashboard");
+      break;
+
+    default:
+      // Unknown role → fallback
+      console.warn("Unrecognized user role:", userData.role);
+      navigate("/");
+      break;
+  }
+};
+
 
   const logout = () => {
     setUser(null);

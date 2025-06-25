@@ -122,7 +122,7 @@ const Register = () => {
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("token", data.jwtToken);
         handleSuccess(data.message || "Signup successful!");
-        setTimeout(() => navigate("/student-dashboard"), 1500);
+        setTimeout(() => navigate("/student/dashboard"), 1500);
       } else {
         handleError(data.message || "Signup failed");
       }

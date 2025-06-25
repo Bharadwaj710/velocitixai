@@ -13,16 +13,24 @@ exports.saveStudentDetails = async (req, res) => {
       branch,
       yearOfStudy,
       college,
+      collegeSlug,  // ✅ new field
       phoneNumber,
       address,
     } = req.body;
 
-    if (!user || !rollNumber || !collegecourse) {
+
+    if (!user || !rollNumber || !collegecourse || !collegeSlug) {
+
       return res.status(400).json({ message: "Required fields missing" });
     }
 
     // Check if student already exists for this user
     let student = await Student.findOne({ user });
+
+    const User = require("../models/User");
+    const userDoc = await User.findById(user);
+    const userName = userDoc ? userDoc.name : undefined;
+
 
     if (student) {
       // ⚠️ Check if another student has the same roll number
@@ -39,12 +47,18 @@ exports.saveStudentDetails = async (req, res) => {
       student.branch = branch;
       student.yearOfStudy = yearOfStudy;
       student.college = college;
+      student.collegeSlug = collegeSlug;  // ✅ store slug
       student.phoneNumber = phoneNumber;
       student.address = address;
+
+      
+      if (userName) student.name = userName; // auto-fill name
+
       await student.save();
 
       return res.json({ message: "Student details updated", student });
     }
+
 
     // ⚠️ Also check roll number before creating new
     const duplicate = await Student.findOne({ rollNumber });
@@ -55,11 +69,14 @@ exports.saveStudentDetails = async (req, res) => {
     // Create new
     student = new Student({
       user,
+      name: userName,
       rollNumber,
       collegecourse,
+
       branch,
       yearOfStudy,
       college,
+      collegeSlug,  // ✅ store slug
       phoneNumber,
       address,
     });
@@ -74,18 +91,14 @@ exports.saveStudentDetails = async (req, res) => {
 
 exports.getStudentDetails = async (req, res) => {
   try {
-    const { userId } = req.params;
-    if (!userId) return res.status(400).json({ message: "User ID required" });
+    const student = await Student.findOne({ user: req.params.userId }).populate("course");
+    if (!student) return res.status(404).json({ message: "Student not found" });
 
-    const student = await Student.findOne({ user: userId }).populate("course"); 
-
-    if (!student) return res.json({});
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: err.message || "Server error" });
-  }
+    res.status(500).json({ message: "Server error" });
+  }
 };
-
 
 
 exports.enrollCourse = async (req, res) => {
