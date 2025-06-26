@@ -30,6 +30,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import HRProfile from "./pages/hr/Profile";
 import CollegeOnboarding from "./pages/college/CollegeOnboarding";
 import CoursePlayer from './pages/student/CoursePlayer'; // Adjust path if needed
+import MyLearning from "./pages/student/MyLearning";
+import LearningPath from "./pages/student/LearningPath";
 
 
 const AppContent = () => {
@@ -117,6 +119,8 @@ const AppContent = () => {
                   <Route path="courses" element={<StudentCourses />} />
                   <Route path="student/courses" element={<StudentCourses />} />
                   <Route path="CoursePlayer" element={<CoursePlayer />} />
+                  <Route path="my-learning" element={<MyLearning />} />
+                  <Route path="learning-path" element={<LearningPath />} />
                   <Route path="*" element={<StudentDashboard />} />
                   
                 </Routes>

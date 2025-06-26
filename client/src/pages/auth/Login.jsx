@@ -45,6 +45,43 @@ const Login = () => {
       localStorage.setItem('user', JSON.stringify(userToStore));
       localStorage.setItem('token', token);
 
+      // --- Admin-specific: fetch full admin profile and store in localStorage ---
+      if (user.isAdmin) {
+        // Fetch admin profile from backend (ensure token is set)
+        try {
+          const adminRes = await fetch('http://localhost:8080/admin/profile', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (adminRes.ok) {
+            const adminProfile = await adminRes.json();
+            localStorage.setItem('admin', JSON.stringify({
+              name: adminProfile.name,
+              email: adminProfile.email,
+              id: adminProfile._id,
+              imageUrl: adminProfile.imageUrl || ""
+            }));
+          } else {
+            // fallback: store basic info
+            localStorage.setItem('admin', JSON.stringify({
+              name: user.name,
+              email: user.email,
+              id: user._id,
+              imageUrl: user.imageUrl || ""
+            }));
+          }
+        } catch {
+          // fallback: store basic info
+          localStorage.setItem('admin', JSON.stringify({
+            name: user.name,
+            email: user.email,
+            id: user._id,
+            imageUrl: user.imageUrl || ""
+          }));
+        }
+      }
+
       login(userToStore);
       handleSuccess('Login successful!');
     } catch (err) {
@@ -65,13 +102,24 @@ const Login = () => {
       const { success, jwtToken, user } = result;
 
       if (success) {
-        localStorage.setItem('token', jwtToken);
-        localStorage.setItem('admin', JSON.stringify({
+        // Save admin details with name, email, id, and imageUrl
+        if (user.isAdmin) {
+          localStorage.setItem('admin', JSON.stringify({
+            name: user.name,
+            email: user.email,
+            id: user._id,
+            imageUrl: user.imageUrl || ''
+          }));
+        }
+        localStorage.setItem('user', JSON.stringify({
+          id: user._id,
           name: user.name,
           email: user.email,
-          id: user._id,
+          isAdmin: user.isAdmin,
+          role: user.role,
           imageUrl: user.imageUrl || ''
         }));
+        localStorage.setItem('token', jwtToken || token);
         login(user);
         handleSuccess('Google login successful!');
       } else {
