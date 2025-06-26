@@ -1,7 +1,7 @@
 const Student = require("../models/Student");
 const mongoose = require("mongoose");
 const Course = require("../models/Course");
-const CareerAssessment = require("../models/CareerAssessment");
+const CareerAssessment = require("../models/careerAssessment");
 const axios = require("axios");
 
 exports.saveStudentDetails = async (req, res) => {

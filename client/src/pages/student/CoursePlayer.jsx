@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Play, CheckCircle, Menu, X, Clock, FileText } from 'lucide-react';
+import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
 
 const CoursePlayer = () => {
   const [currentLesson, setCurrentLesson] = useState(0);
@@ -80,22 +81,27 @@ const CoursePlayer = () => {
     <div className="flex h-screen bg-gray-50">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <div className={`
+      <div
+        className={`
         fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}
+      >
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 break-words max-w-xs leading-snug truncate lg:truncate-0" style={{whiteSpace: 'normal'}}>
+              <h2
+                className="text-lg font-semibold text-gray-900 break-words max-w-xs leading-snug truncate lg:truncate-0"
+                style={{ whiteSpace: "normal" }}
+              >
                 {courseData.title}
               </h2>
               <button
@@ -118,17 +124,23 @@ const CoursePlayer = () => {
                 </div>
                 <div className="divide-y divide-gray-100">
                   {module.lessons.map((lesson) => {
-                    const lessonIndex = allLessons.findIndex(l => l.id === lesson.id);
+                    const lessonIndex = allLessons.findIndex(
+                      (l) => l.id === lesson.id
+                    );
                     const isActive = lessonIndex === currentLesson;
                     const isLessonCompleted = completedLessons.has(lesson.id);
-                    
+
                     return (
                       <button
                         key={lesson.id}
                         onClick={() => handleLessonClick(lessonIndex)}
                         className={`
                           w-full p-4 text-left hover:bg-blue-50 transition-colors duration-150
-                          ${isActive ? 'bg-blue-100 border-r-4 border-blue-500' : ''}
+                          ${
+                            isActive
+                              ? "bg-blue-100 border-r-4 border-blue-500"
+                              : ""
+                          }
                         `}
                       >
                         <div className="flex items-start space-x-3">
@@ -136,19 +148,28 @@ const CoursePlayer = () => {
                             {isLessonCompleted ? (
                               <CheckCircle className="w-5 h-5 text-green-500" />
                             ) : (
-                              <Play className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <Play
+                                className={`w-5 h-5 ${
+                                  isActive ? "text-blue-600" : "text-gray-400"
+                                }`}
+                              />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className={`
+                            <h4
+                              className={`
                               text-sm font-medium break-words max-w-xs leading-snug
-                              ${isActive ? 'text-blue-900' : 'text-gray-900'}
-                            `} title={lesson.title}>
+                              ${isActive ? "text-blue-900" : "text-gray-900"}
+                            `}
+                              title={lesson.title}
+                            >
                               {lesson.title}
                             </h4>
                             <div className="flex items-center mt-1 space-x-2">
                               <Clock className="w-3 h-3 text-gray-400" />
-                              <span className="text-xs text-gray-500">{lesson.duration}</span>
+                              <span className="text-xs text-gray-500">
+                                {lesson.duration}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -186,11 +207,14 @@ const CoursePlayer = () => {
                 {currentLessonData.moduleTitle} • {currentLessonData.duration}
               </p>
             </div>
-            
+
             {/* Video Player */}
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+            <div
+              className="relative bg-black rounded-lg overflow-hidden"
+              style={{ aspectRatio: "16/9" }}
+            >
               <iframe
-               // src={`https://www.youtube.com/embed/${currentLessonData.videoId}?rel=0&modestbranding=1`}
+                // src={`https://www.youtube.com/embed/${currentLessonData.videoId}?rel=0&modestbranding=1`}
                 src={`https://www.youtube.com/embed/ZxKM3DCV2kE?rel=0&modestbranding=1`}
                 title={currentLessonData.title}
                 className="absolute inset-0 w-full h-full"
@@ -206,16 +230,17 @@ const CoursePlayer = () => {
                 onClick={toggleCompletion}
                 className={`
                   flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors duration-200
-                  ${isCompleted 
-                    ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ${
+                    isCompleted
+                      ? "bg-green-100 text-green-800 hover:bg-green-200"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
                   }
                 `}
               >
                 <CheckCircle className="w-5 h-5" />
-                <span>{isCompleted ? 'Completed' : 'Mark as Completed'}</span>
+                <span>{isCompleted ? "Completed" : "Mark as Completed"}</span>
               </button>
-              
+
               <div className="text-sm text-gray-500">
                 Lesson {currentLesson + 1} of {allLessons.length}
               </div>
@@ -228,12 +253,17 @@ const CoursePlayer = () => {
           <div className="p-4 lg:p-6 h-full flex flex-col">
             <div className="flex items-center space-x-2 mb-4">
               <FileText className="w-5 h-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-900">Transcript</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Transcript
+              </h2>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto space-y-4">
               {transcript.map((item, index) => (
-                <div key={index} className="flex space-x-4 group hover:bg-gray-50 p-3 rounded-lg transition-colors duration-150">
+                <div
+                  key={index}
+                  className="flex space-x-4 group hover:bg-gray-50 p-3 rounded-lg transition-colors duration-150"
+                >
                   <div className="flex-shrink-0">
                     <span className="text-xs font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded">
                       {item.time}
@@ -248,6 +278,7 @@ const CoursePlayer = () => {
           </div>
         </div>
       </div>
+      <ChatAssistant />
     </div>
   );
 };

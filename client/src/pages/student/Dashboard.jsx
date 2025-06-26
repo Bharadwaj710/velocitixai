@@ -52,10 +52,9 @@ const StudentDashboard = () => {
     };
 
     if (user && (user.id || user._id)) {
-  fetchDashboardData();
-}
+      fetchDashboardData();
+    }
   }, []);
-  
 
   if (loading) {
     return (
