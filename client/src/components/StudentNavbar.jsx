@@ -12,6 +12,10 @@ const StudentNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Hide nav links until details are checked (prevents flash on refresh)
+  const [showNavLinks, setShowNavLinks] = useState(false);
+  const [checkingDetails, setCheckingDetails] = useState(true);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
@@ -32,6 +36,44 @@ const StudentNavbar = () => {
     setShowProfileMenu(false);
     navigate("/student/details");
   };
+
+  useEffect(() => {
+    // Only show nav links if student details are filled
+    // (rollNumber, college, collegecourse must exist in studentDoc)
+    const checkStudentDetails = async () => {
+      setCheckingDetails(true);
+      const userObj = JSON.parse(localStorage.getItem("user")) || {};
+      const userId = userObj.id || userObj._id;
+      if (!userId) {
+        setShowNavLinks(false);
+        setCheckingDetails(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/students/details/${userId}`);
+        if (!res.ok) {
+          setShowNavLinks(false);
+          setCheckingDetails(false);
+          return;
+        }
+        const data = await res.json();
+        if (
+          data &&
+          data.rollNumber &&
+          data.college &&
+          data.collegecourse
+        ) {
+          setShowNavLinks(true);
+        } else {
+          setShowNavLinks(false);
+        }
+      } catch {
+        setShowNavLinks(false);
+      }
+      setCheckingDetails(false);
+    };
+    checkStudentDetails();
+  }, [location.pathname]);
 
   const navLinks = [
     { name: "Dashboard", path: "/student/dashboard" },
@@ -60,24 +102,27 @@ const StudentNavbar = () => {
             </span>
           </Link>
         </div>
-        <nav className="hidden md:flex items-center space-x-4">
-          {navLinks.map((link) => (
-            <Link
-              key={link.name}
-              to={link.path}
-              className={`text-sm font-medium px-3 py-2 rounded-lg transition-colors duration-200 ${
-                isActive(link.path)
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-              }`}
-            >
-              {link.name}
-            </Link>
-          ))}
-          <button className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full transition-colors duration-200 active:bg-gray-100">
-            <Bell className="h-5 w-5 md:h-6 md:w-6" />
-          </button>
-        </nav>
+        {/* Prevent nav links flash on refresh */}
+        {showNavLinks && !checkingDetails && (
+          <nav className="hidden md:flex items-center space-x-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                to={link.path}
+                className={`text-sm font-medium px-3 py-2 rounded-lg transition-colors duration-200 ${
+                  isActive(link.path)
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                }`}
+              >
+                {link.name}
+              </Link>
+            ))}
+            <button className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full transition-colors duration-200 active:bg-gray-100">
+              <Bell className="h-5 w-5 md:h-6 md:w-6" />
+            </button>
+          </nav>
+        )}
         <div ref={profileRef} className="relative ml-2">
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -143,7 +188,7 @@ const StudentNavbar = () => {
         </div>
       </div>
       {/* Mobile menu */}
-      {showMobileMenu && (
+      {showMobileMenu && showNavLinks && !checkingDetails && (
         <div className="md:hidden bg-white border-t shadow-lg">
           <nav className="flex flex-col px-4 py-2 space-y-1">
             {navLinks.map((link) => (

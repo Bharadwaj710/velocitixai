@@ -102,14 +102,15 @@ const ProfileSettings = () => {
           imageUrl: res.data.imageUrl || res.data.profilePicture || null,
         })
       );
-     const studentObj = JSON.parse(localStorage.getItem("student")) || {};
+      const studentObj = JSON.parse(localStorage.getItem("student")) || {};
       studentObj.name = res.data.name;
       studentObj.email = res.data.email;
       studentObj.imageUrl = res.data.imageUrl || res.data.profilePicture || null;
       localStorage.setItem("student", JSON.stringify(studentObj));
+      // Always redirect to dashboard after save
       setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+        window.location.href = "/student/dashboard";
+      }, 800);
     } catch (err) {
       toast.error("Failed to update profile");
     }

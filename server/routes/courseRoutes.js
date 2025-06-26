@@ -7,6 +7,7 @@ router.post('/', courseController.createCourse);
 router.get('/', courseController.getCourses);
 router.delete('/:id', courseController.deleteCourse);
 router.put('/:id', courseController.updateCourse);
+router.get('/:id', courseController.getCourseById);
 
 // ✅ Fix: use the actual Course model
 router.get('/:id', async (req, res) => {

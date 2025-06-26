@@ -30,6 +30,23 @@ exports.getCourses = async (req, res) => {
   }
 };
 
+// Get course by ID
+exports.getCourseById = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    res.status(200).json(course);
+  } catch (err) {
+    console.error("Fetch course error:", err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
 // Delete course
 exports.deleteCourse = async (req, res) => {
   try {

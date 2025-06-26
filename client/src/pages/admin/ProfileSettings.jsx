@@ -1,4 +1,4 @@
-  import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
   import axios from 'axios';
   import { ToastContainer, toast } from 'react-toastify';
   import 'react-toastify/dist/ReactToastify.css';
@@ -78,9 +78,9 @@
         localStorage.setItem(
           'admin',
           JSON.stringify({
-            id: res.data._id,
             name: res.data.name,
             email: res.data.email,
+            id: res.data._id,
             imageUrl: res.data.imageUrl || null
           })
         );
@@ -200,4 +200,4 @@
 
   export default ProfileSettings;
 // This code defines a ProfileSettings component for an admin user to manage their profile settings.
-// It allows the admin to update their profile picture, name, email, and password.  
+// It allows the admin to update their profile picture, name, email, and password.
