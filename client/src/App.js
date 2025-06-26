@@ -29,15 +29,16 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import HRProfile from "./pages/hr/Profile";
 import CollegeOnboarding from "./pages/college/CollegeOnboarding";
+
 import CoursePlayer from './pages/student/CoursePlayer'; // Adjust path if needed
 import MyLearning from "./pages/student/MyLearning";
 import LearningPath from "./pages/student/LearningPath";
 
 
+
 const AppContent = () => {
   const location = useLocation();
 
-  // List of routes where Navbar should be hidden
   const hideNavbarRoutes = [
     "/admin-dashboard",
     "/hr",
@@ -100,6 +101,9 @@ const AppContent = () => {
           />
           <Route path="/college/onboarding" element={<CollegeOnboarding />} />
 
+          {/* ✅ Global course player route (moved here!) */}
+          <Route path="/course-player/:id" element={<CoursePlayer />} />
+
           {/* Student routes */}
           <Route
             path="/student/*"
@@ -117,12 +121,13 @@ const AppContent = () => {
                   />
                   <Route path="details" element={<StudentDetails />} />
                   <Route path="courses" element={<StudentCourses />} />
+
                   <Route path="student/courses" element={<StudentCourses />} />
                   <Route path="CoursePlayer" element={<CoursePlayer />} />
                   <Route path="my-learning" element={<MyLearning />} />
                   <Route path="learning-path" element={<LearningPath />} />
+
                   <Route path="*" element={<StudentDashboard />} />
-                  
                 </Routes>
               </ProtectedRoute>
             }

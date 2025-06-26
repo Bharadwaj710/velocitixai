@@ -1,25 +1,48 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const ResourceSchema = new mongoose.Schema({
-  url: String,
-  name: String,
-}, { _id: false }); // avoid extra _id for subdocs
-
-const ModuleSchema = new mongoose.Schema({
-  title: String,
-  content: String,
-  resources: [ResourceSchema], // ✅ Accepts array of {url, name}
+const lessonSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+  videoUrl: {
+    type: String,
+    required: true,
+  },
+  duration: {
+    type: String, // Optional, e.g., "12:34"
+  }
 });
 
-const CourseSchema = new mongoose.Schema({
-  title: { type: String, required: true, unique: true },
+const moduleSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+  content: {
+    type: String, // Description of what the module covers
+  },
+  lessons: [lessonSchema] // 🔥 Each module now has multiple lessons!
+});
+
+const courseSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
   description: String,
   durationWeeks: Number,
-  modules: [ModuleSchema],
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'user',
-  },
+  level: String,
+  domain: String,
+  idealRoles: [String],
+  skillsCovered: [String],
+  challengesAddressed: [String],
+  learningStyleFit: [String],
+  timeCommitmentRecommended: String,
+  modules: [moduleSchema] // ✅ List of modules (with lessons inside!)
+}, {
+  timestamps: true
 });
 
-module.exports = mongoose.model("course", CourseSchema);
+const Course = mongoose.model('Course', courseSchema);
+module.exports = Course;
