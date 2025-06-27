@@ -8,7 +8,7 @@ const path = require('path');
 const progressRoutes = require('./routes/progressRoutes');
 
 require("./config/db");
-const hrRoutes = require('./routes/hr');
+const hrRoutes = require("./routes/hr");
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -16,7 +16,7 @@ app.use("/admin", require("./routes/admin"));
 app.use("/api/users", require("./routes/user"));
 app.use("/api/courses", require("./routes/courseRoutes"));
 app.use("/api/students", require("./routes/student"));
-app.use('/api/upload', require("./routes/upload"));
+app.use("/api/upload", require("./routes/upload"));
 //app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const recommendationsRoute = require("./routes/recommendations");
@@ -43,11 +43,10 @@ app.listen(PORT, () => {
 
 app.use("/college", collegeRoutes);
 
-
 const assessmentRoutes = require("./routes/careerAssessment");
 app.use("/api/assessments", assessmentRoutes);
 
-app.use('/api/hr', hrRoutes);
+app.use("/api/hr", hrRoutes);
 app.use("/api/college", require("./routes/college"));
 
 require("./models/Student"); // Ensure Student model is registered
@@ -55,3 +54,5 @@ require("./models/HR"); // Ensure HR model is registered
 require("./models/User"); // Ensure User model is registered
 require("./models/Invitation"); // Ensure Invitation model is registered
 
+const chatRoutes = require("./routes/chat");
+app.use("/api/chat", chatRoutes);

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Play, CheckCircle, Menu, X, Clock } from 'lucide-react';
+import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
+import { Play, CheckCircle, Menu, X, Clock, FileText } from 'lucide-react';
 import AuthContext from '../../context/AuthContext'; // adjust if different
 
 const CoursePlayer = () => {
@@ -84,10 +85,12 @@ const CoursePlayer = () => {
         />
       )}
 
+
       <div className={`
         fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}
+      >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 break-words max-w-xs">
@@ -122,7 +125,11 @@ const CoursePlayer = () => {
                             {isLessonCompleted ? (
                               <CheckCircle className="w-5 h-5 text-green-500" />
                             ) : (
-                              <Play className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <Play
+                                className={`w-5 h-5 ${
+                                  isActive ? "text-blue-600" : "text-gray-400"
+                                }`}
+                              />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -131,7 +138,9 @@ const CoursePlayer = () => {
                             </h4>
                             <div className="flex items-center mt-1 space-x-2">
                               <Clock className="w-3 h-3 text-gray-400" />
-                              <span className="text-xs text-gray-500">{lesson.duration}</span>
+                              <span className="text-xs text-gray-500">
+                                {lesson.duration}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -183,7 +192,7 @@ const CoursePlayer = () => {
                 ${isCompleted ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
               >
                 <CheckCircle className="w-5 h-5" />
-                <span>{isCompleted ? 'Completed' : 'Mark as Completed'}</span>
+                <span>{isCompleted ? "Completed" : "Mark as Completed"}</span>
               </button>
 
               <div className="text-sm text-gray-500">
@@ -197,6 +206,7 @@ const CoursePlayer = () => {
           <p className="text-sm italic">Transcripts will be available soon...</p>
         </div>
       </div>
+      <ChatAssistant />
     </div>
   );
 };
