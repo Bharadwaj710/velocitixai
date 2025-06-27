@@ -89,19 +89,24 @@ const StudentDetails = () => {
           .filter(Boolean),
         collegeSlug: slug, // 🆕 Add generated slug
       };
-
+      
       await axios.post("/api/students/details", payload, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
-
+     
       // Optionally update localStorage.user with new slug if you want dynamic routing later
       const updatedUser = { ...user, collegeSlug: slug };
       localStorage.setItem("user", JSON.stringify(updatedUser));
 
       toast.success("Details saved successfully");
-    } catch (err) {
+      // Always redirect to dashboard after save
+      setTimeout(() => {
+        navigate("/student/dashboard");
+      }, 800);
+    } 
+    catch (err) {
       toast.error(err?.response?.data?.message || "Submission failed");
     } finally {
       setSubmitting(false);
