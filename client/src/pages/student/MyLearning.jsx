@@ -17,6 +17,7 @@ const MyLearning = () => {
         if (!Array.isArray(courses)) courses = courses ? [courses] : [];
         setEnrolledCourses(courses);
       } catch (err) {
+        console.error("Failed to load enrolled courses:", err);
         setEnrolledCourses([]);
       } finally {
         setLoading(false);
@@ -29,7 +30,7 @@ const MyLearning = () => {
     if (course && typeof course.progressPercent === "number") {
       return course.progressPercent;
     }
-    return course && course.started ? 50 : 0;
+    return course && course.started ? 50 : 0; // placeholder logic
   };
 
   const getCourseStatus = (course) => {
@@ -40,8 +41,11 @@ const MyLearning = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-8 max-w-5xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-800 mb-8">My Learning</h1>
+
       {loading ? (
-        <div className="flex items-center justify-center min-h-[200px]">Loading your courses...</div>
+        <div className="flex items-center justify-center min-h-[200px]">
+          Loading your courses...
+        </div>
       ) : enrolledCourses.length === 0 ? (
         <div className="text-gray-500 italic">
           You have not enrolled in any courses yet.
@@ -55,26 +59,32 @@ const MyLearning = () => {
             >
               <h3
                 className="text-lg font-bold text-blue-700 mb-1 cursor-pointer hover:underline"
-                onClick={() => navigate("/student/learning-path", { state: { courseId: course._id } })}
+                onClick={() => navigate(`/course-player/${course._id}`)}
               >
                 {course.title}
               </h3>
+
               <p className="text-gray-600 text-sm line-clamp-2 mb-2">
                 {course.description}
               </p>
+
               <div className="mb-2">
                 <span className="font-medium text-gray-600">Level:</span>{" "}
-                <span className="text-gray-900">{course.level || "Beginner"}</span>
+                <span className="text-gray-900">
+                  {course.level || "Beginner"}
+                </span>
               </div>
+
               <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
                 <div
                   className="h-2.5 rounded-full bg-gradient-to-r from-green-400 to-blue-500"
                   style={{ width: `${getCourseProgress(course)}%` }}
                 ></div>
               </div>
+
               <button
                 className="mt-auto bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
-                onClick={() => navigate("/student/CoursePlayer", { state: { courseId: course._id } })}
+                onClick={() => navigate(`/course-player/${course._id}`)}
               >
                 {getCourseStatus(course)}
               </button>
@@ -87,4 +97,3 @@ const MyLearning = () => {
 };
 
 export default MyLearning;
-
