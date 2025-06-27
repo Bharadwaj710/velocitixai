@@ -25,16 +25,15 @@ import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
 import StudentDetails from "./pages/student/StudentDetails";
 import StudentCourses from "./pages/student/StudentCourses";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import HRProfile from "./pages/hr/Profile";
 import CollegeOnboarding from "./pages/college/CollegeOnboarding";
-
+import { ChatProvider } from "./context/ChatContext";
+import ChatAssistant from "./components/ChatAssistant/ChatAssistant";
 import CoursePlayer from './pages/student/CoursePlayer'; // Adjust path if needed
 import MyLearning from "./pages/student/MyLearning";
 import LearningPath from "./pages/student/LearningPath";
-
-
 
 const AppContent = () => {
   const location = useLocation();
@@ -50,7 +49,9 @@ const AppContent = () => {
   const shouldHideNavbar = hideNavbarRoutes.some((path) =>
     location.pathname.startsWith(path)
   );
-
+  const showChatbot = ["/student/CoursePlayer"].includes(
+    location.pathname
+  );
   return (
     <>
       {!shouldHideNavbar && <Navbar />}
@@ -134,6 +135,7 @@ const AppContent = () => {
             }
           />
         </Routes>
+        {showChatbot && <ChatAssistant />}
       </main>
     </>
   );
@@ -144,7 +146,9 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <Router>
         <AuthProvider>
-          <AppContent />
+          <ChatProvider>
+            <AppContent />
+          </ChatProvider>
           <Toaster position="top-right" />
           <ToastContainer position="top-right" autoClose={3000} />
         </AuthProvider>

@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Play, CheckCircle, Menu, X, Clock } from 'lucide-react';
-import AuthContext from '../../context/AuthContext';
 import StudentNavbar from '../../components/StudentNavbar'; // ✅ Navbar added
+
+import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
+import { Play, CheckCircle, Menu, X, Clock, FileText } from 'lucide-react';
+import AuthContext from '../../context/AuthContext'; // adjust if different
+
 
 const CoursePlayer = () => {
   const { id: courseId } = useParams();
@@ -76,6 +79,7 @@ const CoursePlayer = () => {
   };
 
   return (
+
     <div className="min-h-screen bg-gray-50">
       {/* ✅ Navbar on top */}
       <StudentNavbar />
@@ -139,6 +143,7 @@ const CoursePlayer = () => {
                                 <Clock className="w-3 h-3 text-gray-400" />
                                 <span className="text-xs text-gray-500">{lesson.duration}</span>
                               </div>
+
                             </div>
                           </div>
                         </button>
@@ -170,6 +175,7 @@ const CoursePlayer = () => {
                   {currentLessonData.moduleTitle} • {currentLessonData.duration}
                 </p>
               </div>
+
 
               <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
                 <iframe
@@ -204,6 +210,7 @@ const CoursePlayer = () => {
           </div>
         </div>
       </div>
+      <ChatAssistant />
     </div>
   );
 };
