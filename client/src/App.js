@@ -43,6 +43,7 @@ const AppContent = () => {
     "/hr",
     "/college-dashboard",
     "/student",
+    "/course-player",
   ];
 
   const shouldHideNavbar = hideNavbarRoutes.some((path) =>
