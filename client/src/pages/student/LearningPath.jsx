@@ -176,6 +176,32 @@ const LearningPath = () => {
               </ul>
             </div>
           )}
+          {/* Lessons */}
+          {modules[activeModuleIdx]?.lessons && modules[activeModuleIdx].lessons.length > 0 && (
+            <div className="mb-4">
+              <div className="font-semibold text-gray-700 mb-1">Lessons:</div>
+              <ul className="list-disc list-inside space-y-1">
+                {modules[activeModuleIdx].lessons.map((lesson, i) => (
+                  <li key={lesson.videoUrl || i}>
+                    <span className="font-medium">{lesson.title}</span>
+                    {lesson.timestamp && (
+                      <span className="text-xs text-gray-500 ml-2">({lesson.timestamp})</span>
+                    )}
+                    {lesson.videoUrl && (
+                      <a
+                        href={lesson.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline text-xs ml-2"
+                      >
+                        Watch
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <button
             className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition"
             onClick={() =>

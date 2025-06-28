@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
 
 const StudentCourses = () => {
   const user = JSON.parse(localStorage.getItem("user")) || {};
@@ -26,6 +27,7 @@ const StudentCourses = () => {
     "Thank you for being patient. Smart things take time! ⏳",
   ];
   const [isProcessed, setIsProcessed] = useState(true); // assume processed by default
+  const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
   const fieldLabels = {
@@ -38,34 +40,51 @@ const StudentCourses = () => {
   };
 
   // Fetch enrolled and recommended courses
-  useEffect(() => {
-    const fetchCourses = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        // Fetch recommended courses and profile analysis
-        const recRes = await axios.get(`/api/recommendations/${studentId}`);
-        setProfile(recRes.data.profile_analysis || null);
-        setRecommendedCourses(recRes.data.recommended_courses || []);
-        setIsProcessed(recRes.data.isProcessed !== false);
-        // Fetch enrolled courses and student doc
-        const enrollRes = await axios.get(
-          `/api/students/enrollments/${studentId}`
-        );
-        setEnrolledCourses(enrollRes.data || []);
+  const fetchCourses = async (forceRefresh = false) => {
+    setLoading(true);
+    setError("");
+    try {
+      // Fetch recommended courses and profile analysis
+      const recRes = await axios.get(
+        `/api/recommendations/${studentId}${forceRefresh ? "?refresh=1" : ""}`
+      );
+      setProfile(recRes.data.profile_analysis || null);
 
-        // Fetch student doc to check if details are incomplete
-        const studentRes = await axios.get(
-          `/api/students/details/${studentId}`
-        );
-        setStudentDoc(studentRes.data || null);
-      } catch (err) {
-        setError(err.response?.data?.error || "Failed to fetch courses.");
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Always fetch enrolled courses and merge with recommendations
+      const enrollRes = await axios.get(
+        `/api/students/enrollments/${studentId}`
+      );
+      const enrolled = enrollRes.data || [];
+      setEnrolledCourses(enrolled);
+
+      // Merge: show all recommended + all enrolled (no duplicates)
+      const recommended = recRes.data.recommended_courses || [];
+      // Add enrolled courses not present in recommended
+      const recommendedIds = new Set(recommended.map(c => (c._id || c)));
+      const mergedCourses = [
+        ...recommended,
+        ...enrolled.filter(c => !recommendedIds.has(c._id || c))
+      ];
+      setRecommendedCourses(mergedCourses);
+
+      setIsProcessed(recRes.data.isProcessed !== false);
+
+      // Fetch student doc to check if details are incomplete
+      const studentRes = await axios.get(
+        `/api/students/details/${studentId}`
+      );
+      setStudentDoc(studentRes.data || null);
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to fetch courses.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     if (studentId) fetchCourses();
+    // eslint-disable-next-line
   }, [studentId]);
 
   useEffect(() => {
@@ -168,30 +187,36 @@ const StudentCourses = () => {
     }
   };
 
+  // Refresh recommendations handler
+  const handleRefreshRecommendations = async () => {
+    setRefreshing(true);
+    await fetchCourses(true);
+  };
+
   if (!studentId) {
     setError("User not found. Please log in again.");
     setLoading(false);
     return null;
   }
 
-  if (loading) {
-      // Video still processing: show fun rotating messages + spinner
-      return (
-        <div className="min-h-screen flex flex-col justify-center items-center bg-white  text-gray-700  px-4 text-center">
-          {/* Spinner */}
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-opacity-50 mb-6"></div>
+  if (loading || refreshing) {
+    // Video still processing: show fun rotating messages + spinner
+    return (
+      <div className="min-h-screen flex flex-col justify-center items-center bg-white  text-gray-700  px-4 text-center">
+        {/* Spinner */}
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-opacity-50 mb-6"></div>
 
-          {/* Rotating message */}
-          <div className="text-xl md:text-2xl font-semibold animate-pulse">
-            {loadingMessages[loadingMessageIndex]}
-          </div>
-
-          {/* Static fallback */}
-          <div className="text-sm text-gray-500  mt-4">
-            If this takes long, please come back in 2–3 minutes.
-          </div>
+        {/* Rotating message */}
+        <div className="text-xl md:text-2xl font-semibold animate-pulse">
+          {loadingMessages[loadingMessageIndex]}
         </div>
-      );
+
+        {/* Static fallback */}
+        <div className="text-sm text-gray-500  mt-4">
+          If this takes long, please come back in 2–3 minutes.
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -242,9 +267,20 @@ const StudentCourses = () => {
         <div className="w-full md:w-3/4 flex flex-col gap-8 order-0 md:order-1">
           {/* Recommended Courses */}
           <section>
-            <h2 className="text-xl font-semibold mb-4 text-blue-700">
-              Recommended Courses
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-blue-700">
+                Recommended Courses
+              </h2>
+              <button
+                onClick={handleRefreshRecommendations}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-3 py-1.5 rounded bg-blue-100 text-blue-700 font-medium hover:bg-blue-200 transition disabled:opacity-60"
+                title="Refresh Recommendations"
+              >
+                <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
+            </div>
             {recommendedCourses.length === 0 ? (
               <div className="text-gray-500 italic mb-4">
                 No recommendations found. Try updating your assessment.
@@ -269,6 +305,28 @@ const StudentCourses = () => {
                         >
                           {course.title}
                         </h3>
+                        {/* --- Show match score and label --- */}
+                        <div className="flex items-center gap-3 mb-1">
+                          {/* Remove % from match score */}
+                          {typeof course.match_score === "number" && (
+                            <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                              Match: {course.match_score}
+                            </span>
+                          )}
+                          {course.recommendation_label && (
+                            <span className={`text-xs font-semibold px-2 py-1 rounded
+                              ${
+                                course.recommendation_label === "Highly Recommended"
+                                  ? "bg-green-100 text-green-700"
+                                  : course.recommendation_label === "Recommended"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-gray-100 text-gray-700"
+                              }
+                            `}>
+                              {course.recommendation_label}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-gray-700 mb-2 line-clamp-2">
                           {course.description}
                         </p>
