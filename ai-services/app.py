@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
 from recommend import recommend_courses
 from career_video_analysis import analyze_career_video
+from student_chatbot import chatbot_bp  # 👈 Import Blueprint
 import google.generativeai as genai
 
 app = Flask(__name__)
+app.register_blueprint(chatbot_bp)  # 👈 Register Blueprint
 
 # --- Add CORS headers for all responses ---
 @app.after_request

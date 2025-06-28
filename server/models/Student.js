@@ -4,7 +4,7 @@ const Schema = mongoose.Schema;
 const StudentSchema = new Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
   rollNumber: { type: String, required: false, unique: true },
-  course: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }], // <-- Fix ref to match model name
+  course: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
   branch: String,
   yearOfStudy: Number,
 
