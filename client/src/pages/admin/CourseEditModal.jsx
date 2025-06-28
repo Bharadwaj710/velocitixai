@@ -142,39 +142,39 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                 onChange={e => handleModuleChange(idx, 'content', e.target.value)}
               />
 
-              {mod.resources.map((res, rIdx) => {
-                const isCloudinaryPDF = res.name?.toLowerCase().endsWith('.pdf');
-                return (
-                  <div key={rIdx} className="flex items-center gap-2 mb-1">
-                    {!isCloudinaryPDF ? (
-                      <>
+              {/* Lessons */}
+              <div className="mt-2">
+                <h5 className="font-semibold mb-1">Lessons:</h5>
+                {mod.lessons && mod.lessons.length > 0 ? (
+                  <ul className="space-y-1">
+                    {mod.lessons.map((lesson, lIdx) => (
+                      <li key={lIdx} className="flex items-center gap-2">
                         <input
-                          className="border p-2 w-full"
-                          value={res.url}
-                          placeholder="Resource URL"
-                          onChange={e => handleResourceChange(idx, rIdx, 'url', e.target.value)}
+                          className="border p-1 text-xs w-1/2"
+                          value={lesson.title}
+                          placeholder="Lesson Title"
+                          onChange={e => handleLessonChange(idx, lIdx, 'title', e.target.value)}
                         />
-                        <button onClick={() => removeResource(idx, rIdx)} className="text-red-600">✕</button>
-                      </>
-                    ) : (
-                      <div className="flex justify-between items-center w-full">
-                        <p className="text-blue-700">📄 {res.name}</p>
-                        <button onClick={() => removeResource(idx, rIdx)} className="text-red-600 text-sm">✕</button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              <button onClick={() => addResource(idx)} className="text-blue-600 text-sm mt-1">+ Add Resource</button>
-
-              <input
-                type="file"
-                accept="application/pdf"
-                className="mt-2"
-                onChange={e => handlePDFUpload(idx, e.target.files[0])}
-              />
-
+                        <input
+                          className="border p-1 text-xs w-1/4"
+                          value={lesson.timestamp}
+                          placeholder="Timestamp (optional)"
+                          onChange={e => handleLessonChange(idx, lIdx, 'timestamp', e.target.value)}
+                        />
+                        <button
+                          className="text-xs text-gray-500"
+                          onClick={() => removeLesson(idx, lIdx)}
+                        >×</button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-xs text-gray-500">No lessons.</div>
+                )}
+                <button className="text-blue-600 text-xs mt-1" onClick={() => addLesson(idx)}>
+                  + Add Lesson
+                </button>
+              </div>
             </div>
           ))}
 
@@ -182,7 +182,6 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
         </div>
         {/* Save button always visible at bottom */}
         <div className="text-right mt-4">
-
           <button
             onClick={handleSave}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
