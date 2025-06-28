@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const ResourceSchema = new mongoose.Schema({
   url: String,
@@ -9,10 +9,14 @@ const ModuleSchema = new mongoose.Schema({
   title: String,
   content: String,
   resources: [ResourceSchema],
+
 });
 
-const CourseSchema = new mongoose.Schema({
-  title: { type: String, required: true, unique: true },
+const courseSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
   description: String,
   durationWeeks: Number,
   modules: [ModuleSchema],
@@ -28,4 +32,4 @@ const CourseSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model("course", CourseSchema);
-module.exports = mongoose.model("course", CourseSchema);
+

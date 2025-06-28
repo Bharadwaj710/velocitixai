@@ -8,8 +8,12 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     durationWeeks: course.durationWeeks || '',
     modules: course.modules.map(mod => ({
       ...mod,
-      resources: mod.resources || [],
-      pdfs: []
+// Frontend
+      //resources: mod.resources || [],
+     // pdfs: []
+//=======
+      lessons: mod.lessons || [],
+      pdfs: [] // for future use
     }))
   });
 
@@ -29,16 +33,16 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
-  const handleResourceChange = (modIdx, resIdx, field, value) => {
+  const handleLessonChange = (modIdx, lessonIdx, field, value) => {
     const updated = [...editedCourse.modules];
-    updated[modIdx].resources[resIdx][field] = value;
+    updated[modIdx].lessons[lessonIdx][field] = value;
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
   const addModule = () => {
     setEditedCourse({
       ...editedCourse,
-      modules: [...editedCourse.modules, { title: '', content: '', resources: [], pdfs: [] }]
+      modules: [...editedCourse.modules, { title: '', content: '', lessons: [], pdfs: [] }]
     });
   };
 
@@ -47,47 +51,20 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
-  const addResource = (modIdx) => {
+  const addLesson = (modIdx) => {
     const updated = [...editedCourse.modules];
-    updated[modIdx].resources.push({ url: '', name: '' });
+    updated[modIdx].lessons.push({ title: '', videoUrl: '', duration: '' });
     setEditedCourse({ ...editedCourse, modules: updated });
   };
 
-  const removeResource = (modIdx, resIdx) => {
+  const removeLesson = (modIdx, lessonIdx) => {
     const updated = [...editedCourse.modules];
-    updated[modIdx].resources = updated[modIdx].resources.filter((_, i) => i !== resIdx);
+    updated[modIdx].lessons = updated[modIdx].lessons.filter((_, i) => i !== lessonIdx);
     setEditedCourse({ ...editedCourse, modules: updated });
   };
-
-  const handlePDFUpload = (modIdx, file) => {
-    const updated = [...editedCourse.modules];
-    updated[modIdx].pdfs.push(file);
-    setEditedCourse({ ...editedCourse, modules: updated });
-  };
-
 
   const handleSave = async () => {
     const newModules = [...editedCourse.modules];
-
-    for (let i = 0; i < newModules.length; i++) {
-      const mod = newModules[i];
-
-      if (mod.pdfs?.length) {
-        for (const file of mod.pdfs) {
-          const formData = new FormData();
-          formData.append('pdf', file);
-          const res = await axios.post('http://localhost:8080/api/upload/pdf', formData);
-          mod.resources.push({ url: res.data.url, name: res.data.name });
-        }
-      }
-
-      mod.resources = mod.resources.map(res => ({
-        url: res.url,
-        name: res.name || res.url.split('/').pop()
-      }));
-
-      delete mod.pdfs;
-    }
 
     const payload = {
       ...editedCourse,
@@ -197,6 +174,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                 className="mt-2"
                 onChange={e => handlePDFUpload(idx, e.target.files[0])}
               />
+
             </div>
           ))}
 
@@ -204,6 +182,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
         </div>
         {/* Save button always visible at bottom */}
         <div className="text-right mt-4">
+
           <button
             onClick={handleSave}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
