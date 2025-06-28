@@ -1,28 +1,15 @@
 const mongoose = require('mongoose');
 
-const lessonSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-  },
-  videoUrl: {
-    type: String,
-    required: true,
-  },
-  duration: {
-    type: String, // Optional, e.g., "12:34"
-  }
-});
+const ResourceSchema = new mongoose.Schema({
+  url: String,
+  name: String,
+}, { _id: false });
 
-const moduleSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-  },
-  content: {
-    type: String, // Description of what the module covers
-  },
-  lessons: [lessonSchema] // 🔥 Each module now has multiple lessons!
+const ModuleSchema = new mongoose.Schema({
+  title: String,
+  content: String,
+  resources: [ResourceSchema],
+
 });
 
 const courseSchema = new mongoose.Schema({
@@ -32,17 +19,17 @@ const courseSchema = new mongoose.Schema({
   },
   description: String,
   durationWeeks: Number,
-  level: String,
-  domain: String,
-  idealRoles: [String],
-  skillsCovered: [String],
-  challengesAddressed: [String],
-  learningStyleFit: [String],
-  timeCommitmentRecommended: String,
-  modules: [moduleSchema] // ✅ List of modules (with lessons inside!)
-}, {
-  timestamps: true
+  modules: [ModuleSchema],
+  level: { type: String, enum: ["Beginner", "Intermediate", "Proficient"], default: "Beginner" },
+  domain: { type: String, required: true }, // AI-required
+  idealRoles: [{ type: String, required: true }], // AI-required
+  skillsCovered: [{ type: String, required: true }], // AI-required
+  challengesAddressed: [{ type: String, required: true }], // AI-required
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'user',
+  },
 });
 
-const Course = mongoose.model('Course', courseSchema);
-module.exports = Course;
+module.exports = mongoose.model("course", CourseSchema);
+

@@ -36,9 +36,9 @@ const DOMAIN_QUESTIONS = {
     },
     {
       questionNumber: 6,
-      questionText: "How do you prefer learning technical skills?",
+      questionText: "What is your preferred project type or learning activity in this domain?",
       questionType: "mcq",
-      options: ["Videos", "Hands-on", "Peer learning", "Reading"],
+      options: ["Build a project", "Case studies", "Group work", "Reading", "Other"],
     },
     {
       questionNumber: 7,
@@ -84,9 +84,9 @@ const DOMAIN_QUESTIONS = {
     },
     {
       questionNumber: 6,
-      questionText: "Which environment do you prefer working in?",
+      questionText: "What is your preferred project type or learning activity in this domain?",
       questionType: "mcq",
-      options: ["Clinical", "Research", "Community", "Remote care"],
+      options: ["Clinical project", "Research", "Community work", "Reading", "Other"],
     },
     {
       questionNumber: 7,
@@ -131,9 +131,9 @@ const DOMAIN_QUESTIONS = {
     },
     {
       questionNumber: 6,
-      questionText: "How do you prefer learning business topics?",
+      questionText: "What is your preferred project type or learning activity in this domain?",
       questionType: "mcq",
-      options: ["Case studies", "Projects", "Group tasks", "Lectures"],
+      options: ["Case studies", "Projects", "Group tasks", "Lectures", "Other"],
     },
     {
       questionNumber: 7,
@@ -179,10 +179,9 @@ const DOMAIN_QUESTIONS = {
     },
     {
       questionNumber: 6,
-      questionText:
-        "How do you usually gain creative inspiration or improve skills?",
+      questionText: "What is your preferred project type or learning activity in this domain?",
       questionType: "mcq",
-      options: ["Tutorials", "Practice", "Collaboration", "Feedback"],
+      options: ["Tutorials", "Practice", "Collaboration", "Feedback", "Other"],
     },
     {
       questionNumber: 7,
@@ -229,10 +228,9 @@ const DOMAIN_QUESTIONS = {
     },
     {
       questionNumber: 6,
-      questionText:
-        "Which method suits you best for skill-building in this field?",
+      questionText: "What is your preferred project type or learning activity in this domain?",
       questionType: "mcq",
-      options: ["Roleplay", "Peer mentoring", "Webinars", "Field work"],
+      options: ["Roleplay", "Peer mentoring", "Webinars", "Field work", "Other"],
     },
     {
       questionNumber: 7,
