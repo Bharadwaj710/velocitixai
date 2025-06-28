@@ -21,6 +21,8 @@ router.put("/change-password/:id", changePassword);
 router.delete("/:id", deleteUser);
 // PUT: Upload profile image to Cloudinary
 router.put("/upload-profile/:id", multer.single("profilePicture"), uploadProfileImage);
-// PUT: Update user profile (name, email, password, etc.)
+// PUT: Update user profile (name, email, password, role, etc.)
+// Accept both /:id and /profile/:id for backward compatibility
+router.put("/:id", multer.single("profilePicture"), updateUser);
 router.put("/profile/:id", multer.single("profilePicture"), updateUser);
 module.exports = router;

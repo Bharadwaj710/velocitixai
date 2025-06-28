@@ -33,15 +33,23 @@ const updateUser = async (req, res) => {
       updateFields.profilePicture = result.secure_url;
     }
 
-    const updatedUser = await User.findByIdAndUpdate(id, updateFields, {
-      new: true,
-      runValidators: true,
-    }).select("-password");
+    // Defensive: check if id is a valid ObjectId
+    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
 
-    if (!updatedUser) {
+    // Defensive: ensure user exists before updating
+    const user = await User.findById(id);
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Actually update the user
+    Object.assign(user, updateFields);
+    await user.save();
+
+    // Return updated user (without password)
+    const updatedUser = await User.findById(id).select("-password");
     res.status(200).json(updatedUser);
   } catch (error) {
     console.error("Update Error:", error);

@@ -58,7 +58,12 @@ exports.getCourses = async (req, res) => {
 // Get course by ID
 exports.getCourseById = async (req, res) => {
   try {
-    const course = await Course.findById(req.params.id);
+    const { id } = req.params;
+    // Defensive: check for valid ObjectId and not undefined
+    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: 'Invalid course id' });
+    }
+    const course = await Course.findById(id);
 
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
