@@ -1,286 +1,236 @@
-import React, { useState, useEffect,useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { fetchCourses, createCourse, deleteCourse, updateCourse } from '../../services/api';
-import CourseEditModal from './CourseEditModal';
 import { toast } from 'react-toastify';
+import CourseEditModal from './CourseEditModal'; // Make sure the path is correct
 
 const CourseManager = () => {
-  const [courses, setCourses] = useState([]);
-  const [editCourse, setEditCourse] = useState(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
     durationWeeks: '',
-    modules: [
-      { title: '', content: '', resources: [], pdfs: [] }
-    ]
+    level: '',
+    domain: '',
+    idealRoles: [],
+    skillsCovered: [],
+    challengesAddressed: [],
+    learningStyleFit: [],
+    timeCommitmentRecommended: '',
+    weeks: [],
   });
 
-  const loadCourses = async () => {
-    const res = await fetchCourses();
-    setCourses(res.data);
-  };
+  const [courses, setCourses] = useState([]);
+  const [editingCourse, setEditingCourse] = useState(null);
 
+  // Load courses on mount
   useEffect(() => {
-    loadCourses();
+    fetchCourses();
   }, []);
 
-  const handleCreate = async () => {
-    if (!form.title || !form.description || !form.durationWeeks) {
-      toast.error("Title, Description, and Duration are required.");
-      return;
-    }
-
-    for (let i = 0; i < form.modules.length; i++) {
-      const mod = form.modules[i];
-      if (!mod.title || !mod.content) {
-        toast.error(`Module ${i + 1}: Title and Content are required.`);
-        return;
-      }
-    }
-
+  const fetchCourses = async () => {
     try {
-      const newModules = [...form.modules];
+      const res = await axios.get('/api/courses');
+      setCourses(res.data);
+    } catch (err) {
+      console.error('Failed to fetch courses', err);
+    }
+  };
 
-      for (let i = 0; i < newModules.length; i++) {
-        const module = newModules[i];
-        if (module.pdfs?.length > 0) {
-          for (const file of module.pdfs) {
-            const pdfForm = new FormData();
-            pdfForm.append('pdf', file);
-            const res = await axios.post('http://localhost:8080/api/upload/pdf', pdfForm, {
-              headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            module.resources.push({ url: res.data.url, name: res.data.name });
-          }
-        }
-        delete module.pdfs; // Remove temp files before saving
-      }
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'durationWeeks') {
+      const numWeeks = parseInt(value) || 0;
+      const newWeeks = Array.from({ length: numWeeks }, (_, index) => ({
+        weekNumber: index + 1,
+        modules: [],
+      }));
+      setForm({ ...form, durationWeeks: value, weeks: newWeeks });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
+  };
 
-      const payload = {
-        ...form,
-        durationWeeks: parseInt(form.durationWeeks, 10),
-        modules: newModules,
-      };
+  const addModule = (weekIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules.push({
+      title: '',
+      content: '',
+      lessons: [],
+      resources: [],
+      pdfs: [],
+    });
+    setForm({ ...form, weeks: updatedWeeks });
+  };
 
-      await createCourse(payload);
-      toast.success('Course created!');
-      loadCourses();
+  const handleModuleChange = (weekIdx, modIdx, field, value) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx][field] = value;
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const addLesson = (weekIdx, modIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons.push({
+      title: '',
+      videoUrl: '',
+      duration: '',
+    });
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const handleLessonChange = (weekIdx, modIdx, lessonIdx, field, value) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons[lessonIdx][field] = value;
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const removeModule = (weekIdx, modIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules.splice(modIdx, 1);
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const removeLesson = (weekIdx, modIdx, lessonIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons.splice(lessonIdx, 1);
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('/api/courses', form);
+      toast.success('Course added successfully!');
+      setCourses((prev) => [...prev, res.data]);
       setForm({
         title: '',
         description: '',
         durationWeeks: '',
-        modules: [{ title: '', content: '', resources: [], pdfs: [] }]
+        level: '',
+        domain: '',
+        idealRoles: [],
+        skillsCovered: [],
+        challengesAddressed: [],
+        learningStyleFit: [],
+        timeCommitmentRecommended: '',
+        weeks: [],
       });
     } catch (err) {
-      toast.error("Failed to create course");
-      console.error(err);
+      console.error('🔥 Failed to add course:', err);
+      toast.error('Failed to add course');
     }
   };
 
-  const handleModuleChange = (index, key, value) => {
-    const updated = [...form.modules];
-    updated[index][key] = value;
-    setForm({ ...form, modules: updated });
+  const handleDeleteCourse = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this course?')) return;
+
+    try {
+      await axios.delete(`/api/courses/${id}`);
+      toast.success('Course deleted');
+      setCourses((prev) => prev.filter((c) => c._id !== id));
+    } catch (err) {
+      console.error('Delete failed:', err);
+      toast.error('Failed to delete course');
+    }
   };
 
-  const handleResourceChange = (modIdx, resIdx, value) => {
-    const updated = [...form.modules];
-    updated[modIdx].resources[resIdx] = {
-      url: value,
-      name: value.split('/').pop()
-    };
-    setForm({ ...form, modules: updated });
+  const handleCourseUpdated = async () => {
+    await fetchCourses();
+    setEditingCourse(null);
   };
-
-  const handlePDFUpload = (modIdx, file) => {
-    const updated = [...form.modules];
-    updated[modIdx].pdfs = [...(updated[modIdx].pdfs || []), file];
-    setForm({ ...form, modules: updated });
-  };
-const removePDF = (modIdx, pdfIdx) => {
-  const updated = [...form.modules];
-  updated[modIdx].pdfs.splice(pdfIdx, 1);
-  setForm({ ...form, modules: updated });
-
-  // ✅ Clear the input field visually
-  if (fileInputRefs.current[modIdx]) {
-    fileInputRefs.current[modIdx].value = '';
-  }
-};
-
-
-
-
-  const addModule = () => {
-    setForm({
-      ...form,
-      modules: [...form.modules, { title: '', content: '', resources: [], pdfs: [] }]
-    });
-  };
-
-  const addResource = (modIdx) => {
-    const updated = [...form.modules];
-    updated[modIdx].resources.push({ url: '', name: '' });
-    setForm({ ...form, modules: updated });
-  };
-
-  const removeModule = (idx) => {
-    const updated = form.modules.filter((_, i) => i !== idx);
-    setForm({ ...form, modules: updated });
-  };
-
-  const removeResource = (modIdx, resIdx) => {
-    const updated = [...form.modules];
-    updated[modIdx].resources = updated[modIdx].resources.filter((_, i) => i !== resIdx);
-    setForm({ ...form, modules: updated });
-  };
-
-  const handleDelete = async (id) => {
-    const confirm = window.confirm("Are you sure you want to delete this course?");
-    if (!confirm) return;
-    await deleteCourse(id);
-    loadCourses();
-  };
-const fileInputRefs = useRef([]);
 
   return (
-    <div className="p-6 bg-white rounded-xl shadow">
-      <h2 className="text-xl font-semibold mb-4">Manage Courses</h2>
+    <div className="bg-white p-6 rounded-xl shadow mb-10">
+      <h3 className="text-xl font-semibold mb-4">Manage Courses</h3>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <input placeholder="Title" className="border p-2" value={form.title}
-          onChange={e => setForm({ ...form, title: e.target.value })} />
-        <input placeholder="Description" className="border p-2" value={form.description}
-          onChange={e => setForm({ ...form, description: e.target.value })} />
-        <input placeholder="Duration (weeks)" className="border p-2" value={form.durationWeeks}
-          onChange={e => setForm({ ...form, durationWeeks: e.target.value })} />
-      </div>
+      {/* Create Course Form */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input name="title" placeholder="Title" value={form.title} onChange={handleChange} className="border p-2 w-full" />
+        <input name="description" placeholder="Description" value={form.description} onChange={handleChange} className="border p-2 w-full" />
+        <input name="durationWeeks" type="number" placeholder="Duration (weeks)" value={form.durationWeeks} onChange={handleChange} className="border p-2 w-full" />
 
-      {form.modules.map((mod, idx) => (
-        <div key={idx} className="mb-4 p-3 border rounded bg-gray-50">
-          <div className="flex justify-between items-center">
-            <h4 className="font-semibold mb-2">Module {idx + 1}</h4>
-            {form.modules.length > 1 && (
-              <button onClick={() => removeModule(idx)} className="text-red-600 text-sm">Remove Module</button>
-            )}
-          </div>
-          <input placeholder="Module Title" className="border p-2 mb-2 w-full"
-            value={mod.title}
-            onChange={e => handleModuleChange(idx, 'title', e.target.value)} />
-          <textarea placeholder="Module Content" className="border p-2 mb-2 w-full"
-            value={mod.content}
-            onChange={e => handleModuleChange(idx, 'content', e.target.value)} />
+        {form.weeks.map((week, weekIdx) => (
+          <div key={weekIdx} className="border p-4 rounded bg-gray-50 mb-4">
+            <h4 className="font-semibold text-blue-700 mb-2">Week {week.weekNumber}</h4>
 
-          <div className="space-y-2">
-            {mod.resources.map((res, rIdx) => (
-              <div key={rIdx} className="flex gap-2">
-                <input
-                  placeholder="Resource URL"
-                  className="border p-2 w-full"
-                  value={res.url || ''}
-                  onChange={e => handleResourceChange(idx, rIdx, e.target.value)}
-                />
-                <button onClick={() => removeResource(idx, rIdx)} className="text-red-600 text-sm">✕</button>
+            {week.modules.map((mod, modIdx) => (
+              <div key={modIdx} className="border p-3 bg-white rounded mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h5 className="font-medium">Module {modIdx + 1}</h5>
+                  <button type="button" className="text-red-600 text-sm" onClick={() => removeModule(weekIdx, modIdx)}>
+                    Remove Module
+                  </button>
+                </div>
+
+                <input placeholder="Module Title" value={mod.title} onChange={(e) => handleModuleChange(weekIdx, modIdx, 'title', e.target.value)} className="border p-2 w-full mb-2" />
+                <textarea placeholder="Module Content" value={mod.content} onChange={(e) => handleModuleChange(weekIdx, modIdx, 'content', e.target.value)} className="border p-2 w-full mb-2" />
+
+                <div className="ml-2">
+                  <h6 className="font-semibold text-sm mb-1">Lessons</h6>
+                  {mod.lessons.map((lesson, lessonIdx) => (
+                    <div key={lessonIdx} className="flex flex-col md:flex-row gap-2 items-start mb-2">
+                      <input placeholder="Lesson Title" value={lesson.title} onChange={(e) => handleLessonChange(weekIdx, modIdx, lessonIdx, 'title', e.target.value)} className="border p-2 flex-1 w-full" />
+                      <input placeholder="YouTube Video URL" value={lesson.videoUrl} onChange={(e) => handleLessonChange(weekIdx, modIdx, lessonIdx, 'videoUrl', e.target.value)} className="border p-2 flex-1 w-full" />
+                      <input placeholder="Duration" value={lesson.duration} onChange={(e) => handleLessonChange(weekIdx, modIdx, lessonIdx, 'duration', e.target.value)} className="border p-2 w-32" />
+                      <button type="button" className="text-red-600" onClick={() => removeLesson(weekIdx, modIdx, lessonIdx)}>
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" className="text-blue-600 text-sm" onClick={() => addLesson(weekIdx, modIdx)}>
+                    + Add Lesson
+                  </button>
+                </div>
               </div>
             ))}
+
+            <button type="button" className="text-green-600 text-sm" onClick={() => addModule(weekIdx)}>
+              + Add Module
+            </button>
           </div>
-
-        <input
-  type="file"
-  accept="application/pdf"
-  className="mt-2"
-  ref={el => (fileInputRefs.current[idx] = el)}
-  onChange={e => handlePDFUpload(idx, e.target.files[0])}
-/>
-
-
-          {mod.pdfs?.map((file, i) => (
-  <div key={i} className="flex items-center justify-between text-sm text-gray-600 mt-1">
-    <span>📄 {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-    <button
-      className="text-red-600 ml-2 text-xs"
-      onClick={() => removePDF(idx, i)}
-    >
-      Remove
-    </button>
-  </div>
-))}
-
-
-          <button onClick={() => addResource(idx)} className="text-sm text-blue-600 mt-2">+ Add Resource</button>
-        </div>
-      ))}
-
-      <button onClick={addModule} className="text-sm text-green-600 mb-4">+ Add Module</button>
-      <br />
-      <button onClick={handleCreate} className="bg-blue-600 text-white px-4 py-2 rounded">Add Course</button>
-
-      {/* Existing course display */}
-      <ul className="mt-6 space-y-4">
-        {courses.map(c => (
-          <li key={c._id} className="border p-4 rounded bg-gray-50">
-            <div className="flex justify-between">
-              <div>
-                <h3 className="font-bold text-lg">{c.title}</h3>
-                <p className="text-sm text-gray-600">{c.description}</p>
-                <p className="text-xs text-gray-500">Duration: {c.durationWeeks} weeks</p>
-              </div>
-              <div className="space-x-4">
-                <button onClick={() => handleDelete(c._id)} className="text-red-600 font-semibold">Delete</button>
-                <button onClick={() => setEditCourse(c)} className="text-blue-600 font-semibold">Edit</button>
-              </div>
-            </div>
-            <div className="mt-2">
-              <h4 className="font-semibold">Modules:</h4>
-              {c.modules?.map((m, i) => (
-                <div key={i} className="ml-4 mb-2">
-                  <p><strong>{m.title}</strong>: {m.content}</p>
-                  {m.resources?.length > 0 && (
-                    <ul className="list-disc ml-5 text-blue-600">
-                      {m.resources.map((res, idx) => {
-                        const isCloudinary = res?.url?.includes('cloudinary.com');
-                        const finalURL = res?.url
-                          ? isCloudinary
-                            ? res.url.replace('/upload/', '/upload/fl_attachment:pdf/')
-                            : res.url.startsWith('http') ? res.url : `http://${res.url}`
-                          : '#';
-
-                        const displayName = res?.name || (res?.url ? res.url.split('/').pop() : 'Unknown Resource');
-
-                        return (
-                          <li key={idx}>
-                            <a
-                              href={finalURL}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline text-blue-600"
-                            >
-                              {displayName}
-                            </a>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
-          </li>
         ))}
-      </ul>
 
-      {editCourse && (
-     <CourseEditModal
-  course={editCourse}
-  onClose={() => setEditCourse(null)}
-  onSave={async (updatedData) => {
-    await updateCourse(editCourse._id, updatedData);
-    await loadCourses(); // ✅ reload course list
-    setEditCourse(null); // ✅ close modal
-  }}
-/>
+        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Add Course
+        </button>
+      </form>
 
+      {/* Course List */}
+      <div className="mt-10">
+        <h2 className="text-lg font-bold mb-4">Existing Courses</h2>
+        {courses.length === 0 ? (
+          <p className="text-gray-500">No courses yet.</p>
+        ) : (
+          <ul className="space-y-4">
+            {courses.map((course) => (
+              <li key={course._id} className="border p-4 rounded bg-white shadow">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-blue-700 font-semibold text-lg">{course.title}</h3>
+                    <p className="text-sm text-gray-600">{course.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">Weeks: {course.weeks?.length || 0}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingCourse(course)} className="text-sm bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">
+                      Edit
+                    </button>
+                    <button onClick={() => handleDeleteCourse(course._id)} className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Edit Modal */}
+      {editingCourse && (
+        <CourseEditModal
+          course={editingCourse}
+          onClose={() => setEditingCourse(null)}
+          onSave={handleCourseUpdated}
+        />
       )}
     </div>
   );

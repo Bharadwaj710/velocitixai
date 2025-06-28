@@ -3,15 +3,7 @@ const Course = require('../models/Course');
 // Create new course with modules
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, durationWeeks, modules } = req.body;
-
-    const course = new Course({
-      title,
-      description,
-      durationWeeks,
-      modules,
-    });
-
+    const course = new Course(req.body); // ✅ pass entire object including weeks
     const saved = await course.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -19,6 +11,7 @@ exports.createCourse = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
 
 // Get all courses
 exports.getCourses = async (req, res) => {

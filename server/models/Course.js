@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// 🔹 Lesson Schema
 const lessonSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -14,6 +15,7 @@ const lessonSchema = new mongoose.Schema({
   }
 });
 
+// 🔹 Module Schema
 const moduleSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -22,9 +24,19 @@ const moduleSchema = new mongoose.Schema({
   content: {
     type: String, // Description of what the module covers
   },
-  lessons: [lessonSchema] // 🔥 Each module now has multiple lessons!
+  lessons: [lessonSchema] // Each module has lessons
 });
 
+// 🔹 Week Schema
+const weekSchema = new mongoose.Schema({
+  weekNumber: {
+    type: Number,
+    required: true,
+  },
+  modules: [moduleSchema] // Each week has modules
+});
+
+// 🔹 Course Schema
 const courseSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -39,7 +51,9 @@ const courseSchema = new mongoose.Schema({
   challengesAddressed: [String],
   learningStyleFit: [String],
   timeCommitmentRecommended: String,
-  modules: [moduleSchema] // ✅ List of modules (with lessons inside!)
+
+  weeks: [weekSchema], // ✅ NEW STRUCTURE HERE
+  
 }, {
   timestamps: true
 });
