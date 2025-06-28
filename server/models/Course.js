@@ -31,5 +31,6 @@ const courseSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("course", CourseSchema);
+// Ensure the model name is "Course" (capital C, singular) for Mongoose population compatibility
+module.exports = mongoose.model("Course", courseSchema);
 

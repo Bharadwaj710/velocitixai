@@ -91,14 +91,35 @@ exports.saveStudentDetails = async (req, res) => {
 
 exports.getStudentDetails = async (req, res) => {
   try {
-    const student = await Student.findOne({ user: req.params.userId }).populate("course");
+    const userId = req.params.userId;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid userId" });
+    }
+
+    // First query: Find student by userId
+    let student = await Student.findOne({ user: userId }).populate({
+      path: "course",
+      strictPopulate: false // prevent Mongoose error if referenced course is missing
+    });
+
+    // If not found, try using ObjectId directly
+    if (!student) {
+      student = await Student.findOne({ user: mongoose.Types.ObjectId(userId) }).populate({
+        path: "course",
+        strictPopulate: false
+      });
+    }
+
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+    console.error("Error fetching student details:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
+
 
 
 exports.enrollCourse = async (req, res) => {
