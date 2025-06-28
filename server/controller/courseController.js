@@ -3,13 +3,38 @@ const Course = require('../models/Course');
 // Create new course with modules
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, durationWeeks, modules } = req.body;
+    const {
+      title,
+      description,
+      durationWeeks,
+      modules,
+      level,
+      domain,
+      idealRoles,
+      skillsCovered,
+      challengesAddressed
+    } = req.body;
+
+    // Validate AI-required fields
+    if (
+      !domain ||
+      !Array.isArray(idealRoles) || !idealRoles.length ||
+      !Array.isArray(skillsCovered) || !skillsCovered.length ||
+      !Array.isArray(challengesAddressed) || !challengesAddressed.length
+    ) {
+      return res.status(400).json({ message: "All AI fields are required" });
+    }
 
     const course = new Course({
       title,
       description,
       durationWeeks,
       modules,
+      level,
+      domain,
+      idealRoles,
+      skillsCovered,
+      challengesAddressed
     });
 
     const saved = await course.save();
@@ -59,10 +84,18 @@ exports.deleteCourse = async (req, res) => {
 // Update course
 exports.updateCourse = async (req, res) => {
   try {
-    const updated = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = { ...req.body };
+    // Ensure level and AI fields are updated if present
+    if (req.body.level) updateData.level = req.body.level;
+    if (req.body.domain) updateData.domain = req.body.domain;
+    if (req.body.idealRoles) updateData.idealRoles = req.body.idealRoles;
+    if (req.body.skillsCovered) updateData.skillsCovered = req.body.skillsCovered;
+    if (req.body.challengesAddressed) updateData.challengesAddressed = req.body.challengesAddressed;
+
+    const updated = await Course.findByIdAndUpdate(req.params.id, updateData, { new: true });
     res.status(200).json(updated);
   } catch (err) {
-    res.status(500).json({ message: 'Update failed' });
+    res.status(500).json({ message: "Update failed" });
   }
 };
 
