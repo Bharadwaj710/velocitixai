@@ -1,16 +1,16 @@
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from bson import ObjectId
 
-# Load environment variables
+# Load env vars
 load_dotenv("../server/.env")
 
-app = Flask(__name__)
+chatbot_bp = Blueprint("chatbot", __name__)
 
-# MongoDB connection
+# MongoDB setup
 MONGO_CONN = os.getenv("MONGO_CONN")
 client = MongoClient(MONGO_CONN)
 db = client["auth_db"]
@@ -21,7 +21,7 @@ assessments_col = db.careerassessments
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Utility to convert ObjectId to string
+
 def clean_id(doc):
     if isinstance(doc, list):
         return [clean_id(d) for d in doc]
@@ -31,7 +31,8 @@ def clean_id(doc):
         return str(doc)
     return doc
 
-@app.route("/generate", methods=["POST"])
+
+@chatbot_bp.route("/generate", methods=["POST"])
 def generate():
     try:
         data = request.get_json()
@@ -55,68 +56,60 @@ def generate():
         student = clean_id(student_doc)
         assessment = clean_id(assessment_doc)
 
-        # Format answers
-        answers_text = "\n".join([
-            f"{a['questionText']} — {a['answer']}" for a in assessment.get("answers", [])
-        ])
-
-        # Format courses
-        recommended_courses = assessment.get("recommended_courses", [])
-        courses_text = "\n\n".join([
-            f"- {c['title']}: {c['description']}" for c in recommended_courses
-        ])
-
-        # Format chat history
-        chat_history = "\n".join([
-            f"User: {m['text']}" if m['sender'] == "user" else f"AI: {m['text']}" for m in messages
-        ])
-
-        # Tone instruction based on proficiency level
+        # Extract relevant data
+        student_name = student.get("name", "Student")
         level = assessment.get("corrected_level", "Intermediate")
+        domain = assessment.get("domain", "N/A")
+        skills = ', '.join(assessment.get("profile_analysis", {}).get("skills", []))
+
+        # Get registered courses
+        registered_courses = assessment.get("recommended_courses", [])
+        course_info_text = "\n".join(
+            f"- {course['title']}: {course['description']}" for course in registered_courses
+        )
+
+        # Tone adjustment
         if level == "Beginner":
-            tone_instruction = "Use simple language and clear explanations. Avoid technical jargon. Be encouraging."
+            tone = "Use simple language. Avoid jargon. Explain clearly and patiently."
         elif level == "Advanced":
-            tone_instruction = "Use technical terms. Provide in-depth insights. Be concise and professional."
+            tone = "Use technical terms. Be concise, precise, and assume strong prior knowledge."
         else:
-            tone_instruction = "Use a balanced tone. Explain concepts with moderate depth. Be practical and helpful."
+            tone = "Use moderately technical language. Provide practical and clear explanations."
 
-        # Construct the Gemini prompt
+        # Format messages
+        chat_history = "\n".join([
+            f"User: {m['text']}" if m["sender"] == "user" else f"AI: {m['text']}"
+            for m in messages[-10:]
+        ])
+
+        # Prompt
         prompt = f"""
-You are a AI tutor chatbot helping students clear their doubts in the subject or any general questions.
+You are an AI tutor chatbot. The student is currently learning the following course(s):
 
-Student Info:
-Name: {student.get("name", "N/A")}
-Branch: {student.get("branch", "N/A")}
-College: {student.get("college", "N/A")}
-Year: {student.get("yearOfStudy", "N/A")}
-Address: {student.get("address", "N/A")}
+{course_info_text or "No course information found."}
 
-Assessment Summary:
-Domain: {assessment.get("domain", "N/A")}
-Level: {assessment.get("corrected_level", "N/A")}
-Answers:
-{answers_text}
+Only respond to queries that are related to the above courses. If the question is not related to these courses, politely ask the student to stick to course-related queries.
 
-Video Feedback: {assessment.get("video_feedback", "")}
-Skills: {', '.join(assessment.get('profile_analysis', {}).get('skills', []))}
+Student Name: {student_name}
+Level: {level}
+Domain: {domain}
+Skills: {skills}
 
-Recommended Courses:
-{courses_text}
-
-Chat History:
+Conversation so far:
 {chat_history}
 
-Reply concisely and helpfully. Keep the answers very short(2-3 lines) unless it's neccessary.
-        """
+Instructions:
+- {tone}
+- Format responses in short bullet points or numbered lists if explanation is needed.
+- Keep answers within 2–3 lines unless a detailed explanation is clearly requested.
+- Do NOT answer off-topic or unrelated personal questions.
+"""
 
         response = model.generate_content(prompt)
         reply = response.text.strip()
 
-        return jsonify({ "reply": reply })
+        return jsonify({"reply": reply})
 
     except Exception as e:
         print("Error:", e)
-        return jsonify({ "reply": "Sorry, an error occurred processing your request." }), 200
-
-if __name__ == "__main__":
-    app.run(debug=True, port=5002)
+        return jsonify({"reply": "Sorry, an error occurred processing your request."}), 500

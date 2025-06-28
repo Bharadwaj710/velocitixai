@@ -33,7 +33,7 @@ exports.handleMessage = async (req, res) => {
     const context = { student, assessment, courses };
 
     // Call Python Flask server with context + messages
-    const flaskRes = await axios.post("http://localhost:5002/generate", {
+    const flaskRes = await axios.post("http://localhost:5001/generate", {
       userId,
       messages,
     });

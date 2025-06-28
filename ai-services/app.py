@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
 from recommend import recommend_courses
 from career_video_analysis import analyze_career_video
+from student_chatbot import chatbot_bp  # 👈 Import Blueprint
 
 app = Flask(__name__)
+app.register_blueprint(chatbot_bp)  # 👈 Register Blueprint
 
 @app.route("/recommend", methods=["POST"])
 def recommend():
