@@ -15,8 +15,17 @@ const progressSchema = new mongoose.Schema({
     type: [String], // or [lessonId] if you use lesson IDs
     default: [],
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 }, {
   timestamps: true
+});
+
+progressSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
 });
 
 module.exports = mongoose.model('Progress', progressSchema);

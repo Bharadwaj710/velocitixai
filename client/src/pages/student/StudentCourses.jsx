@@ -301,7 +301,8 @@ const StudentCourses = () => {
                         <h3
                           className={`text-lg font-bold mb-1 truncate transition-all duration-300 ${
                             enrolled ? "text-green-700" : "text-blue-700"
-                          }`}
+                          } cursor `}
+                          // Removed onClick for learning path
                         >
                           {course.title}
                         </h3>
@@ -397,27 +398,28 @@ const StudentCourses = () => {
                       </div>
                       {/* Right: Enroll/Unenroll Button */}
                       <div className="flex-shrink-0 flex flex-col items-end justify-center">
-                        {enrolled ? (
-                          <button
-                            onClick={() => handleUnenroll(course)}
-                            disabled={enrollLoading === course._id}
-                            className="py-2 px-6 rounded-lg bg-gradient-to-r from-pink-500 to-pink-600 text-white font-semibold shadow hover:from-pink-600 hover:to-pink-700 transition-all duration-300 min-w-[120px]"
-                          >
-                            {enrollLoading === course._id
-                              ? "Processing..."
-                              : "Unenroll"}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleEnroll(course)}
-                            disabled={enrollLoading === course._id}
-                            className="py-2 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold shadow hover:from-blue-700 hover:to-blue-800 transition-all duration-300 min-w-[120px]"
-                          >
-                            {enrollLoading === course._id
-                              ? "Processing..."
-                              : "Enroll"}
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            if (enrolled) {
+                              handleUnenroll(course);
+                            } else {
+                              handleEnroll(course);
+                            }
+                          }}
+                          disabled={enrollLoading === course._id}
+                          className={`py-2 px-6 rounded-lg font-semibold shadow min-w-[120px] ${
+                            enrolled
+                              ? "bg-gradient-to-r from-pink-500 to-pink-600 text-white hover:from-pink-600 hover:to-pink-700"
+                              : "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800"
+                          } transition-all duration-300`}
+                        >
+                          {enrollLoading === course._id
+                            ? "Processing..."
+                            : enrolled
+                            ? "Unenroll"
+                            : "Enroll"}
+                        </button>
+                        {/* Removed Resume/Get Started button */}
                       </div>
                     </div>
                   );

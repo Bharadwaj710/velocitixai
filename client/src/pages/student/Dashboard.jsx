@@ -12,6 +12,7 @@ const StudentDashboard = () => {
   const [proficiencyLevel, setProficiencyLevel] = useState("Beginner");
   const [readinessPercent, setReadinessPercent] = useState(0); // Always 0 until mock interview is taken
   const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [progressPercent, setProgressPercent] = useState(0);
   const [recentCourse, setRecentCourse] = useState(null);
 
   useEffect(() => {
@@ -40,17 +41,40 @@ const StudentDashboard = () => {
         let courses = details.course || [];
         if (!Array.isArray(courses)) courses = courses ? [courses] : [];
 
-        // Simulate "recently watched" logic: pick the last course in the array
+        // Show the most recently enrolled course (last in array)
         let recent = null;
+        let progress = 0;
         if (courses.length > 0) {
           recent = courses[courses.length - 1];
+          try {
+            const progressRes = await axios.get(
+              `/api/progress/${userId}/${recent._id}`
+            );
+            const courseRes = await axios.get(`/api/courses/${recent._id}`);
+            // Count all lessons in all weeks
+            const totalLessons = (courseRes.data.weeks || []).reduce(
+              (sum, w) =>
+                sum +
+                (w.modules || []).reduce(
+                  (msum, m) => msum + (m.lessons ? m.lessons.length : 0),
+                  0
+                ),
+              0
+            );
+            const completed = (progressRes.data.completedLessons || []).length;
+            progress =
+              totalLessons > 0
+                ? Math.round((completed / totalLessons) * 100)
+                : 0;
+          } catch {}
         }
+        setProgressPercent(progress);
+        setRecentCourse(recent);
 
         if (assessmentExists && hasFilledDetails) {
           setShowAssessmentBtn(false);
           setReadinessPercent(0); // Always 0 until mock interview is taken
           setEnrolledCourses(courses);
-          setRecentCourse(recent);
         } else {
           setShowAssessmentBtn(true);
         }
@@ -95,10 +119,10 @@ const StudentDashboard = () => {
 
   // Helper to get progress percent for a course (simulate for now)
   const getCourseProgress = (course) => {
-    if (course && typeof course.progressPercent === "number") {
-      return course.progressPercent;
+    if (course && typeof progressPercent === "number") {
+      return progressPercent;
     }
-    return course && course.started ? 50 : 0;
+    return 0;
   };
 
   const getCourseStatus = (course) => {
@@ -175,11 +199,16 @@ const StudentDashboard = () => {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <div className="w-40 bg-gray-200 rounded-full h-2.5 mb-1">
-                    <div
-                      className="h-2.5 rounded-full bg-gradient-to-r from-green-400 to-blue-500"
-                      style={{ width: `${getCourseProgress(recentCourse)}%` }}
-                    ></div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-40 bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className="h-2.5 rounded-full bg-gradient-to-r from-green-400 to-blue-500"
+                        style={{ width: `${getCourseProgress(recentCourse)}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-semibold text-blue-700">
+                      {getCourseProgress(recentCourse)}%
+                    </span>
                   </div>
                   <button
                     className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
@@ -188,9 +217,7 @@ const StudentDashboard = () => {
                         getCourseStatus(recentCourse) === "Get Started" ||
                         getCourseStatus(recentCourse) === "Resume"
                       ) {
-                        navigate("/student/CoursePlayer", {
-                          state: { courseId: recentCourse._id },
-                        });
+                        navigate(`/course-player/${recentCourse._id}`);
                       }
                     }}
                   >
@@ -200,7 +227,7 @@ const StudentDashboard = () => {
               </div>
             ) : (
               <div className="text-gray-500 italic">
-                You have not enrolled in any courses yet.
+                You have not started any courses yet.
               </div>
             )}
           </div>

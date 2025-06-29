@@ -148,10 +148,6 @@ const CourseManager = () => {
         toast.error(`Module ${i + 1}: Title is required.`);
         return;
       }
-      if (!mod.moduleUrl) {
-        toast.error(`Module ${i + 1}: Module Video URL is required.`);
-        return;
-      }
       // Lessons are optional, but if present, must have title and timestamp (no videoUrl)
       if (mod.lessons && mod.lessons.length > 0) {
         for (let j = 0; j < mod.lessons.length; j++) {
@@ -164,27 +160,31 @@ const CourseManager = () => {
       }
     }
     try {
-      const newModules = [...form.modules];
-      for (let i = 0; i < newModules.length; i++) {
-        const module = newModules[i];
-        if (module.pdfs?.length > 0) {
-          for (const file of module.pdfs) {
-            const pdfForm = new FormData();
-            pdfForm.append('pdf', file);
-            const res = await axios.post('http://localhost:8080/api/upload/pdf', pdfForm, {
-              headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            module.resources.push({ url: res.data.url, name: res.data.name });
+      // Transform modules to weeks structure
+      const weeks = (form.modules || []).map((mod, idx) => ({
+        weekNumber: idx + 1,
+        modules: [
+          {
+            title: mod.title,
+            content: mod.content,
+            lessons: (mod.lessons || []).map(lesson => ({
+              title: lesson.title,
+              videoUrl: lesson.videoUrl,
+              duration: lesson.duration || "",
+            })),
+            resources: mod.resources || [],
           }
-        }
-        delete module.pdfs;
-      }
+        ]
+      }));
+
       const payload = {
         ...form,
         durationWeeks: parseInt(form.durationWeeks, 10),
-        modules: newModules,
-        level: form.level || "Beginner"
+        weeks,
+        // Remove modules from payload to avoid confusion in backend
       };
+      delete payload.modules;
+
       await createCourse(payload);
       toast.success('Course created!');
       loadCourses();
@@ -233,14 +233,14 @@ const CourseManager = () => {
   };
 
   // --- Lesson Handlers ---
+  // Update lesson structure to only have title and videoUrl
   const addLesson = (modIdx) => {
     setForm(f => {
       const modules = [...f.modules];
       modules[modIdx].lessons = modules[modIdx].lessons || [];
       modules[modIdx].lessons.push({
         title: '',
-        videoUrl: '',
-        timestamp: ''
+        videoUrl: ''
       });
       return { ...f, modules };
     });
@@ -606,7 +606,7 @@ const CourseManager = () => {
       {form.modules.map((mod, idx) => (
         <div key={idx} className="mb-4 p-3 border rounded bg-gray-50">
           <div className="flex justify-between items-center">
-            <h4 className="font-semibold mb-2">Module {idx + 1}</h4>
+            <h4 className="font-semibold mb-2">Week {idx + 1}</h4>
             <div className="flex gap-2">
               {idx > 0 && (
                 <button className="text-xs text-gray-500" onClick={() => moveModule(idx, idx - 1)}>↑</button>
@@ -619,18 +619,19 @@ const CourseManager = () => {
               )}
             </div>
           </div>
-          <input placeholder="Module Title" className="border p-2 mb-2 w-full"
-            value={mod.title}
-            onChange={e => handleModuleChange(idx, 'title', e.target.value)} />
-          <textarea placeholder="Module Content" className="border p-2 mb-2 w-full"
-            value={mod.content}
-            onChange={e => handleModuleChange(idx, 'content', e.target.value)} />
           <input
-            placeholder="Module Video URL"
+            placeholder="Module Title"
             className="border p-2 mb-2 w-full"
-            value={mod.moduleUrl || ""}
-            onChange={e => handleModuleChange(idx, 'moduleUrl', e.target.value)}
+            value={mod.title}
+            onChange={e => handleModuleChange(idx, 'title', e.target.value)}
           />
+          <textarea
+            placeholder="Module Content"
+            className="border p-2 mb-2 w-full"
+            value={mod.content}
+            onChange={e => handleModuleChange(idx, 'content', e.target.value)}
+          />
+          {/* Removed Module Video URL input */}
           {/* Lessons */}
           <div className="mt-2">
             <h5 className="font-semibold mb-1">Lessons:</h5>
@@ -645,10 +646,10 @@ const CourseManager = () => {
                       onChange={e => handleLessonChange(idx, lIdx, 'title', e.target.value)}
                     />
                     <input
-                      className="border p-1 text-xs w-1/4"
-                      value={lesson.timestamp}
-                      placeholder="Timestamp (optional)"
-                      onChange={e => handleLessonChange(idx, lIdx, 'timestamp', e.target.value)}
+                      className="border p-1 text-xs w-1/2"
+                      value={lesson.videoUrl}
+                      placeholder="Lesson URL"
+                      onChange={e => handleLessonChange(idx, lIdx, 'videoUrl', e.target.value)}
                     />
                     <button
                       className="text-xs text-gray-500"
