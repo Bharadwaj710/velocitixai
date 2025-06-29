@@ -1,19 +1,19 @@
 const Course = require('../models/Course');
 
-// Create new course with modules
+// Create new course with weeks/modules/lessons
 exports.createCourse = async (req, res) => {
   try {
-
     const {
       title,
       description,
       durationWeeks,
-      modules,
+      weeks,
       level,
       domain,
       idealRoles,
       skillsCovered,
-      challengesAddressed
+      challengesAddressed,
+      timeCommitmentRecommended
     } = req.body;
 
     // Validate AI-required fields
@@ -26,16 +26,22 @@ exports.createCourse = async (req, res) => {
       return res.status(400).json({ message: "All AI fields are required" });
     }
 
+    // Defensive: weeks must be an array
+    if (!Array.isArray(weeks) || weeks.length === 0) {
+      return res.status(400).json({ message: "Weeks structure required" });
+    }
+
     const course = new Course({
       title,
       description,
       durationWeeks,
-      modules,
+      weeks,
       level,
       domain,
       idealRoles,
       skillsCovered,
-      challengesAddressed
+      challengesAddressed,
+      timeCommitmentRecommended
     });
     const saved = await course.save();
     res.status(201).json(saved);
@@ -91,6 +97,8 @@ exports.deleteCourse = async (req, res) => {
 exports.updateCourse = async (req, res) => {
   try {
     const updateData = { ...req.body };
+    // Only update weeks if present
+    if (req.body.weeks) updateData.weeks = req.body.weeks;
     // Ensure level and AI fields are updated if present
     if (req.body.level) updateData.level = req.body.level;
     if (req.body.domain) updateData.domain = req.body.domain;
@@ -100,14 +108,12 @@ exports.updateCourse = async (req, res) => {
 
  
     const course = await Course.findByIdAndUpdate(req.params.id, updateData, { new: true });
-if (!course) return res.status(404).json({ message: 'Course not found' });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
 
-course.set(req.body); // 🔁 apply updates
-await course.save();  // ✅ this triggers full validation
+    course.set(req.body); // 🔁 apply updates
+    await course.save();  // ✅ this triggers full validation
 
-res.status(200).json(course);
-
-    
+    res.status(200).json(course);
   } catch (err) {
     res.status(500).json({ message: "Update failed" });
   }

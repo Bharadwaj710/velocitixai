@@ -1,22 +1,40 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Play, CheckCircle, Menu, X, Clock } from 'lucide-react';
 import AuthContext from '../../context/AuthContext';
 import StudentNavbar from '../../components/StudentNavbar';
 
+// Helper: flatten all lessons with their indices for navigation
+function flattenLessons(weeks) {
+  const flat = [];
+  weeks?.forEach((week, weekIdx) => {
+    week.modules?.forEach((mod, modIdx) => {
+      mod.lessons?.forEach((lesson, lessonIdx) => {
+        flat.push({
+          weekIdx,
+          modIdx,
+          lessonIdx,
+          lesson,
+          week,
+          mod,
+        });
+      });
+    });
+  });
+  return flat;
+}
+
 const CoursePlayer = () => {
   const { id: courseId } = useParams();
+  const location = useLocation();
   const { user } = useContext(AuthContext);
   const userId = user?._id;
 
   const [courseData, setCourseData] = useState(null);
   const [completedLessons, setCompletedLessons] = useState(new Set());
-  const [currentLesson, setCurrentLesson] = useState({
-    weekIdx: 0,
-    modIdx: 0,
-    lessonIdx: 0,
-  });
+  const [flatLessons, setFlatLessons] = useState([]);
+  const [currentFlatIdx, setCurrentFlatIdx] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -28,6 +46,10 @@ const CoursePlayer = () => {
         ]);
         setCourseData(courseRes.data);
         setCompletedLessons(new Set(progressRes.data.completedLessons || []));
+        // Flatten lessons for easier navigation
+        const flat = flattenLessons(courseRes.data.weeks || []);
+        setFlatLessons(flat);
+        setCurrentFlatIdx(0);
       } catch (err) {
         console.error('Error loading course or progress:', err);
       }
@@ -36,45 +58,65 @@ const CoursePlayer = () => {
     if (userId) fetchData();
   }, [courseId, userId]);
 
-  if (!courseData || !courseData.weeks) return <div className="p-6 text-gray-600">Loading course...</div>;
-
-  const getCurrentLessonData = () => {
-    try {
-      const { weekIdx, modIdx, lessonIdx } = currentLesson;
-      return courseData.weeks[weekIdx]?.modules[modIdx]?.lessons[lessonIdx] || {};
-    } catch (e) {
-      return {};
+  // Set initial lesson index if provided via navigation (from LearningPath)
+  useEffect(() => {
+    if (location.state && typeof location.state.flatIdx === "number" && flatLessons.length > 0) {
+      setCurrentFlatIdx(location.state.flatIdx);
     }
-  };
+    // eslint-disable-next-line
+  }, [flatLessons, location.state]);
 
-  const currentLessonData = getCurrentLessonData();
+  // Helper to get current lesson data
+  const currentLessonObj = flatLessons[currentFlatIdx] || {};
+  const currentLessonData = currentLessonObj.lesson || {};
   const isCompleted = completedLessons.has(currentLessonData.title);
 
   const getYouTubeId = (url) => {
-    const regExp = /(?:v=|\/)([0-9A-Za-z_-]{11})/;
+    if (!url) return '';
+    // Accept both full and short YouTube URLs
+    const regExp = /(?:youtube\.com\/.*v=|youtu\.be\/|youtube\.com\/embed\/)([0-9A-Za-z_-]{11})/;
     const match = url.match(regExp);
     return match ? match[1] : '';
   };
 
   const handleMarkAsCompleted = async () => {
     try {
-      if (!isCompleted && currentLessonData.title) {
+      if (!currentLessonData.title) return;
+      if (!isCompleted) {
         await axios.post(`http://localhost:8080/api/progress/complete`, {
           userId,
           courseId,
           lessonTitle: currentLessonData.title,
         });
         setCompletedLessons((prev) => new Set(prev).add(currentLessonData.title));
+      } else {
+        // Remove lesson from completedLessons in DB and UI
+        await axios.post(`http://localhost:8080/api/progress/uncomplete`, {
+          userId,
+          courseId,
+          lessonTitle: currentLessonData.title,
+        });
+        setCompletedLessons((prev) => {
+          const updated = new Set(prev);
+          updated.delete(currentLessonData.title);
+          return updated;
+        });
       }
     } catch (err) {
       console.error('Error updating progress:', err);
     }
   };
 
-  const handleLessonClick = (weekIdx, modIdx, lessonIdx) => {
-    setCurrentLesson({ weekIdx, modIdx, lessonIdx });
+  const handleLessonClick = (flatIdx) => {
+    setCurrentFlatIdx(flatIdx);
     setSidebarOpen(false);
   };
+
+  // Navigation helpers
+  const goPrev = () => setCurrentFlatIdx((idx) => Math.max(0, idx - 1));
+  const goNext = () => setCurrentFlatIdx((idx) => Math.min(flatLessons.length - 1, idx + 1));
+
+  if (!courseData || !courseData.weeks) return <div className="p-6 text-gray-600">Loading course...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,30 +143,31 @@ const CoursePlayer = () => {
               </button>
             </div>
 
+            {/* Sidebar: List all lessons grouped by week/module */}
             {courseData.weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="border-b border-gray-100">
                 <div className="p-3 bg-gray-50 font-semibold text-blue-700">
                   Week {week.weekNumber}
                 </div>
-
                 {week.modules.map((mod, modIdx) => (
                   <div key={modIdx} className="px-2">
                     <div className="p-2 text-gray-800 font-medium text-sm border-b">
                       {mod.title || `Module ${modIdx + 1}`}
                     </div>
-
                     {mod.lessons.map((lesson, lessonIdx) => {
-                      const isActive =
-                        currentLesson.weekIdx === weekIdx &&
-                        currentLesson.modIdx === modIdx &&
-                        currentLesson.lessonIdx === lessonIdx;
-
+                      // Find flat index for this lesson
+                      const flatIdx = flatLessons.findIndex(
+                        (l) =>
+                          l.weekIdx === weekIdx &&
+                          l.modIdx === modIdx &&
+                          l.lessonIdx === lessonIdx
+                      );
+                      const isActive = flatIdx === currentFlatIdx;
                       const isLessonCompleted = completedLessons.has(lesson.title);
-
                       return (
                         <button
                           key={lessonIdx}
-                          onClick={() => handleLessonClick(weekIdx, modIdx, lessonIdx)}
+                          onClick={() => handleLessonClick(flatIdx)}
                           className={`w-full text-left px-4 py-2 text-sm transition-colors duration-150 ${
                             isActive
                               ? 'bg-blue-100 border-r-4 border-blue-500'
@@ -173,14 +216,20 @@ const CoursePlayer = () => {
               </p>
 
               <div className="relative bg-black rounded-lg overflow-hidden mt-4" style={{ aspectRatio: '16/9' }}>
-                <iframe
-                  src={`https://www.youtube.com/embed/${getYouTubeId(currentLessonData.videoUrl)}?rel=0&modestbranding=1`}
-                  title={currentLessonData.title}
-                  className="absolute inset-0 w-full h-full"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+                {currentLessonData.videoUrl ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${getYouTubeId(currentLessonData.videoUrl)}?rel=0&modestbranding=1`}
+                    title={currentLessonData.title}
+                    className="absolute inset-0 w-full h-full"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-white text-lg">
+                    No video available for this lesson.
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 flex items-center justify-between">
@@ -193,10 +242,30 @@ const CoursePlayer = () => {
                   }`}
                 >
                   <CheckCircle className="w-5 h-5" />
-                  <span>{isCompleted ? 'Completed' : 'Mark as Completed'}</span>
+                  <span>{isCompleted ? 'Completed (Click to Undo)' : 'Mark as Completed'}</span>
                 </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={goPrev}
+                    disabled={currentFlatIdx === 0}
+                    className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={goNext}
+                    disabled={currentFlatIdx === flatLessons.length - 1}
+                    className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
                 <div className="text-sm text-gray-500">
-                  Week {currentLesson.weekIdx + 1}, Module {currentLesson.modIdx + 1}, Lesson {currentLesson.lessonIdx + 1}
+                  {currentLessonObj.week && currentLessonObj.mod && (
+                    <>
+                      Week {currentLessonObj.weekIdx + 1}, Module {currentLessonObj.modIdx + 1}, Lesson {currentLessonObj.lessonIdx + 1}
+                    </>
+                  )}
                 </div>
               </div>
             </div>

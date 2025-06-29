@@ -76,11 +76,29 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   };
 
  const handleSave = async () => {
+  // Transform weeks to ensure correct structure
+  const weeks = (editedCourse.weeks || []).map((week, idx) => ({
+    weekNumber: week.weekNumber || idx + 1,
+    modules: (week.modules || []).map(mod => ({
+      title: mod.title,
+      content: mod.content,
+      lessons: (mod.lessons || []).map(lesson => ({
+        title: lesson.title,
+        videoUrl: lesson.videoUrl,
+        duration: lesson.duration || "",
+      })),
+      resources: mod.resources || [],
+      _id: mod._id, // preserve _id if present
+    })),
+    _id: week._id, // preserve _id if present
+  }));
+
   const payload = {
     ...editedCourse,
     durationWeeks: parseInt(editedCourse.durationWeeks, 10),
-    weeks: editedCourse.weeks, // ✅ Force include weeks!
+    weeks,
   };
+  delete payload.modules;
 
   try {
     await onSave(payload);

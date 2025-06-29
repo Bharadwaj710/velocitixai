@@ -15,7 +15,35 @@ const MyLearning = () => {
         const detailsRes = await axios.get(`/api/students/details/${userId}`);
         let courses = detailsRes.data.course || [];
         if (!Array.isArray(courses)) courses = courses ? [courses] : [];
-        setEnrolledCourses(courses);
+        // Fetch progress for each course
+        const coursesWithProgress = await Promise.all(
+          courses.map(async (course) => {
+            try {
+              const progressRes = await axios.get(
+                `/api/progress/${userId}/${course._id}`
+              );
+              const courseRes = await axios.get(`/api/courses/${course._id}`);
+              const totalLessons = (courseRes.data.weeks || []).reduce(
+                (sum, w) =>
+                  sum +
+                  (w.modules || []).reduce(
+                    (msum, m) => msum + (m.lessons ? m.lessons.length : 0),
+                    0
+                  ),
+                0
+              );
+              const completed = (progressRes.data.completedLessons || []).length;
+              const progressPercent =
+                totalLessons > 0
+                  ? Math.round((completed / totalLessons) * 100)
+                  : 0;
+              return { ...course, progressPercent };
+            } catch {
+              return { ...course, progressPercent: 0 };
+            }
+          })
+        );
+        setEnrolledCourses(coursesWithProgress);
       } catch (err) {
         console.error("Failed to load enrolled courses:", err);
         setEnrolledCourses([]);
@@ -59,7 +87,11 @@ const MyLearning = () => {
             >
               <h3
                 className="text-lg font-bold text-blue-700 mb-1 cursor-pointer hover:underline"
-                onClick={() => navigate(`/course-player/${course._id}`)}
+                onClick={() =>
+                  navigate("/student/learning-path", {
+                    state: { courseId: course._id },
+                  })
+                }
               >
                 {course.title}
               </h3>
