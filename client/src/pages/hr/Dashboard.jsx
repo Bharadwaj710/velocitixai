@@ -1,534 +1,267 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Users, UserCheck, TrendingUp, Search, Mail, Building2, Phone, MapPin, GraduationCap, Trophy, XCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
+import toast, { Toaster } from "react-hot-toast";
 
-// Navbar Component
-const Navbar = () => {
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+// HR Navbar Component
+const HRNavbar = ({ hrInfo }) => {
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
-  const [hrInfo, setHrInfo] = useState(null);
 
   useEffect(() => {
-    function handleClickOutside(event) {
+    const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setProfileMenuOpen(false);
+        setShowProfileMenu(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
-  useEffect(() => {
-    const fetchHRDetails = async () => {
-      try {
-        const loggedUser = JSON.parse(localStorage.getItem("user"));
-        const userId = loggedUser?._id || loggedUser?.id;
-        if (!userId) {
-          console.error("No user ID found in localStorage for HR details fetch");
-          return;
-        }
-        const res = await axios.get(`http://localhost:8080/api/hr/${userId}/details`);
-        setHrInfo(res.data.hr);
-      } catch (error) {
-        console.error("Error fetching HR profile:", error);
-      }
-    };
-
-    fetchHRDetails();
-  }, []);
-
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <h1 className="text-2xl font-bold text-blue-600">Velocitix</h1>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-              HR Dashboard
-            </span>
-            <div className="relative" ref={profileRef}>
-              <button onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-gray-600" />
-                </div>
-              </button>
-              {profileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border rounded-lg shadow-lg py-2 z-50">
-                  {hrInfo && (
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <div className="font-bold text-blue-700 text-base mb-1">{hrInfo.company}</div>
-                      <div className="text-xs text-gray-600 mb-1">{hrInfo.designation}</div>
-                      <div className="flex items-center text-xs text-gray-500 mb-1"><Phone className="w-3 h-3 mr-1" />{hrInfo.phoneNumber}</div>
-                      <div className="flex items-center text-xs text-gray-500"><MapPin className="w-3 h-3 mr-1" />{hrInfo.address}</div>
-                    </div>
-                  )}
-                  <Link
-                    to="/hr/profile"
-                    className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    <svg className="h-4 w-4 mr-2 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    Profile
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    <svg className="h-4 w-4 mr-2 text-purple-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4h2c0 1.1.9 2 2 2s2-.9 2-2h2c0 2.21-1.79 4-4 4zm6-4c0-3.31-2.69-6-6-6s-6 2.69-6 6H2c0-4.42 3.58-8 8-8s8 3.58 8 8h-2z" /></svg>
-                    Settings
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    <svg className="h-4 w-4 mr-2 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h4a2 2 0 012 2v1" /></svg>
-                    Logout
-                  </button>
-                </div>
-              )}
+    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 flex justify-between items-center h-16">
+        <h1 className="text-2xl font-bold text-blue-700">HR Dashboard</h1>
+        <div className="relative" ref={profileRef}>
+          <button
+            className="flex items-center space-x-3 focus:outline-none"
+            onClick={() => setShowProfileMenu((v) => !v)}
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 text-lg">
+              {hrInfo?.company ? hrInfo.company.charAt(0).toUpperCase() : "H"}
             </div>
-          </div>
+            <div className="text-left hidden sm:block">
+              <div className="font-semibold text-gray-800 text-sm">{hrInfo?.company || "Company"}</div>
+              <div className="text-xs text-gray-500">{hrInfo?.designation || "HR"}</div>
+            </div>
+          </button>
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-56 bg-white border rounded-lg shadow-lg py-2 z-50">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <div className="font-bold text-blue-700 text-base mb-1">{hrInfo?.company || "Company"}</div>
+                <div className="text-xs text-gray-600 mb-1">{hrInfo?.designation || "HR"}</div>
+                <div className="flex items-center text-xs text-gray-500 mb-1">{hrInfo?.phoneNumber && <span className="mr-1">📞</span>}{hrInfo?.phoneNumber || "No phone"}</div>
+                <div className="flex items-center text-xs text-gray-500">{hrInfo?.address && <span className="mr-1">📍</span>}{hrInfo?.address || "No address"}</div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center"
+              >
+                <span className="mr-2">🚪</span> Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </nav>
   );
 };
 
-// Stats Card Component
-const StatsCard = ({ title, value, icon: Icon, color = "blue" }) => {
-  const colorClasses = {
-    blue: "bg-blue-50 text-blue-600",
-    green: "bg-green-50 text-green-600",
-    purple: "bg-purple-50 text-purple-600"
+const Dashboard = () => {
+  const [students, setStudents] = useState([]);
+  const [invitedStudents, setInvitedStudents] = useState([]);
+  const [hrInfo, setHrInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  const fetchStudents = async () => {
+    try {
+      const res = await axios.get("/api/hr/students");
+      setStudents(res.data.students);
+    } catch (err) {
+      console.error("Error fetching students:", err);
+    }
   };
 
-  return (
-    <div className="bg-white rounded-lg shadow-sm border p-6">
-      <div className="flex items-center">
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        <div className="ml-4">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-};
+  const fetchInvitedStudents = async () => {
+    try {
+      const res = await axios.get("/api/hr/invited");
+      setInvitedStudents(res.data.students);
+    } catch (err) {
+      console.error("Error fetching invited students:", err);
+    }
+  };
 
-// Student Card Component
-const StudentCard = ({ student, onHire }) => {
-  const name = student.user?.name || "N/A";
-  const email = student.user?.email || "N/A";
-  const domain = student.domain || "N/A";
-  const branch = student.branch || "N/A";
-  return (
-    <div className="rounded-xl shadow-lg border-2 border-blue-100 bg-gradient-to-br from-white via-blue-50 to-white-50 p-6 hover:shadow-2xl transition-shadow">
-      <div className="flex items-center mb-4">
-        {/* Avatar */}
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow bg-blue-100 text-blue-700 mr-4`}>
-          {name.charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <h3 className="text-lg font-extrabold text-gray-900 flex items-center">
-            {name}
-            <span className="ml-2 inline-block bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">Student</span>
-          </h3>
-          <div className="flex items-center text-gray-600 mt-1">
-            <Mail className="w-4 h-4 mr-1 text-blue-500" />
-            <span className="text-sm">{email}</span>
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center">
-          <GraduationCap className="w-5 h-5 text-purple-500 mr-2" />
-          <span className="font-semibold text-purple-700">{domain}</span>
-        </div>
-        <div className="flex items-center">
-          <Building2 className="w-5 h-5 text-yellow-500 mr-2" />
-          <span className="font-semibold text-yellow-700">{branch}</span>
-        </div>
-      </div>
-      <button
-        className="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
-        onClick={() => onHire(student)}
-      >
-        Hire
-      </button>
-    </div>
-  );
-};
-
-// Hire Modal
-const HireModal = ({ student, isOpen, onClose, onConfirm }) => {
-  const [companyName, setCompanyName] = useState("");
-  useEffect(() => {
-    setCompanyName("");
-  }, [student, isOpen]);
-  if (!isOpen || !student) return null;
-  const name = student.user?.name || "N/A";
-  const email = student.user?.email || "N/A";
-  const branch = student.branch || "N/A";
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full relative">
-        <button
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          &times;
-        </button>
-        <h2 className="text-2xl font-bold mb-4 text-blue-700 flex items-center">
-          <UserCheck className="h-6 w-6 mr-2 text-green-600" />
-          Hire Student
-        </h2>
-        <div className="mb-4">
-          <div className="mb-2 flex items-center">
-            <span className="font-semibold text-gray-800 mr-2">Name:</span> {name}
-          </div>
-          <div className="mb-2 flex items-center">
-            <Mail className="w-4 h-4 mr-2 text-blue-500" />
-            <span className="font-semibold text-gray-800 mr-2">Email:</span> {email}
-          </div>
-          <div className="mb-2 flex items-center">
-            <Building2 className="w-4 h-4 mr-2 text-yellow-500" />
-            <span className="font-semibold text-gray-800 mr-2">Branch:</span> {branch}
-          </div>
-          <div className="mb-2">
-            <label className="block text-gray-700 font-medium mb-1">Company Name</label>
-            <input
-              type="text"
-              className="w-full border border-gray-300 rounded px-3 py-2"
-              value={companyName}
-              onChange={e => setCompanyName(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-        <button
-          className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition"
-          onClick={() => onConfirm(student, companyName)}
-        >
-          Send Hire Invitation
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// Main HR Dashboard Component
-const HRDashboard = () => {
-  const [students, setStudents] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [showHireModal, setShowHireModal] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
-  const [leaderboardFilter, setLeaderboardFilter] = useState('all');
-  // Add invited students state
-  const [invitedStudents, setInvitedStudents] = useState([
-    {
-      _id: '1',
-      name: 'luffy',
-      email: 'alice@example.com',
-      branch: 'CSE',
-      invitedAt: new Date().toISOString(),
-    },
-    {
-      _id: '2',
-      name: 'jane',
-      email: 'bob@example.com',
-      branch: 'ECE',
-      invitedAt: new Date(Date.now() - 86400000).toISOString(),
-    },
-    {
-      _id: '3',
-      name: 'Ankit mehra',
-      email: 'charlie@example.com',
-      branch: 'MECH',
-      invitedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-    },
-    {
-      _id: '4',
-      name: 'celine',
-      email: 'diana@example.com',
-      branch: 'CIVIL',
-      invitedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-    },
-  ]);
-  const [showAllInvited, setShowAllInvited] = useState(false);
+  const fetchHRDetails = async () => {
+    try {
+      const res = await axios.get(`/api/hr/${user._id}/details`);
+      setHrInfo(res.data.hr);
+    } catch (err) {
+      console.error("Error fetching HR details:", err);
+    }
+  };
 
   useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const res = await axios.get("http://localhost:8080/api/hr/students");
-        setStudents(res.data.students || []);
-      } catch (err) {
-        console.error("Failed to fetch students:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStudents();
+    fetchInvitedStudents();
+    fetchHRDetails();
+    setLoading(false);
   }, []);
 
-  //useEffect(() => {
-    // Fetch invited students for this HR
-    //const fetchInvited = async () => {
-      //try {
-        //const loggedUser = JSON.parse(localStorage.getItem("user"));
-       // const res = await axios.get(`http://localhost:8080/api/hr/${loggedUser.hrInfo?._id || loggedUser._id}/invited-students`);
-       // setInvitedStudents(
-         // (res.data.invitations || []).map(inv => ({
-         //   _id: inv._id,
-         //   name: inv.student?.user?.name,
-         //   email: inv.student?.user?.email,
-          //  branch: inv.student?.branch,
-          //  invitedAt: inv.invitedAt
-        //  }))
-      //  );
-   //   } catch (err) {
-   //     setInvitedStudents([]);
-   //   }
-   // };
-   // fetchInvited();
- // }, []);
+  const handleConfirmHire = async (student) => {
+    if (!hrInfo || !hrInfo._id || !hrInfo.company) {
+      toast.error("HR profile not found. Please re-login.");
+      return;
+    }
 
-  const filteredStudents = students.filter((student) => {
-    return (
-      (student.user?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (student.domain || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (student.branch || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
-
-  // Leaderboard logic
-  const sortedStudents = [...students].sort((a, b) => (b.progress || 0) - (a.progress || 0));
-  const topThree = sortedStudents.slice(0, 3);
-  const filteredLeaderboard = leaderboardFilter === 'all'
-    ? sortedStudents
-    : sortedStudents.filter(s => s.domain === leaderboardFilter);
-  const allDomains = Array.from(new Set(students.map(s => s.domain).filter(Boolean)));
-
-  const handleHireStudent = (student) => {
-    setSelectedStudent(student);
-    setShowHireModal(true);
-  };
-
-  const handleConfirmHire = async (student, companyName) => {
     try {
-      const loggedUser = JSON.parse(localStorage.getItem("user"));
-      const hrId = loggedUser.hrInfo?._id;
-      if (!hrId) {
-        alert("HR profile not found. Please re-login.");
-        return;
-      }
-      const res = await axios.post('http://localhost:8080/api/hr/send-invite', {
+      const res = await axios.post("/api/hr/send-invite", {
         studentId: student._id,
-        companyName,
-        hrId
+        companyName: hrInfo.company,
+        hrId: hrInfo._id,
       });
-      if (!res.data.success) {
-  alert(res.data.message || 'Failed to send invitation.');
-  return;
-}
 
-      // Refetch invited students from backend
-      const invitedRes = await axios.get(`http://localhost:8080/api/hr/${hrId}/invited-students`);
-      setInvitedStudents(
-        (invitedRes.data.invitations || []).map(inv => ({
-          _id: inv._id,
-          name: inv.student?.user?.name,
-          email: inv.student?.user?.email,
-          branch: inv.student?.branch,
-          invitedAt: inv.invitedAt
-        }))
-      );
-      setShowHireModal(false);
-      setSelectedStudent(null);
-    } catch (err) {
-      if (err.response) {
-        console.error('Error response:', err.response.data);
-        alert(err.response.data.message || 'Failed to send invitation.');
+      if (res.data.success) {
+        toast.success("Invitation sent successfully!");
+        fetchInvitedStudents(); // refresh list
       } else {
-        alert('Failed to send invitation.');
+        toast.error("Failed to send invitation");
       }
-    }
-  };
-
-  // Add delete handler for invited students
-  const handleRemoveInvitedStudent = async (invitationId) => {
-    try {
-      await axios.delete(`http://localhost:8080/api/hr/invited-students/${invitationId}`);
-      setInvitedStudents(prev => prev.filter(s => s._id !== invitationId));
     } catch (err) {
-      alert('Failed to remove invited student.');
+      console.error("Error sending hire invitation:", err);
+      toast.error("Error sending invite. Try again later.");
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-lg font-semibold">Loading...</div>;
+
+  // Leaderboard logic (top 3 by progress)
+  const leaderboard = [...students]
+    .filter(s => s.progress !== undefined)
+    .sort((a, b) => (b.progress || 0) - (a.progress || 0))
+    .slice(0, 3);
+
+  // Stat cards data
+  const statCards = [
+    {
+      title: "Total Students",
+      value: students.length,
+      icon: (
+        <div className="p-2 bg-blue-100 rounded-lg"><span role="img" aria-label="users">👥</span></div>
+      ),
+      color: "blue"
+    },
+    {
+      title: "Leaderboard",
+      value: (
+        <div className="flex flex-col gap-1">
+          {leaderboard.map((s, i) => (
+            <span key={s._id} className="text-xs font-semibold text-gray-900 whitespace-normal break-words max-w-xs">
+              {i + 1}. {s.user?.name || 'N/A'} ({s.progress || 0}%)
+            </span>
+          ))}
+        </div>
+      ),
+      icon: (
+        <div className="p-2 bg-yellow-100 rounded-lg"><span role="img" aria-label="trophy">🏆</span></div>
+      ),
+      color: "yellow",
+      leaderboard: true,
+      onClick: () => setShowLeaderboard(true)
+    },
+    {
+      title: "Invited Students",
+      value: invitedStudents.length,
+      icon: (
+        <div className="p-2 bg-green-100 rounded-lg"><span role="img" aria-label="invite">✉️</span></div>
+      ),
+      color: "green"
+    }
+  ];
+
+  // Helper for student avatar
+  const getAvatar = (name) => name ? name.charAt(0).toUpperCase() : 'S';
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Stats */}
+      <Toaster />
+      <HRNavbar hrInfo={hrInfo} />
+      <div className="max-w-6xl mx-auto py-10 px-4 sm:px-8">
+        {/* Stat Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatsCard
-            title="Total Students"
-            value={students.length}
-            icon={Users}
-            color="blue"
-          />
-          <div onClick={() => setLeaderboardOpen(true)} className="cursor-pointer">
-            <div className="rounded-xl shadow-lg border-2 border-yellow-100 bg-gradient-to-br from-white via-yellow-50 to-orange-50 p-6 hover:shadow-2xl transition-shadow">
-              <div className="flex items-center mb-2">
-                <Trophy className="w-7 h-7 text-yellow-500 mr-3" />
-                <div>
-                  <div className="text-lg font-bold text-yellow-700">Leaderboard</div>
-                  <div className="text-xs text-gray-500">Top 3 Students</div>
-                </div>
+          {statCards.map((card, idx) => (
+            <div
+              key={idx}
+              className="bg-white rounded-lg shadow p-6 flex items-center cursor-pointer"
+              onClick={card.onClick}
+            >
+              {card.icon}
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">{card.title}</p>
+                {card.value}
               </div>
-              <ol className="mt-2 space-y-1">
-                {topThree.map((student, idx) => (
-                  <li key={student._id || idx} className="flex items-center space-x-2">
-                    <span className={`font-bold ${idx === 0 ? 'text-yellow-600' : idx === 1 ? 'text-gray-500' : 'text-orange-700'}`}>#{idx + 1}</span>
-                    <span className="font-semibold">{student.user?.name || 'N/A'}</span>
-                    <span className="text-xs text-gray-500">{student.progress}%</span>
-                  </li>
-                ))}
+            </div>
+          ))}
+        </div>
+        {/* Leaderboard Modal */}
+        {showLeaderboard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl"
+                onClick={() => setShowLeaderboard(false)}
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <h2 className="text-2xl font-bold mb-4 flex items-center">
+                <span role="img" aria-label="trophy" className="mr-2">🏆</span>
+                Leaderboard
+              </h2>
+              <ol className="space-y-3">
+                {[...students]
+                  .filter(s => s.progress !== undefined)
+                  .sort((a, b) => (b.progress || 0) - (a.progress || 0))
+                  .map((s, idx) => (
+                    <li key={s._id || idx} className="flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50">
+                      <div className="flex items-center space-x-2">
+                        <span className={`font-bold ${idx === 0 ? "text-yellow-600" : idx === 1 ? "text-gray-500" : idx === 2 ? "text-orange-700" : "text-gray-700"}`}>#{idx + 1}</span>
+                        <span className="font-semibold">{s.user?.name || 'N/A'}</span>
+                      </div>
+                      <span className="text-xs text-gray-500">{s.progress || 0}%</span>
+                    </li>
+                  ))}
               </ol>
             </div>
           </div>
-          {/* Invited Students Card */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <div className="flex items-center mb-2">
-              <Mail className="w-6 h-6 text-purple-600 mr-2" />
-              <div>
-                <div className="text-lg font-bold text-purple-700">Invited Students</div>
-                <div className="text-xs text-gray-500">Recently Invited</div>
+        )}
+        {/* All Students Grid */}
+        <h2 className="text-xl font-semibold mb-4 text-gray-800">All Students</h2>
+        {students.length === 0 ? (
+          <div className="bg-white rounded-xl shadow p-6 text-gray-500 text-center">No students found.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {students.map((student) => (
+              <div key={student._id} className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition flex flex-col items-center border border-gray-100">
+                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl mb-3">
+                  {getAvatar(student.user?.name)}
+                </div>
+                <h3 className="font-semibold text-lg text-gray-900 text-center">{student.user?.name || "N/A"}</h3>
+                <div className="text-gray-600 text-sm text-center mb-2">{student.user?.email || "N/A"}</div>
+                <div className="text-xs text-gray-500 mb-2">{student.course?.title || "N/A"}</div>
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div className="h-2 rounded-full bg-gradient-to-r from-green-400 to-blue-500" style={{ width: `${student.progress || 0}%` }}></div>
+                </div>
+                <div className="text-xs text-gray-500 mb-2">Progress: {student.progress || 0}%</div>
+                <button
+                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition w-full"
+                  onClick={() => handleConfirmHire(student)}
+                >
+                  Send Hire Invitation
+                </button>
               </div>
-            </div>
-            {invitedStudents.length === 0 ? (
-              <div className="text-gray-400 text-sm mt-2">No students invited yet.</div>
-            ) : (
-              <>
-                <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                  {(showAllInvited ? invitedStudents : invitedStudents.slice(0, 3)).map((s) => (
-                    <li key={s._id} className="flex items-center justify-between border-b last:border-b-0 pb-1">
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-gray-800">{s.name}</span>
-                        <span className="text-xs text-gray-500">{new Date(s.invitedAt).toLocaleDateString()} {new Date(s.invitedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <button onClick={() => handleRemoveInvitedStudent(s._id)} className="ml-2 text-gray-400 hover:text-red-500" title="Remove">
-                        <XCircle className="w-5 h-5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {invitedStudents.length > 3 && (
-                  <button
-                    className="mt-2 text-xs text-blue-600 hover:underline focus:outline-none"
-                    onClick={() => setShowAllInvited((prev) => !prev)}
-                  >
-                    {showAllInvited ? 'Show Less' : `Show All (${invitedStudents.length})`}
-                  </button>
-                )}
-              </>
-            )}
+            ))}
           </div>
-        </div>
-
-        {/* Search + Cards */}
-        <div className="bg-white rounded-lg border shadow-sm">
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900">All Students</h2>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredStudents.length > 0 ? (
-              filteredStudents.map((student) => (
-                <StudentCard key={student._id} student={student} onHire={handleHireStudent} />
-              ))
-            ) : (
-              <p className="text-center text-gray-500 col-span-full">No students found</p>
-            )}
-          </div>
-        </div>
+        )}
       </div>
-
-      <HireModal
-        student={selectedStudent}
-        isOpen={showHireModal}
-        onClose={() => setShowHireModal(false)}
-        onConfirm={handleConfirmHire}
-      />
-
-      {/* Leaderboard Modal */}
-      {leaderboardOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full relative">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl"
-              onClick={() => setLeaderboardOpen(false)}
-              aria-label="Close"
-            >
-              &times;
-            </button>
-            <h2 className="text-2xl font-bold mb-4 flex items-center">
-              <Trophy className="h-6 w-6 text-yellow-600 mr-2" />
-              Leaderboard
-            </h2>
-            {/* Filter */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Domain:</label>
-              <select
-                value={leaderboardFilter}
-                onChange={e => setLeaderboardFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2"
-              >
-                <option value="all">All Domains</option>
-                {allDomains.map(domain => (
-                  <option key={domain} value={domain}>{domain}</option>
-                ))}
-              </select>
-            </div>
-            <ol className="space-y-3">
-              {filteredLeaderboard.map((student, idx) => (
-                <li key={student._id || idx} className="flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50">
-                  <div className="flex items-center space-x-2">
-                    <span className={`font-bold ${idx === 0 ? 'text-yellow-600' : idx === 1 ? 'text-gray-500' : idx === 2 ? 'text-orange-700' : 'text-gray-700'}`}>#{idx + 1}</span>
-                    <span className="font-semibold">{student.user?.name || 'N/A'}</span>
-                  </div>
-                  <span className="text-xs text-gray-500">{student.progress}%</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-export default HRDashboard;
+export default Dashboard;

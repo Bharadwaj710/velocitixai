@@ -1,17 +1,41 @@
 const mongoose = require('mongoose');
-
-const ResourceSchema = new mongoose.Schema({
-  url: String,
-  name: String,
-}, { _id: false });
-
-const ModuleSchema = new mongoose.Schema({
-  title: String,
-  content: String,
-  resources: [ResourceSchema],
-
+// 🔹 Lesson Schema
+const lessonSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+  videoUrl: {
+    type: String,
+    required: true,
+  },
+  duration: {
+    type: String, // Optional, e.g., "12:34"
+  }
 });
 
+// 🔹 Module Schema
+const moduleSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+  content: {
+    type: String, // Description of what the module covers
+  },
+  lessons: [lessonSchema] // Each module has lessons
+});
+
+// 🔹 Week Schema
+const weekSchema = new mongoose.Schema({
+  weekNumber: {
+    type: Number,
+    required: true,
+  },
+  modules: [moduleSchema] // Each week has modules
+});
+
+// 🔹 Course Schema
 const courseSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -19,7 +43,6 @@ const courseSchema = new mongoose.Schema({
   },
   description: String,
   durationWeeks: Number,
-  modules: [ModuleSchema],
   level: { type: String, enum: ["Beginner", "Intermediate", "Proficient"], default: "Beginner" },
   domain: { type: String, required: true }, // AI-required
   idealRoles: [{ type: String, required: true }], // AI-required
@@ -29,6 +52,12 @@ const courseSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'user',
   },
+  timeCommitmentRecommended: String,
+
+  weeks: [weekSchema], // ✅ NEW STRUCTURE HERE
+  
+}, {
+  timestamps: true
 });
 
 // Ensure the model name is "Course" (capital C, singular) for Mongoose population compatibility

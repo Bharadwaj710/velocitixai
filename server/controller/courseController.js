@@ -3,6 +3,7 @@ const Course = require('../models/Course');
 // Create new course with modules
 exports.createCourse = async (req, res) => {
   try {
+
     const {
       title,
       description,
@@ -36,7 +37,6 @@ exports.createCourse = async (req, res) => {
       skillsCovered,
       challengesAddressed
     });
-
     const saved = await course.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -44,6 +44,7 @@ exports.createCourse = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
 
 // Get all courses
 exports.getCourses = async (req, res) => {
@@ -97,8 +98,16 @@ exports.updateCourse = async (req, res) => {
     if (req.body.skillsCovered) updateData.skillsCovered = req.body.skillsCovered;
     if (req.body.challengesAddressed) updateData.challengesAddressed = req.body.challengesAddressed;
 
-    const updated = await Course.findByIdAndUpdate(req.params.id, updateData, { new: true });
-    res.status(200).json(updated);
+ 
+    const course = await Course.findByIdAndUpdate(req.params.id, updateData, { new: true });
+if (!course) return res.status(404).json({ message: 'Course not found' });
+
+course.set(req.body); // 🔁 apply updates
+await course.save();  // ✅ this triggers full validation
+
+res.status(200).json(course);
+
+    
   } catch (err) {
     res.status(500).json({ message: "Update failed" });
   }

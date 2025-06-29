@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { fetchCourses, createCourse, deleteCourse, updateCourse } from '../../services/api';
-import CourseEditModal from './CourseEditModal';
 import { toast } from 'react-toastify';
+import CourseEditModal from './CourseEditModal'; // Make sure the path is correct
 
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Proficient"];
 const DOMAIN_OPTIONS = [
@@ -16,20 +15,19 @@ const DOMAIN_OPTIONS = [
 const SUGGEST_API_URL = "http://localhost:5001/suggest-course-metadata";
 
 const CourseManager = () => {
-  const [courses, setCourses] = useState([]);
-  const [editCourse, setEditCourse] = useState(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
     durationWeeks: '',
+
     level: 'Beginner',
     domain: '',
     idealRoles: [],
     skillsCovered: [],
     challengesAddressed: [],
-    modules: [{ title: 'Week 1', content: '', resources: [], pdfs: [], lessons: [] }]
+    timeCommitmentRecommended: '',
+    weeks: [],
   });
-
   const [inputFields, setInputFields] = useState({
     idealRole: '',
     skill: '',
@@ -47,33 +45,13 @@ const CourseManager = () => {
   const [fetchingPlaylist, setFetchingPlaylist] = useState(false);
 
   const fileInputRefs = useRef([]);
-
-  // Load courses
-  const loadCourses = async () => {
-    const res = await fetchCourses();
-    setCourses(res.data);
-  };
-
+ 
+  const [courses, setCourses] = useState([]);
+  const [editingCourse, setEditingCourse] = useState(null);
+  // Load courses on mount
   useEffect(() => {
-    loadCourses();
+    fetchCourses();
   }, []);
-
-  // Auto-generate modules when durationWeeks changes
-  useEffect(() => {
-    const weeks = parseInt(form.durationWeeks, 10);
-    if (!weeks || weeks < 1) return;
-    setForm(f => ({
-      ...f,
-      modules: Array.from({ length: weeks }, (_, i) => ({
-        title: `Week ${i + 1}`,
-        content: '',
-        resources: [],
-        pdfs: [],
-        lessons: []
-      }))
-    }));
-  }, [form.durationWeeks]);
-
   // --- Multi-value handlers ---
   const addToArrayField = (field, value) => {
     const values = value
@@ -199,121 +177,58 @@ const CourseManager = () => {
         challengesAddressed: [],
         modules: [{ title: 'Week 1', content: '', resources: [], pdfs: [], lessons: [] }]
       });
-    } catch (err) {
-      toast.error("Failed to create course");
-      console.error(err);
-    }
-  };
 
-  // --- Module and Lesson Handlers ---
-  const handleModuleChange = (index, key, value) => {
-    const updated = [...form.modules];
-    updated[index][key] = value;
-    setForm({ ...form, modules: updated });
-  };
-
-  const addModule = () => {
-    setForm({
-      ...form,
-      modules: [...form.modules, { title: `Week ${form.modules.length + 1}`, content: '', resources: [], pdfs: [], lessons: [] }]
-    });
-  };
-
-  const removeModule = (idx) => {
-    const updated = form.modules.filter((_, i) => i !== idx);
-    setForm({ ...form, modules: updated });
-  };
-
-  const moveModule = (fromIdx, toIdx) => {
-    if (toIdx < 0 || toIdx >= form.modules.length) return;
-    const updated = [...form.modules];
-    const [moved] = updated.splice(fromIdx, 1);
-    updated.splice(toIdx, 0, moved);
-    setForm({ ...form, modules: updated });
-  };
-
-  // --- Lesson Handlers ---
-  const addLesson = (modIdx) => {
-    setForm(f => {
-      const modules = [...f.modules];
-      modules[modIdx].lessons = modules[modIdx].lessons || [];
-      modules[modIdx].lessons.push({
-        title: '',
-        videoUrl: '',
-        timestamp: ''
-      });
-      return { ...f, modules };
-    });
-  };
-
-  const removeLesson = (modIdx, lessonIdx) => {
-    setForm(f => {
-      const modules = [...f.modules];
-      modules[modIdx].lessons.splice(lessonIdx, 1);
-      return { ...f, modules };
-    });
-  };
-
-  const moveLesson = (modIdx, fromIdx, toIdx) => {
-    const lessons = [...form.modules[modIdx].lessons];
-    if (toIdx < 0 || toIdx >= lessons.length) return;
-    const [moved] = lessons.splice(fromIdx, 1);
-    lessons.splice(toIdx, 0, moved);
-    const modules = [...form.modules];
-    modules[modIdx].lessons = lessons;
-    setForm({ ...form, modules });
-  };
-
-  const handleLessonChange = (modIdx, lessonIdx, key, value) => {
-    setForm(f => {
-      const modules = [...f.modules];
-      modules[modIdx].lessons[lessonIdx][key] = value;
-      return { ...f, modules };
-    });
-  };
-
-  // --- Playlist fetch (optional, just helps pre-fill modules) ---
-  const handleFetchPlaylist = async () => {
-    if (!playlistUrl || !form.durationWeeks) {
-      toast.error("Enter playlist URL and duration (weeks)");
-      return;
-    }
-    setFetchingPlaylist(true);
+  const fetchCourses = async () => {
     try {
-      const res = await axios.post('http://localhost:5001/playlist-info', { playlistUrl });
-      const videos = res.data.videos || [];
-      if (!videos.length) {
-        toast.error("No videos found in playlist");
-        setFetchingPlaylist(false);
-        return;
-      }
-      const weeks = parseInt(form.durationWeeks, 10) || 1;
-      const perWeek = Math.ceil(videos.length / weeks);
-      const modules = [];
-      for (let i = 0; i < weeks; i++) {
-        const weekVideos = videos.slice(i * perWeek, (i + 1) * perWeek);
-        modules.push({
-          title: `Week ${i + 1}`,
-          content: '',
-          resources: [],
-          pdfs: [],
-          lessons: weekVideos.map(video => ({
-            title: video.title,
-            videoUrl: video.videoUrl,
-            timestamp: ''
-          }))
-        });
-      }
-      setForm(f => ({
-        ...f,
-        modules
-      }));
-      toast.success("Playlist fetched and modules/lessons pre-filled! You can edit them as needed.");
+      const res = await axios.get('/api/courses');
+      setCourses(res.data);
+
     } catch (err) {
-      toast.error("Failed to fetch playlist");
-    } finally {
-      setFetchingPlaylist(false);
+      console.error('Failed to fetch courses', err);
     }
+  };
+
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'durationWeeks') {
+      const numWeeks = parseInt(value) || 0;
+      const newWeeks = Array.from({ length: numWeeks }, (_, index) => ({
+        weekNumber: index + 1,
+        modules: [],
+      }));
+      setForm({ ...form, durationWeeks: value, weeks: newWeeks });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
+  };
+
+  const addModule = (weekIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules.push({
+      title: '',
+      content: '',
+      lessons: [],
+      resources: [],
+      pdfs: [],
+    });
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const handleModuleChange = (weekIdx, modIdx, field, value) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx][field] = value;
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const addLesson = (weekIdx, modIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons.push({
+      title: '',
+      videoUrl: '',
+      duration: '',
+    });
+    setForm({ ...form, weeks: updatedWeeks });
   };
 
   // --- AI Suggestion logic unchanged ---
@@ -697,60 +612,160 @@ const CourseManager = () => {
               <div className="space-x-4">
                 <button onClick={() => handleDelete(c._id)} className="text-red-600 font-semibold">Delete</button>
                 <button onClick={() => setEditCourse(c)} className="text-blue-600 font-semibold">Edit</button>
-              </div>
-            </div>
-            <div className="mt-2">
-              <h4 className="font-semibold">Modules:</h4>
-              {c.modules?.map((m, i) => (
-                <div key={i} className="ml-4 mb-2">
-                  <p><strong>{m.title}</strong>: {m.content}</p>
-                  {m.resources?.length > 0 && (
-                    <ul className="list-disc ml-5 text-blue-600">
-                      {m.resources.map((res, idx) => {
-                        const isCloudinary = res?.url?.includes('cloudinary.com');
-                        const finalURL = res?.url
-                          ? isCloudinary
-                            ? res.url.replace('/upload/', '/upload/fl_attachment:pdf/')
-                            : res.url.startsWith('http') ? res.url : `http://${res.url}`
-                          : '#';
+  const handleLessonChange = (weekIdx, modIdx, lessonIdx, field, value) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons[lessonIdx][field] = value;
+    setForm({ ...form, weeks: updatedWeeks });
+  };
 
-                        const displayName = res?.name || (res?.url ? res.url.split('/').pop() : 'Unknown Resource');
+  const removeModule = (weekIdx, modIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules.splice(modIdx, 1);
+    setForm({ ...form, weeks: updatedWeeks });
+  };
 
-                        return (
-                          <li key={idx}>
-                            <a
-                              href={finalURL}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline text-blue-600"
-                            >
-                              {displayName}
-                            </a>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+  const removeLesson = (weekIdx, modIdx, lessonIdx) => {
+    const updatedWeeks = [...form.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons.splice(lessonIdx, 1);
+    setForm({ ...form, weeks: updatedWeeks });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('/api/courses', form);
+      toast.success('Course added successfully!');
+      setCourses((prev) => [...prev, res.data]);
+      setForm({
+        title: '',
+        description: '',
+        durationWeeks: '',
+        level: '',
+        domain: '',
+        idealRoles: [],
+        skillsCovered: [],
+        challengesAddressed: [],
+        learningStyleFit: [],
+        timeCommitmentRecommended: '',
+        weeks: [],
+      });
+    } catch (err) {
+      console.error('🔥 Failed to add course:', err);
+      toast.error('Failed to add course');
+    }
+  };
+
+  const handleDeleteCourse = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this course?')) return;
+
+    try {
+      await axios.delete(`/api/courses/${id}`);
+      toast.success('Course deleted');
+      setCourses((prev) => prev.filter((c) => c._id !== id));
+    } catch (err) {
+      console.error('Delete failed:', err);
+      toast.error('Failed to delete course');
+    }
+  };
+
+  const handleCourseUpdated = async () => {
+    await fetchCourses();
+    setEditingCourse(null);
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-xl shadow mb-10">
+      <h3 className="text-xl font-semibold mb-4">Manage Courses</h3>
+
+      {/* Create Course Form */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input name="title" placeholder="Title" value={form.title} onChange={handleChange} className="border p-2 w-full" />
+        <input name="description" placeholder="Description" value={form.description} onChange={handleChange} className="border p-2 w-full" />
+        <input name="durationWeeks" type="number" placeholder="Duration (weeks)" value={form.durationWeeks} onChange={handleChange} className="border p-2 w-full" />
+
+        {form.weeks.map((week, weekIdx) => (
+          <div key={weekIdx} className="border p-4 rounded bg-gray-50 mb-4">
+            <h4 className="font-semibold text-blue-700 mb-2">Week {week.weekNumber}</h4>
+
+            {week.modules.map((mod, modIdx) => (
+              <div key={modIdx} className="border p-3 bg-white rounded mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h5 className="font-medium">Module {modIdx + 1}</h5>
+                  <button type="button" className="text-red-600 text-sm" onClick={() => removeModule(weekIdx, modIdx)}>
+                    Remove Module
+                  </button>
                 </div>
-              ))}
-            </div>
-          </li>
-        ))}
-      </ul>
 
-      {/* Edit Modal with scrollable content */}
-      {editCourse && (
-        <div style={{ maxHeight: "80vh", overflowY: "auto" }}>
-          <CourseEditModal
-            course={editCourse}
-            onClose={() => setEditCourse(null)}
-            onSave={async (updatedData) => {
-              await updateCourse(editCourse._id, updatedData);
-              await loadCourses();
-              setEditCourse(null);
-            }}
-          />
-        </div>
+                <input placeholder="Module Title" value={mod.title} onChange={(e) => handleModuleChange(weekIdx, modIdx, 'title', e.target.value)} className="border p-2 w-full mb-2" />
+                <textarea placeholder="Module Content" value={mod.content} onChange={(e) => handleModuleChange(weekIdx, modIdx, 'content', e.target.value)} className="border p-2 w-full mb-2" />
+
+                <div className="ml-2">
+                  <h6 className="font-semibold text-sm mb-1">Lessons</h6>
+                  {mod.lessons.map((lesson, lessonIdx) => (
+                    <div key={lessonIdx} className="flex flex-col md:flex-row gap-2 items-start mb-2">
+                      <input placeholder="Lesson Title" value={lesson.title} onChange={(e) => handleLessonChange(weekIdx, modIdx, lessonIdx, 'title', e.target.value)} className="border p-2 flex-1 w-full" />
+                      <input placeholder="YouTube Video URL" value={lesson.videoUrl} onChange={(e) => handleLessonChange(weekIdx, modIdx, lessonIdx, 'videoUrl', e.target.value)} className="border p-2 flex-1 w-full" />
+                      <input placeholder="Duration" value={lesson.duration} onChange={(e) => handleLessonChange(weekIdx, modIdx, lessonIdx, 'duration', e.target.value)} className="border p-2 w-32" />
+                      <button type="button" className="text-red-600" onClick={() => removeLesson(weekIdx, modIdx, lessonIdx)}>
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" className="text-blue-600 text-sm" onClick={() => addLesson(weekIdx, modIdx)}>
+                    + Add Lesson
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button type="button" className="text-green-600 text-sm" onClick={() => addModule(weekIdx)}>
+              + Add Module
+            </button>
+          </div>
+        ))}
+
+        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Add Course
+        </button>
+      </form>
+
+      {/* Course List */}
+      <div className="mt-10">
+        <h2 className="text-lg font-bold mb-4">Existing Courses</h2>
+        {courses.length === 0 ? (
+          <p className="text-gray-500">No courses yet.</p>
+        ) : (
+          <ul className="space-y-4">
+            {courses.map((course) => (
+              <li key={course._id} className="border p-4 rounded bg-white shadow">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-blue-700 font-semibold text-lg">{course.title}</h3>
+                    <p className="text-sm text-gray-600">{course.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">Weeks: {course.weeks?.length || 0}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingCourse(course)} className="text-sm bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">
+                      Edit
+                    </button>
+                    <button onClick={() => handleDeleteCourse(course._id)} className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Edit Modal */}
+      {editingCourse && (
+        <CourseEditModal
+          course={editingCourse}
+          onClose={() => setEditingCourse(null)}
+          onSave={handleCourseUpdated}
+        />
       )}
     </div>    
   );
