@@ -52,8 +52,15 @@ exports.deleteCourse = async (req, res) => {
 // Update course
 exports.updateCourse = async (req, res) => {
   try {
-    const updated = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.status(200).json(updated);
+    const course = await Course.findById(req.params.id);
+if (!course) return res.status(404).json({ message: 'Course not found' });
+
+course.set(req.body); // 🔁 apply updates
+await course.save();  // ✅ this triggers full validation
+
+res.status(200).json(course);
+
+    
   } catch (err) {
     res.status(500).json({ message: 'Update failed' });
   }

@@ -6,160 +6,214 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   const [editedCourse, setEditedCourse] = useState({
     ...course,
     durationWeeks: course.durationWeeks || '',
-    modules: course.modules.map(mod => ({
-      ...mod,
-      lessons: mod.lessons || [],
-      pdfs: [] // for future use
-    }))
+    weeks: course.weeks || [],
   });
 
-  const handleModuleChange = (idx, key, value) => {
-    const updated = [...editedCourse.modules];
-    updated[idx][key] = value;
-    setEditedCourse({ ...editedCourse, modules: updated });
-  };
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
 
-  const handleLessonChange = (modIdx, lessonIdx, field, value) => {
-    const updated = [...editedCourse.modules];
-    updated[modIdx].lessons[lessonIdx][field] = value;
-    setEditedCourse({ ...editedCourse, modules: updated });
-  };
-
-  const addModule = () => {
-    setEditedCourse({
-      ...editedCourse,
-      modules: [...editedCourse.modules, { title: '', content: '', lessons: [], pdfs: [] }]
-    });
-  };
-
-  const removeModule = (idx) => {
-    const updated = editedCourse.modules.filter((_, i) => i !== idx);
-    setEditedCourse({ ...editedCourse, modules: updated });
-  };
-
-  const addLesson = (modIdx) => {
-    const updated = [...editedCourse.modules];
-    updated[modIdx].lessons.push({ title: '', videoUrl: '', duration: '' });
-    setEditedCourse({ ...editedCourse, modules: updated });
-  };
-
-  const removeLesson = (modIdx, lessonIdx) => {
-    const updated = [...editedCourse.modules];
-    updated[modIdx].lessons = updated[modIdx].lessons.filter((_, i) => i !== lessonIdx);
-    setEditedCourse({ ...editedCourse, modules: updated });
-  };
-
-  const handleSave = async () => {
-    const newModules = [...editedCourse.modules];
-
-    const payload = {
-      ...editedCourse,
-      durationWeeks: parseInt(editedCourse.durationWeeks, 10),
-      modules: newModules
-    };
-
-    try {
-      await onSave(payload);
-      toast.success('Course updated!');
-      onClose();
-    } catch (err) {
-      console.error(err);
-      toast.error('Update failed');
+    if (name === 'durationWeeks') {
+      const numWeeks = parseInt(value) || 0;
+      const newWeeks = Array.from({ length: numWeeks }, (_, index) => ({
+        weekNumber: index + 1,
+        modules: [],
+      }));
+      setEditedCourse((prev) => ({
+        ...prev,
+        durationWeeks: numWeeks,
+        weeks: newWeeks,
+      }));
+    } else {
+      setEditedCourse((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
     }
   };
 
+  const addModule = (weekIdx) => {
+    const updatedWeeks = [...editedCourse.weeks];
+    updatedWeeks[weekIdx].modules.push({
+      title: '',
+      content: '',
+      lessons: [],
+    });
+    setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
+  };
+
+  const removeModule = (weekIdx, modIdx) => {
+    const updatedWeeks = [...editedCourse.weeks];
+    updatedWeeks[weekIdx].modules.splice(modIdx, 1);
+    setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
+  };
+
+  const handleModuleChange = (weekIdx, modIdx, key, value) => {
+    const updatedWeeks = [...editedCourse.weeks];
+    updatedWeeks[weekIdx].modules[modIdx][key] = value;
+    setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
+  };
+
+  const addLesson = (weekIdx, modIdx) => {
+    const updatedWeeks = [...editedCourse.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons.push({
+      title: '',
+      videoUrl: '',
+      duration: '',
+    });
+    setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
+  };
+
+  const removeLesson = (weekIdx, modIdx, lessonIdx) => {
+    const updatedWeeks = [...editedCourse.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons.splice(lessonIdx, 1);
+    setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
+  };
+
+  const handleLessonChange = (weekIdx, modIdx, lessonIdx, key, value) => {
+    const updatedWeeks = [...editedCourse.weeks];
+    updatedWeeks[weekIdx].modules[modIdx].lessons[lessonIdx][key] = value;
+    setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
+  };
+
+ const handleSave = async () => {
+  const payload = {
+    ...editedCourse,
+    durationWeeks: parseInt(editedCourse.durationWeeks, 10),
+    weeks: editedCourse.weeks, // ✅ Force include weeks!
+  };
+
+  try {
+    await onSave(payload);
+    toast.success('Course updated!');
+    onClose();
+  } catch (err) {
+    console.error(err);
+    toast.error('Update failed');
+  }
+};
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-xl max-w-3xl w-full relative">
-        <button onClick={onClose} className="absolute top-3 right-5 text-gray-500 hover:text-gray-800">&times;</button>
+      <div className="bg-white p-6 rounded-xl max-w-4xl w-full relative overflow-y-auto max-h-[90vh]">
+        <button onClick={onClose} className="absolute top-3 right-5 text-gray-500 hover:text-gray-800">
+          &times;
+        </button>
         <h3 className="text-lg font-semibold mb-4">Edit Course</h3>
 
         <input
           className="border p-2 w-full mb-2"
           value={editedCourse.title}
           placeholder="Course Title"
-          onChange={e => setEditedCourse({ ...editedCourse, title: e.target.value })}
+          name="title"
+          onChange={handleInputChange}
         />
         <input
           className="border p-2 w-full mb-2"
           value={editedCourse.description}
           placeholder="Description"
-          onChange={e => setEditedCourse({ ...editedCourse, description: e.target.value })}
+          name="description"
+          onChange={handleInputChange}
         />
         <input
           className="border p-2 w-full mb-4"
           value={editedCourse.durationWeeks}
           placeholder="Duration (weeks)"
-          onChange={e => setEditedCourse({ ...editedCourse, durationWeeks: e.target.value })}
+          name="durationWeeks"
+          type="number"
+          onChange={handleInputChange}
         />
 
-        {editedCourse.modules.map((mod, idx) => (
-          <div key={idx} className="mb-6 border p-3 bg-gray-50 rounded">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium">Module {idx + 1}</h4>
-              {editedCourse.modules.length > 1 && (
-                <button onClick={() => removeModule(idx)} className="text-sm text-red-600">Remove</button>
-              )}
-            </div>
+        {/* WEEK SECTIONS */}
+        {editedCourse.weeks.map((week, weekIdx) => (
+          <div key={weekIdx} className="mb-6 p-4 bg-gray-100 rounded-xl border">
+            <h4 className="text-lg font-bold text-blue-800 mb-2">Week {week.weekNumber}</h4>
 
-            <input
-              className="border p-2 w-full mb-2"
-              value={mod.title}
-              placeholder="Module Title"
-              onChange={e => handleModuleChange(idx, 'title', e.target.value)}
-            />
-            <textarea
-              className="border p-2 w-full mb-2"
-              value={mod.content}
-              placeholder="Module Content"
-              onChange={e => handleModuleChange(idx, 'content', e.target.value)}
-            />
-
-            <div className="ml-2">
-              <h5 className="text-sm font-semibold mb-1">Lessons</h5>
-
-              {mod.lessons.map((lesson, lessonIdx) => (
-                <div key={lessonIdx} className="flex flex-col md:flex-row gap-2 items-start mb-2">
-                  <input
-                    className="border p-2 flex-1 w-full"
-                    placeholder="Lesson Title"
-                    value={lesson.title}
-                    onChange={e => handleLessonChange(idx, lessonIdx, 'title', e.target.value)}
-                  />
-                  <input
-                    className="border p-2 flex-1 w-full"
-                    placeholder="YouTube Video URL"
-                    value={lesson.videoUrl}
-                    onChange={e => handleLessonChange(idx, lessonIdx, 'videoUrl', e.target.value)}
-                  />
-                  <input
-                    className="border p-2 w-32"
-                    placeholder="Duration"
-                    value={lesson.duration}
-                    onChange={e => handleLessonChange(idx, lessonIdx, 'duration', e.target.value)}
-                  />
+            {week.modules.map((mod, modIdx) => (
+              <div key={modIdx} className="mb-4 p-3 bg-white border rounded">
+                <div className="flex justify-between items-center mb-2">
+                  <h5 className="font-medium">Module {modIdx + 1}</h5>
                   <button
-                    className="text-red-600 mt-1 md:mt-0"
-                    onClick={() => removeLesson(idx, lessonIdx)}
+                    onClick={() => removeModule(weekIdx, modIdx)}
+                    className="text-sm text-red-600"
                   >
-                    ✕
+                    Remove Module
                   </button>
                 </div>
-              ))}
 
-              <button
-                className="text-blue-600 text-sm mt-1"
-                onClick={() => addLesson(idx)}
-              >
-                + Add Lesson
-              </button>
-            </div>
+                <input
+                  className="border p-2 w-full mb-2"
+                  placeholder="Module Title"
+                  value={mod.title}
+                  onChange={(e) =>
+                    handleModuleChange(weekIdx, modIdx, 'title', e.target.value)
+                  }
+                />
+                <textarea
+                  className="border p-2 w-full mb-2"
+                  placeholder="Module Content"
+                  value={mod.content}
+                  onChange={(e) =>
+                    handleModuleChange(weekIdx, modIdx, 'content', e.target.value)
+                  }
+                />
+
+                {/* Lessons inside module */}
+                <div className="ml-2">
+                  <h6 className="text-sm font-semibold mb-1">Lessons</h6>
+                  {mod.lessons.map((lesson, lessonIdx) => (
+                    <div key={lessonIdx} className="flex flex-col md:flex-row gap-2 items-start mb-2">
+                      <input
+                        className="border p-2 flex-1 w-full"
+                        placeholder="Lesson Title"
+                        value={lesson.title}
+                        onChange={(e) =>
+                          handleLessonChange(weekIdx, modIdx, lessonIdx, 'title', e.target.value)
+                        }
+                      />
+                      <input
+                        className="border p-2 flex-1 w-full"
+                        placeholder="YouTube Video URL"
+                        value={lesson.videoUrl}
+                        onChange={(e) =>
+                          handleLessonChange(weekIdx, modIdx, lessonIdx, 'videoUrl', e.target.value)
+                        }
+                      />
+                      <input
+                        className="border p-2 w-32"
+                        placeholder="Duration"
+                        value={lesson.duration}
+                        onChange={(e) =>
+                          handleLessonChange(weekIdx, modIdx, lessonIdx, 'duration', e.target.value)
+                        }
+                      />
+                      <button
+                        className="text-red-600 mt-1 md:mt-0"
+                        onClick={() => removeLesson(weekIdx, modIdx, lessonIdx)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    className="text-blue-600 text-sm mt-1"
+                    onClick={() => addLesson(weekIdx, modIdx)}
+                  >
+                    + Add Lesson
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={() => addModule(weekIdx)}
+              className="text-green-600 text-sm"
+            >
+              + Add Module
+            </button>
           </div>
         ))}
 
-        <button onClick={addModule} className="text-green-600 text-sm mb-4">+ Add Module</button>
-
-        <div className="text-right">
+        <div className="text-right mt-6">
           <button
             onClick={handleSave}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
@@ -173,3 +227,4 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
 };
 
 export default CourseEditModal;
+
