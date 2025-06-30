@@ -1,18 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
-import { toast } from 'react-toastify';
+import React, { useState, useRef, useEffect } from "react";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 const CourseEditModal = ({ course, onClose, onSave }) => {
   const [editedCourse, setEditedCourse] = useState({
     ...course,
-    durationWeeks: course.durationWeeks || '',
+    durationWeeks: course.durationWeeks || "",
     weeks: course.weeks || [],
   });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === 'durationWeeks') {
+    if (name === "durationWeeks") {
       const numWeeks = parseInt(value) || 0;
       const newWeeks = Array.from({ length: numWeeks }, (_, index) => ({
         weekNumber: index + 1,
@@ -34,8 +34,8 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   const addModule = (weekIdx) => {
     const updatedWeeks = [...editedCourse.weeks];
     updatedWeeks[weekIdx].modules.push({
-      title: '',
-      content: '',
+      title: "",
+      content: "",
       lessons: [],
     });
     setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
@@ -56,9 +56,9 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   const addLesson = (weekIdx, modIdx) => {
     const updatedWeeks = [...editedCourse.weeks];
     updatedWeeks[weekIdx].modules[modIdx].lessons.push({
-      title: '',
-      videoUrl: '',
-      duration: '',
+      title: "",
+      videoUrl: "",
+      duration: "",
     });
     setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
   };
@@ -75,45 +75,78 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     setEditedCourse({ ...editedCourse, weeks: updatedWeeks });
   };
 
- const handleSave = async () => {
-  // Transform weeks to ensure correct structure
-  const weeks = (editedCourse.weeks || []).map((week, idx) => ({
-    weekNumber: week.weekNumber || idx + 1,
-    modules: (week.modules || []).map(mod => ({
-      title: mod.title,
-      content: mod.content,
-      lessons: (mod.lessons || []).map(lesson => ({
-        title: lesson.title,
-        videoUrl: lesson.videoUrl,
-        duration: lesson.duration || "",
+  const handleSave = async () => {
+    // Transform weeks to ensure correct structure
+    const weeks = (editedCourse.weeks || []).map((week, idx) => ({
+      weekNumber: week.weekNumber || idx + 1,
+      modules: (week.modules || []).map((mod) => ({
+        title: mod.title,
+        content: mod.content,
+        lessons: (mod.lessons || []).map((lesson) => ({
+          title: lesson.title,
+          videoUrl: lesson.videoUrl,
+          duration: lesson.duration || "",
+        })),
+        resources: mod.resources || [],
+        _id: mod._id, // preserve _id if present
       })),
-      resources: mod.resources || [],
-      _id: mod._id, // preserve _id if present
-    })),
-    _id: week._id, // preserve _id if present
-  }));
+      _id: week._id, // preserve _id if present
+    }));
 
-  const payload = {
-    ...editedCourse,
-    durationWeeks: parseInt(editedCourse.durationWeeks, 10),
-    weeks,
+    const payload = {
+      ...editedCourse,
+      durationWeeks: parseInt(editedCourse.durationWeeks, 10),
+      weeks,
+    };
+    delete payload.modules;
+
+    try {
+      await onSave(payload);
+      toast.success("Course updated!");
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error("Update failed");
+    }
   };
-  delete payload.modules;
 
-  try {
-    await onSave(payload);
-    toast.success('Course updated!');
-    onClose();
-  } catch (err) {
-    console.error(err);
-    toast.error('Update failed');
-  }
-};
+  // Helper: flatten all lessons
+  const getAllLessons = (courseObj) => {
+    const lessons = [];
+    (courseObj.weeks || []).forEach((week) => {
+      (week.modules || []).forEach((mod) => {
+        (mod.lessons || []).forEach((lesson) => {
+          lessons.push(lesson);
+        });
+      });
+    });
+    return lessons;
+  };
+
+  const allLessons = getAllLessons(editedCourse);
+  const hasValidVideoId = allLessons.some(
+    (lesson) => lesson.videoId && lesson.videoId.length === 11
+  );
+
+  const handleGenerateTranscript = async () => {
+    try {
+      await axios.post("/api/transcripts/generate-course", {
+        courseId: editedCourse._id,
+      });
+      alert("Transcript generation started!");
+    } catch (err) {
+      console.error("Failed to generate transcript", err);
+      alert("Error generating transcript");
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-xl max-w-4xl w-full relative overflow-y-auto max-h-[90vh]">
-        <button onClick={onClose} className="absolute top-3 right-5 text-gray-500 hover:text-gray-800">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-5 text-gray-500 hover:text-gray-800"
+        >
           &times;
         </button>
         <h3 className="text-lg font-semibold mb-4">Edit Course</h3>
@@ -144,7 +177,9 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
         {/* WEEK SECTIONS */}
         {editedCourse.weeks.map((week, weekIdx) => (
           <div key={weekIdx} className="mb-6 p-4 bg-gray-100 rounded-xl border">
-            <h4 className="text-lg font-bold text-blue-800 mb-2">Week {week.weekNumber}</h4>
+            <h4 className="text-lg font-bold text-blue-800 mb-2">
+              Week {week.weekNumber}
+            </h4>
 
             {week.modules.map((mod, modIdx) => (
               <div key={modIdx} className="mb-4 p-3 bg-white border rounded">
@@ -163,7 +198,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                   placeholder="Module Title"
                   value={mod.title}
                   onChange={(e) =>
-                    handleModuleChange(weekIdx, modIdx, 'title', e.target.value)
+                    handleModuleChange(weekIdx, modIdx, "title", e.target.value)
                   }
                 />
                 <textarea
@@ -171,7 +206,12 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                   placeholder="Module Content"
                   value={mod.content}
                   onChange={(e) =>
-                    handleModuleChange(weekIdx, modIdx, 'content', e.target.value)
+                    handleModuleChange(
+                      weekIdx,
+                      modIdx,
+                      "content",
+                      e.target.value
+                    )
                   }
                 />
 
@@ -179,13 +219,22 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                 <div className="ml-2">
                   <h6 className="text-sm font-semibold mb-1">Lessons</h6>
                   {mod.lessons.map((lesson, lessonIdx) => (
-                    <div key={lessonIdx} className="flex flex-col md:flex-row gap-2 items-start mb-2">
+                    <div
+                      key={lessonIdx}
+                      className="flex flex-col md:flex-row gap-2 items-start mb-2"
+                    >
                       <input
                         className="border p-2 flex-1 w-full"
                         placeholder="Lesson Title"
                         value={lesson.title}
                         onChange={(e) =>
-                          handleLessonChange(weekIdx, modIdx, lessonIdx, 'title', e.target.value)
+                          handleLessonChange(
+                            weekIdx,
+                            modIdx,
+                            lessonIdx,
+                            "title",
+                            e.target.value
+                          )
                         }
                       />
                       <input
@@ -193,7 +242,13 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                         placeholder="YouTube Video URL"
                         value={lesson.videoUrl}
                         onChange={(e) =>
-                          handleLessonChange(weekIdx, modIdx, lessonIdx, 'videoUrl', e.target.value)
+                          handleLessonChange(
+                            weekIdx,
+                            modIdx,
+                            lessonIdx,
+                            "videoUrl",
+                            e.target.value
+                          )
                         }
                       />
                       <input
@@ -201,7 +256,13 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                         placeholder="Duration"
                         value={lesson.duration}
                         onChange={(e) =>
-                          handleLessonChange(weekIdx, modIdx, lessonIdx, 'duration', e.target.value)
+                          handleLessonChange(
+                            weekIdx,
+                            modIdx,
+                            lessonIdx,
+                            "duration",
+                            e.target.value
+                          )
                         }
                       />
                       <button
@@ -231,6 +292,21 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
           </div>
         ))}
 
+        {/* Generate Transcript Button */}
+        {hasValidVideoId ? (
+          <button
+            className="bg-yellow-500 text-white px-4 py-2 rounded mt-4"
+            onClick={handleGenerateTranscript}
+          >
+            📜 Generate Transcript for All Lessons
+          </button>
+        ) : (
+          <div className="text-sm text-gray-500 mt-4">
+            Add at least one lesson with a valid YouTube video to enable
+            transcript generation.
+          </div>
+        )}
+
         <div className="text-right mt-6">
           <button
             onClick={handleSave}
@@ -245,4 +321,3 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
 };
 
 export default CourseEditModal;
-
