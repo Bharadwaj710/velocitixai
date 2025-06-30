@@ -125,29 +125,73 @@ def analyze_video():
 
 @app.route("/suggest-course-metadata", methods=["POST"])
 def suggest_course_metadata():
+    import json
+
+    # Get title and description
     data = request.get_json()
-    title = data.get("title", "")
+    title = data.get("title", "").strip()
+    description = data.get("description", "").strip()
+
+    # Check title
     if not title:
         return jsonify({"error": "Title is required"}), 400
+
+    # Configure Gemini API key
+    try:
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    except Exception as e:
+        return jsonify({"error": f"Failed to configure Gemini: {str(e)}"}), 500
+
+    # Define allowed domains
+    allowed_domains = [
+        "Technology and Innovation",
+        "Healthcare and Wellness",
+        "Business and Finance",
+        "Arts and Creativity",
+        "Education and Social Services"
+    ]
+
+    # Prepare prompt
     prompt = f"""
-    Given the following YouTube course title{' and description' if data.get('description') else ''}, suggest:
-    - The most relevant domain for this course
+    Given the following YouTube course title{' and description' if description else ''}, suggest:
+    - The most relevant domain for this course (choose ONLY from: {', '.join(allowed_domains)})
     - 3 to 5 ideal job roles
     - 3 to 5 key skills
     - 2 to 3 learning challenges
+
     Respond ONLY as JSON with keys: domain, idealRoles, skillsCovered, challengesAddressed.
 
     Course Title: {title}
-    {"Course Description: " + data.get("description") if data.get("description") else ""}
+    {"Course Description: " + description if description else ""}
     """
+
+    # Generate response from Gemini
     try:
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
-        import json
-        match = re.search(r"\{.*\}", response.text, re.DOTALL)
-        return jsonify(json.loads(match.group(0))) if match else jsonify({"error": "AI response invalid"}), 500
+        response_text = getattr(response, "text", "")
+
+        print("=== Gemini Raw Response ===")
+        print(response_text)
+
+        # Extract JSON block from response
+        match = re.search(r"\{.*\}", response_text, re.DOTALL)
+        if not match:
+            raise ValueError("JSON not found in response.")
+
+        metadata = json.loads(match.group(0))
+
+        # Validate the domain
+        if metadata.get("domain") not in allowed_domains:
+            raise ValueError("Domain is not one of the allowed options.")
+
+        return jsonify(metadata), 200
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": f"AI response invalid or failed: {str(e)}",
+            "rawResponse": response_text if 'response_text' in locals() else ""
+        }), 500
 
 @app.route("/generate-transcript", methods=["POST"])
 def generate_transcript():

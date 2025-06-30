@@ -100,22 +100,37 @@ const StudentDashboard = () => {
 
   if (showAssessmentBtn) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <h1 className="text-3xl font-bold mb-6">
-          Welcome, {user.name?.split(" ")[0]}!
-        </h1>
-        <p className="mb-6 text-gray-600">
-          To get started, please take your Career Assessment.
-        </p>
-        <button
-          onClick={() => navigate("/student/assessments")}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2"
-        >
-          Take Career Assessment <ArrowRight className="inline ml-1" />
-        </button>
+      <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50 px-4 text-center">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Welcome, {user.name?.split(" ")[0]}!
+            </span>
+            <br />
+          </h1>
+          <h3 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+            <span className="text-gray-900">Kickstart Your Career Journey</span>
+          </h3>
+
+          <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-3xl mx-auto leading-relaxed">
+            To get started, please take your AI-powered Career Assessment and
+            unlock personalized opportunities.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <button
+              onClick={() => navigate("/student/assessments")}
+              className="group bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center space-x-2"
+            >
+              <span>Take Career Assessment</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
+  
 
   // Helper to get progress percent for a course (simulate for now)
   const getCourseProgress = (course) => {
