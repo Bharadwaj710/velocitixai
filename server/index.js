@@ -4,8 +4,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const AuthRouter = require("./routes/auth");
 const collegeRoutes = require("./routes/college");
-const path = require('path');
-const progressRoutes = require('./routes/progressRoutes');
+const path = require("path");
+const progressRoutes = require("./routes/progressRoutes");
 
 require("./config/db");
 const hrRoutes = require("./routes/hr");
@@ -21,7 +21,7 @@ app.use("/api/upload", require("./routes/upload"));
 
 const recommendationsRoute = require("./routes/recommendations");
 app.use("/api", recommendationsRoute);
-app.use('/api/progress', progressRoutes);
+app.use("/api/progress", progressRoutes);
 app.get("/", (req, res) => {
   res.send("Velocitix AI Backend is Running");
 });
@@ -56,3 +56,6 @@ require("./models/Invitation"); // Ensure Invitation model is registered
 
 const chatRoutes = require("./routes/chat");
 app.use("/api/chat", chatRoutes);
+
+const transcriptRoutes = require("./routes/transcript");
+app.use("/api/transcripts", transcriptRoutes);

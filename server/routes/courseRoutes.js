@@ -1,24 +1,75 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const courseController = require('../controller/courseController');
-const Course = require('../models/Course'); // ✅ Make sure this is correct path
+const courseController = require("../controller/courseController");
+const Course = require("../models/Course"); // ✅ Make sure this is correct path
 
-router.post('/', courseController.createCourse);
-router.get('/', courseController.getCourses);
-router.delete('/:id', courseController.deleteCourse);
-router.put('/:id', courseController.updateCourse);
-router.get('/:id', courseController.getCourseById);
+// Utility to extract YouTube video ID
+function extractYouTubeId(url) {
+  if (!url) return "";
+  // Handles youtu.be, youtube.com/watch?v=, youtube.com/embed/
+  const regExp =
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([0-9A-Za-z_-]{11})/;
+  const match = url.match(regExp);
+  return match ? match[1] : "";
+}
 
-// ✅ Fix: use the actual Course model
-router.get('/:id', async (req, res) => {
+// When creating a course
+router.post("/", async (req, res) => {
   try {
-    const course = await Course.findById(req.params.id);
-    if (!course) return res.status(404).json({ message: 'Course not found' });
-    res.json(course);
+    // For each lesson, add videoId
+    if (req.body.weeks) {
+      req.body.weeks.forEach((week) => {
+        week.modules?.forEach((mod) => {
+          mod.lessons?.forEach((lesson) => {
+            lesson.videoId = extractYouTubeId(lesson.videoUrl);
+          });
+        });
+      });
+    }
+    const course = new Course(req.body);
+    await course.save();
+    res.status(201).json(course);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to fetch course' });
+    res.status(500).json({ error: err.message });
   }
 });
 
+// When updating a course
+router.put("/:id", async (req, res) => {
+  try {
+    if (req.body.weeks) {
+      req.body.weeks.forEach((week) => {
+        week.modules?.forEach((mod) => {
+          mod.lessons?.forEach((lesson) => {
+            lesson.videoId = extractYouTubeId(lesson.videoUrl);
+          });
+        });
+      });
+    }
+    const updated = await Course.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/", courseController.getCourses);
+router.delete("/:id", courseController.deleteCourse);
+router.get("/:id", courseController.getCourseById);
+
+// ✅ Fix: use the actual Course model
+router.get("/:id", async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    if (!course) return res.status(404).json({ message: "Course not found" });
+    res.json(course);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch course" });
+  }
+});
+
+module.exports = router;
 module.exports = router;

@@ -1,8 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import { fetchCourses, createCourse, deleteCourse, updateCourse } from '../../services/api';
-import CourseEditModal from './CourseEditModal';
-import { toast } from 'react-toastify';
+import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import {
+  fetchCourses,
+  createCourse,
+  deleteCourse,
+  updateCourse,
+} from "../../services/api";
+import CourseEditModal from "./CourseEditModal";
+import { toast } from "react-toastify";
 
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Proficient"];
 const DOMAIN_OPTIONS = [
@@ -10,7 +15,7 @@ const DOMAIN_OPTIONS = [
   "Healthcare and Wellness",
   "Business and Finance",
   "Arts and Creativity",
-  "Education and Social Services"
+  "Education and Social Services",
 ];
 
 const SUGGEST_API_URL = "http://localhost:5001/suggest-course-metadata";
@@ -19,21 +24,23 @@ const CourseManager = () => {
   const [courses, setCourses] = useState([]);
   const [editCourse, setEditCourse] = useState(null);
   const [form, setForm] = useState({
-    title: '',
-    description: '',
-    durationWeeks: '',
-    level: 'Beginner',
-    domain: '',
+    title: "",
+    description: "",
+    durationWeeks: "",
+    level: "Beginner",
+    domain: "",
     idealRoles: [],
     skillsCovered: [],
     challengesAddressed: [],
-    modules: [{ title: 'Week 1', content: '', resources: [], pdfs: [], lessons: [] }]
+    modules: [
+      { title: "Week 1", content: "", resources: [], pdfs: [], lessons: [] },
+    ],
   });
 
   const [inputFields, setInputFields] = useState({
-    idealRole: '',
-    skill: '',
-    challenge: '',
+    idealRole: "",
+    skill: "",
+    challenge: "",
   });
 
   const [suggesting, setSuggesting] = useState(false);
@@ -43,7 +50,7 @@ const CourseManager = () => {
     skillsCovered: [],
     challengesAddressed: [],
   });
-  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [playlistUrl, setPlaylistUrl] = useState("");
   const [fetchingPlaylist, setFetchingPlaylist] = useState(false);
 
   const fileInputRefs = useRef([]);
@@ -62,15 +69,15 @@ const CourseManager = () => {
   useEffect(() => {
     const weeks = parseInt(form.durationWeeks, 10);
     if (!weeks || weeks < 1) return;
-    setForm(f => ({
+    setForm((f) => ({
       ...f,
       modules: Array.from({ length: weeks }, (_, i) => ({
         title: `Week ${i + 1}`,
-        content: '',
+        content: "",
         resources: [],
         pdfs: [],
-        lessons: []
-      }))
+        lessons: [],
+      })),
     }));
   }, [form.durationWeeks]);
 
@@ -83,15 +90,15 @@ const CourseManager = () => {
     if (!values.length) return;
     setForm((prev) => ({
       ...prev,
-      [field]: Array.from(new Set([...(prev[field] || []), ...values]))
+      [field]: Array.from(new Set([...(prev[field] || []), ...values])),
     }));
     setInputFields((prev) => ({ ...prev, [field.slice(0, -1)]: "" }));
   };
 
   const removeFromArrayField = (field, idx) => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
-      [field]: prev[field].filter((_, i) => i !== idx)
+      [field]: prev[field].filter((_, i) => i !== idx),
     }));
   };
 
@@ -99,9 +106,9 @@ const CourseManager = () => {
   const handleCreate = async () => {
     // Before validation, auto-add any pending input values for AI fields
     const pendingFields = [
-      { field: 'idealRoles', key: 'idealRole' },
-      { field: 'skillsCovered', key: 'skill' },
-      { field: 'challengesAddressed', key: 'challenge' }
+      { field: "idealRoles", key: "idealRole" },
+      { field: "skillsCovered", key: "skill" },
+      { field: "challengesAddressed", key: "challenge" },
     ];
     let updatedForm = { ...form };
     let updatedInputFields = { ...inputFields };
@@ -109,10 +116,12 @@ const CourseManager = () => {
     for (const { field, key } of pendingFields) {
       const values = (inputFields[key] || "")
         .split(",")
-        .map(v => v.trim())
+        .map((v) => v.trim())
         .filter(Boolean);
       if (values.length) {
-        updatedForm[field] = Array.from(new Set([...(form[field] || []), ...values]));
+        updatedForm[field] = Array.from(
+          new Set([...(form[field] || []), ...values])
+        );
         updatedInputFields[key] = "";
         changed = true;
       }
@@ -134,11 +143,18 @@ const CourseManager = () => {
     const aiFields = ["idealRoles", "skillsCovered", "challengesAddressed"];
     for (const field of aiFields) {
       if (!Array.isArray(form[field]) || form[field].length === 0) {
-        toast.error("All AI fields (Roles, Skills, Challenges) are required and must have at least one value.");
+        toast.error(
+          "All AI fields (Roles, Skills, Challenges) are required and must have at least one value."
+        );
         return;
       }
     }
-    if (!form.title || !form.description || !form.durationWeeks || !form.domain) {
+    if (
+      !form.title ||
+      !form.description ||
+      !form.durationWeeks ||
+      !form.domain
+    ) {
       toast.error("Title, Description, Duration, and Domain are required.");
       return;
     }
@@ -167,14 +183,14 @@ const CourseManager = () => {
           {
             title: mod.title,
             content: mod.content,
-            lessons: (mod.lessons || []).map(lesson => ({
+            lessons: (mod.lessons || []).map((lesson) => ({
               title: lesson.title,
               videoUrl: lesson.videoUrl,
               duration: lesson.duration || "",
             })),
             resources: mod.resources || [],
-          }
-        ]
+          },
+        ],
       }));
 
       const payload = {
@@ -186,18 +202,26 @@ const CourseManager = () => {
       delete payload.modules;
 
       await createCourse(payload);
-      toast.success('Course created!');
+      toast.success("Course created!");
       loadCourses();
       setForm({
-        title: '',
-        description: '',
-        durationWeeks: '',
-        level: 'Beginner',
-        domain: '',
+        title: "",
+        description: "",
+        durationWeeks: "",
+        level: "Beginner",
+        domain: "",
         idealRoles: [],
         skillsCovered: [],
         challengesAddressed: [],
-        modules: [{ title: 'Week 1', content: '', resources: [], pdfs: [], lessons: [] }]
+        modules: [
+          {
+            title: "Week 1",
+            content: "",
+            resources: [],
+            pdfs: [],
+            lessons: [],
+          },
+        ],
       });
     } catch (err) {
       toast.error("Failed to create course");
@@ -215,7 +239,16 @@ const CourseManager = () => {
   const addModule = () => {
     setForm({
       ...form,
-      modules: [...form.modules, { title: `Week ${form.modules.length + 1}`, content: '', resources: [], pdfs: [], lessons: [] }]
+      modules: [
+        ...form.modules,
+        {
+          title: `Week ${form.modules.length + 1}`,
+          content: "",
+          resources: [],
+          pdfs: [],
+          lessons: [],
+        },
+      ],
     });
   };
 
@@ -235,19 +268,19 @@ const CourseManager = () => {
   // --- Lesson Handlers ---
   // Update lesson structure to only have title and videoUrl
   const addLesson = (modIdx) => {
-    setForm(f => {
+    setForm((f) => {
       const modules = [...f.modules];
       modules[modIdx].lessons = modules[modIdx].lessons || [];
       modules[modIdx].lessons.push({
-        title: '',
-        videoUrl: ''
+        title: "",
+        videoUrl: "",
       });
       return { ...f, modules };
     });
   };
 
   const removeLesson = (modIdx, lessonIdx) => {
-    setForm(f => {
+    setForm((f) => {
       const modules = [...f.modules];
       modules[modIdx].lessons.splice(lessonIdx, 1);
       return { ...f, modules };
@@ -265,7 +298,7 @@ const CourseManager = () => {
   };
 
   const handleLessonChange = (modIdx, lessonIdx, key, value) => {
-    setForm(f => {
+    setForm((f) => {
       const modules = [...f.modules];
       modules[modIdx].lessons[lessonIdx][key] = value;
       return { ...f, modules };
@@ -280,7 +313,9 @@ const CourseManager = () => {
     }
     setFetchingPlaylist(true);
     try {
-      const res = await axios.post('http://localhost:5001/playlist-info', { playlistUrl });
+      const res = await axios.post("http://localhost:5001/playlist-info", {
+        playlistUrl,
+      });
       const videos = res.data.videos || [];
       if (!videos.length) {
         toast.error("No videos found in playlist");
@@ -294,21 +329,23 @@ const CourseManager = () => {
         const weekVideos = videos.slice(i * perWeek, (i + 1) * perWeek);
         modules.push({
           title: `Week ${i + 1}`,
-          content: '',
+          content: "",
           resources: [],
           pdfs: [],
-          lessons: weekVideos.map(video => ({
+          lessons: weekVideos.map((video) => ({
             title: video.title,
             videoUrl: video.videoUrl,
-            timestamp: ''
-          }))
+            timestamp: "",
+          })),
         });
       }
-      setForm(f => ({
+      setForm((f) => ({
         ...f,
-        modules
+        modules,
       }));
-      toast.success("Playlist fetched and modules/lessons pre-filled! You can edit them as needed.");
+      toast.success(
+        "Playlist fetched and modules/lessons pre-filled! You can edit them as needed."
+      );
     } catch (err) {
       toast.error("Failed to fetch playlist");
     } finally {
@@ -326,16 +363,21 @@ const CourseManager = () => {
     try {
       const res = await axios.post(SUGGEST_API_URL, {
         title: form.title,
-        description: form.description
+        description: form.description,
       });
-      const { domain, idealRoles, skillsCovered, challengesAddressed } = res.data || {};
+      const { domain, idealRoles, skillsCovered, challengesAddressed } =
+        res.data || {};
       setSuggested({
         domain: domain || "",
         idealRoles: Array.isArray(idealRoles) ? idealRoles : [],
         skillsCovered: Array.isArray(skillsCovered) ? skillsCovered : [],
-        challengesAddressed: Array.isArray(challengesAddressed) ? challengesAddressed : [],
+        challengesAddressed: Array.isArray(challengesAddressed)
+          ? challengesAddressed
+          : [],
       });
-      toast.success("Suggestions loaded! Click 'Add' beside each field to autofill.");
+      toast.success(
+        "Suggestions loaded! Click 'Add' beside each field to autofill."
+      );
     } catch (err) {
       toast.error("Failed to fetch suggestions");
     } finally {
@@ -347,27 +389,27 @@ const CourseManager = () => {
   const autofillField = (field) => {
     if (field === "domain") {
       if (suggested.domain) {
-        setForm(f => ({ ...f, domain: suggested.domain }));
+        setForm((f) => ({ ...f, domain: suggested.domain }));
       }
     } else if (field === "idealRoles") {
       if (suggested.idealRoles?.length) {
-        setInputFields(f => ({
+        setInputFields((f) => ({
           ...f,
-          idealRole: suggested.idealRoles.join(", ")
+          idealRole: suggested.idealRoles.join(", "),
         }));
       }
     } else if (field === "skillsCovered") {
       if (suggested.skillsCovered?.length) {
-        setInputFields(f => ({
+        setInputFields((f) => ({
           ...f,
-          skill: suggested.skillsCovered.join(", ")
+          skill: suggested.skillsCovered.join(", "),
         }));
       }
     } else if (field === "challengesAddressed") {
       if (suggested.challengesAddressed?.length) {
-        setInputFields(f => ({
+        setInputFields((f) => ({
           ...f,
-          challenge: suggested.challengesAddressed.join(", ")
+          challenge: suggested.challengesAddressed.join(", "),
         }));
       }
     }
@@ -378,19 +420,21 @@ const CourseManager = () => {
     const key = field.slice(0, -1); // e.g. idealRoles -> idealRole
     const values = (inputFields[key] || "")
       .split(",")
-      .map(v => v.trim())
+      .map((v) => v.trim())
       .filter(Boolean);
     if (!values.length) return;
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
-      [field]: Array.from(new Set([...prev[field], ...values]))
+      [field]: Array.from(new Set([...prev[field], ...values])),
     }));
-    setInputFields(prev => ({ ...prev, [key]: "" }));
+    setInputFields((prev) => ({ ...prev, [key]: "" }));
   };
 
   // Place this function above the return statement (before the component's return)
   const handleDelete = async (id) => {
-    const confirm = window.confirm("Are you sure you want to delete this course?");
+    const confirm = window.confirm(
+      "Are you sure you want to delete this course?"
+    );
     if (!confirm) return;
     try {
       await deleteCourse(id);
@@ -405,19 +449,33 @@ const CourseManager = () => {
     <div className="p-6 bg-white rounded-xl shadow">
       <h2 className="text-xl font-semibold mb-4">Manage Courses</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <input placeholder="Title" className="border p-2" value={form.title}
-          onChange={e => setForm({ ...form, title: e.target.value })} />
-        <input placeholder="Description" className="border p-2" value={form.description}
-          onChange={e => setForm({ ...form, description: e.target.value })} />
-        <input placeholder="Duration (weeks)" className="border p-2" value={form.durationWeeks}
-          onChange={e => setForm({ ...form, durationWeeks: e.target.value })} />
+        <input
+          placeholder="Title"
+          className="border p-2"
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+        />
+        <input
+          placeholder="Description"
+          className="border p-2"
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+        />
+        <input
+          placeholder="Duration (weeks)"
+          className="border p-2"
+          value={form.durationWeeks}
+          onChange={(e) => setForm({ ...form, durationWeeks: e.target.value })}
+        />
         <select
           className="border p-2"
           value={form.level}
-          onChange={e => setForm({ ...form, level: e.target.value })}
+          onChange={(e) => setForm({ ...form, level: e.target.value })}
         >
-          {LEVEL_OPTIONS.map(lvl => (
-            <option key={lvl} value={lvl}>{lvl}</option>
+          {LEVEL_OPTIONS.map((lvl) => (
+            <option key={lvl} value={lvl}>
+              {lvl}
+            </option>
           ))}
         </select>
       </div>
@@ -426,14 +484,18 @@ const CourseManager = () => {
           placeholder="YouTube Playlist URL (optional)"
           className="border p-2"
           value={playlistUrl}
-          onChange={e => setPlaylistUrl(e.target.value)}
+          onChange={(e) => setPlaylistUrl(e.target.value)}
           disabled={fetchingPlaylist}
         />
         <button
           type="button"
           className="bg-blue-500 text-white px-2 rounded"
           onClick={handleFetchPlaylist}
-          disabled={fetchingPlaylist || !playlistUrl.trim() || !form.durationWeeks.toString().trim()}
+          disabled={
+            fetchingPlaylist ||
+            !playlistUrl.trim() ||
+            !form.durationWeeks.toString().trim()
+          }
         >
           {fetchingPlaylist ? "Fetching..." : "Fetch Playlist"}
         </button>
@@ -446,7 +508,7 @@ const CourseManager = () => {
             <input
               className="border p-2 w-full"
               value={form.domain}
-              onChange={e => setForm({ ...form, domain: e.target.value })}
+              onChange={(e) => setForm({ ...form, domain: e.target.value })}
               placeholder="e.g. Technology and Innovation"
             />
             <button
@@ -454,27 +516,36 @@ const CourseManager = () => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("domain")}
               disabled={!suggested.domain}
-              title={suggested.domain ? `Use: ${suggested.domain}` : "No suggestion"}
+              title={
+                suggested.domain ? `Use: ${suggested.domain}` : "No suggestion"
+              }
             >
               Add
             </button>
           </div>
           {suggested.domain && (
-            <div className="text-xs text-gray-500 mt-1">Suggestion: <span className="font-semibold">{suggested.domain}</span></div>
+            <div className="text-xs text-gray-500 mt-1">
+              Suggestion:{" "}
+              <span className="font-semibold">{suggested.domain}</span>
+            </div>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Ideal Roles *</label>
+          <label className="block text-sm font-medium mb-1">
+            Ideal Roles *
+          </label>
           <div className="flex gap-2">
             <input
               className="border p-2 flex-1"
               placeholder="Add role(s), comma separated"
               value={inputFields.idealRole}
-              onChange={e => setInputFields(f => ({ ...f, idealRole: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
+              onChange={(e) =>
+                setInputFields((f) => ({ ...f, idealRole: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.preventDefault();
-                  addAllFromInput('idealRoles');
+                  addAllFromInput("idealRoles");
                 }
               }}
             />
@@ -483,14 +554,18 @@ const CourseManager = () => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("idealRoles")}
               disabled={!suggested.idealRoles.length}
-              title={suggested.idealRoles.length ? `Use: ${suggested.idealRoles.join(", ")}` : "No suggestion"}
+              title={
+                suggested.idealRoles.length
+                  ? `Use: ${suggested.idealRoles.join(", ")}`
+                  : "No suggestion"
+              }
             >
               Add
             </button>
             <button
               type="button"
               className="bg-green-500 text-white px-2 rounded"
-              onClick={() => addAllFromInput('idealRoles')}
+              onClick={() => addAllFromInput("idealRoles")}
               disabled={!inputFields.idealRole.trim()}
               title="Add entered roles"
             >
@@ -499,25 +574,38 @@ const CourseManager = () => {
           </div>
           <div className="flex flex-wrap gap-2 mt-1">
             {form.idealRoles.map((role, idx) => (
-              <span key={idx} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs flex items-center">
+              <span
+                key={idx}
+                className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs flex items-center"
+              >
                 {role}
-                <button type="button" className="ml-1 text-red-500" onClick={() => removeFromArrayField('idealRoles', idx)}>×</button>
+                <button
+                  type="button"
+                  className="ml-1 text-red-500"
+                  onClick={() => removeFromArrayField("idealRoles", idx)}
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Skills Covered *</label>
+          <label className="block text-sm font-medium mb-1">
+            Skills Covered *
+          </label>
           <div className="flex gap-2">
             <input
               className="border p-2 flex-1"
               placeholder="Add skill(s), comma separated"
               value={inputFields.skill}
-              onChange={e => setInputFields(f => ({ ...f, skill: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
+              onChange={(e) =>
+                setInputFields((f) => ({ ...f, skill: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.preventDefault();
-                  addAllFromInput('skillsCovered');
+                  addAllFromInput("skillsCovered");
                 }
               }}
             />
@@ -526,14 +614,18 @@ const CourseManager = () => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("skillsCovered")}
               disabled={!suggested.skillsCovered.length}
-              title={suggested.skillsCovered.length ? `Use: ${suggested.skillsCovered.join(", ")}` : "No suggestion"}
+              title={
+                suggested.skillsCovered.length
+                  ? `Use: ${suggested.skillsCovered.join(", ")}`
+                  : "No suggestion"
+              }
             >
               Add
             </button>
             <button
               type="button"
               className="bg-green-500 text-white px-2 rounded"
-              onClick={() => addAllFromInput('skillsCovered')}
+              onClick={() => addAllFromInput("skillsCovered")}
               disabled={!inputFields.skill.trim()}
               title="Add entered skills"
             >
@@ -542,25 +634,38 @@ const CourseManager = () => {
           </div>
           <div className="flex flex-wrap gap-2 mt-1">
             {form.skillsCovered.map((skill, idx) => (
-              <span key={idx} className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs flex items-center">
+              <span
+                key={idx}
+                className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs flex items-center"
+              >
                 {skill}
-                <button type="button" className="ml-1 text-red-500" onClick={() => removeFromArrayField('skillsCovered', idx)}>×</button>
+                <button
+                  type="button"
+                  className="ml-1 text-red-500"
+                  onClick={() => removeFromArrayField("skillsCovered", idx)}
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Challenges Addressed *</label>
+          <label className="block text-sm font-medium mb-1">
+            Challenges Addressed *
+          </label>
           <div className="flex gap-2">
             <input
               className="border p-2 flex-1"
               placeholder="Add challenge(s), comma separated"
               value={inputFields.challenge}
-              onChange={e => setInputFields(f => ({ ...f, challenge: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
+              onChange={(e) =>
+                setInputFields((f) => ({ ...f, challenge: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.preventDefault();
-                  addAllFromInput('challengesAddressed');
+                  addAllFromInput("challengesAddressed");
                 }
               }}
             />
@@ -569,14 +674,18 @@ const CourseManager = () => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("challengesAddressed")}
               disabled={!suggested.challengesAddressed.length}
-              title={suggested.challengesAddressed.length ? `Use: ${suggested.challengesAddressed.join(", ")}` : "No suggestion"}
+              title={
+                suggested.challengesAddressed.length
+                  ? `Use: ${suggested.challengesAddressed.join(", ")}`
+                  : "No suggestion"
+              }
             >
               Add
             </button>
             <button
               type="button"
               className="bg-green-500 text-white px-2 rounded"
-              onClick={() => addAllFromInput('challengesAddressed')}
+              onClick={() => addAllFromInput("challengesAddressed")}
               disabled={!inputFields.challenge.trim()}
               title="Add entered challenges"
             >
@@ -585,9 +694,20 @@ const CourseManager = () => {
           </div>
           <div className="flex flex-wrap gap-2 mt-1">
             {form.challengesAddressed.map((ch, idx) => (
-              <span key={idx} className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs flex items-center">
+              <span
+                key={idx}
+                className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs flex items-center"
+              >
                 {ch}
-                <button type="button" className="ml-1 text-red-500" onClick={() => removeFromArrayField('challengesAddressed', idx)}>×</button>
+                <button
+                  type="button"
+                  className="ml-1 text-red-500"
+                  onClick={() =>
+                    removeFromArrayField("challengesAddressed", idx)
+                  }
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>
@@ -609,13 +729,28 @@ const CourseManager = () => {
             <h4 className="font-semibold mb-2">Week {idx + 1}</h4>
             <div className="flex gap-2">
               {idx > 0 && (
-                <button className="text-xs text-gray-500" onClick={() => moveModule(idx, idx - 1)}>↑</button>
+                <button
+                  className="text-xs text-gray-500"
+                  onClick={() => moveModule(idx, idx - 1)}
+                >
+                  ↑
+                </button>
               )}
               {idx < form.modules.length - 1 && (
-                <button className="text-xs text-gray-500" onClick={() => moveModule(idx, idx + 1)}>↓</button>
+                <button
+                  className="text-xs text-gray-500"
+                  onClick={() => moveModule(idx, idx + 1)}
+                >
+                  ↓
+                </button>
               )}
               {form.modules.length > 1 && (
-                <button onClick={() => removeModule(idx)} className="text-red-600 text-sm">Remove</button>
+                <button
+                  onClick={() => removeModule(idx)}
+                  className="text-red-600 text-sm"
+                >
+                  Remove
+                </button>
               )}
             </div>
           </div>
@@ -623,13 +758,13 @@ const CourseManager = () => {
             placeholder="Module Title"
             className="border p-2 mb-2 w-full"
             value={mod.title}
-            onChange={e => handleModuleChange(idx, 'title', e.target.value)}
+            onChange={(e) => handleModuleChange(idx, "title", e.target.value)}
           />
           <textarea
             placeholder="Module Content"
             className="border p-2 mb-2 w-full"
             value={mod.content}
-            onChange={e => handleModuleChange(idx, 'content', e.target.value)}
+            onChange={(e) => handleModuleChange(idx, "content", e.target.value)}
           />
           {/* Removed Module Video URL input */}
           {/* Lessons */}
@@ -643,79 +778,128 @@ const CourseManager = () => {
                       className="border p-1 text-xs w-1/2"
                       value={lesson.title}
                       placeholder="Lesson Title"
-                      onChange={e => handleLessonChange(idx, lIdx, 'title', e.target.value)}
+                      onChange={(e) =>
+                        handleLessonChange(idx, lIdx, "title", e.target.value)
+                      }
                     />
                     <input
                       className="border p-1 text-xs w-1/2"
                       value={lesson.videoUrl}
                       placeholder="Lesson URL"
-                      onChange={e => handleLessonChange(idx, lIdx, 'videoUrl', e.target.value)}
+                      onChange={(e) =>
+                        handleLessonChange(
+                          idx,
+                          lIdx,
+                          "videoUrl",
+                          e.target.value
+                        )
+                      }
                     />
                     <button
                       className="text-xs text-gray-500"
                       onClick={() => moveLesson(idx, lIdx, lIdx - 1)}
                       disabled={lIdx === 0}
-                    >↑</button>
+                    >
+                      ↑
+                    </button>
                     <button
                       className="text-xs text-gray-500"
                       onClick={() => moveLesson(idx, lIdx, lIdx + 1)}
                       disabled={lIdx === mod.lessons.length - 1}
-                    >↓</button>
+                    >
+                      ↓
+                    </button>
                     <button
                       className="text-red-500 text-xs"
                       onClick={() => removeLesson(idx, lIdx)}
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </li>
                 ))}
               </ul>
             ) : (
               <div className="text-xs text-gray-500">No lessons.</div>
             )}
-            <button className="text-blue-600 text-xs mt-1" onClick={() => addLesson(idx)}>
+            <button
+              className="text-blue-600 text-xs mt-1"
+              onClick={() => addLesson(idx)}
+            >
               + Add Lesson
             </button>
           </div>
         </div>
       ))}
-      <button onClick={addModule} className="text-sm text-green-600 mb-4">+ Add Module</button>
+      <button onClick={addModule} className="text-sm text-green-600 mb-4">
+        + Add Module
+      </button>
       <br />
-      <button onClick={handleCreate} className="bg-blue-600 text-white px-4 py-2 rounded">Add Course</button>
+      <button
+        onClick={handleCreate}
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+      >
+        Add Course
+      </button>
 
       {/* Existing course display */}
       <ul className="mt-6 space-y-4">
-        {courses.map(c => (
+        {courses.map((c) => (
           <li key={c._id} className="border p-4 rounded bg-gray-50">
             <div className="flex justify-between">
               <div>
                 <h3 className="font-bold text-lg">{c.title}</h3>
                 <p className="text-sm text-gray-600">{c.description}</p>
-                <p className="text-xs text-gray-500">Duration: {c.durationWeeks} weeks</p>
+                <p className="text-xs text-gray-500">
+                  Duration: {c.durationWeeks} weeks
+                </p>
                 {/* Show course level for all courses */}
                 <p className="text-xs text-blue-700 font-semibold mt-1">
                   Level: {c.level || "Beginner"}
                 </p>
               </div>
               <div className="space-x-4">
-                <button onClick={() => handleDelete(c._id)} className="text-red-600 font-semibold">Delete</button>
-                <button onClick={() => setEditCourse(c)} className="text-blue-600 font-semibold">Edit</button>
+                <button
+                  onClick={() => handleDelete(c._id)}
+                  className="text-red-600 font-semibold"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setEditCourse(c)}
+                  className="text-blue-600 font-semibold"
+                >
+                  Edit
+                </button>
               </div>
             </div>
             <div className="mt-2">
               <h4 className="font-semibold">Modules:</h4>
               {c.modules?.map((m, i) => (
                 <div key={i} className="ml-4 mb-2">
-                  <p><strong>{m.title}</strong>: {m.content}</p>
+                  <p>
+                    <strong>{m.title}</strong>: {m.content}
+                  </p>
                   {m.resources?.length > 0 && (
                     <ul className="list-disc ml-5 text-blue-600">
                       {m.resources.map((res, idx) => {
-                        const isCloudinary = res?.url?.includes('cloudinary.com');
+                        const isCloudinary =
+                          res?.url?.includes("cloudinary.com");
                         const finalURL = res?.url
                           ? isCloudinary
-                            ? res.url.replace('/upload/', '/upload/fl_attachment:pdf/')
-                            : res.url.startsWith('http') ? res.url : `http://${res.url}`
-                          : '#';
+                            ? res.url.replace(
+                                "/upload/",
+                                "/upload/fl_attachment:pdf/"
+                              )
+                            : res.url.startsWith("http")
+                            ? res.url
+                            : `http://${res.url}`
+                          : "#";
 
-                        const displayName = res?.name || (res?.url ? res.url.split('/').pop() : 'Unknown Resource');
+                        const displayName =
+                          res?.name ||
+                          (res?.url
+                            ? res.url.split("/").pop()
+                            : "Unknown Resource");
 
                         return (
                           <li key={idx}>
@@ -753,7 +937,7 @@ const CourseManager = () => {
           />
         </div>
       )}
-    </div>    
+    </div>
   );
 };
 
