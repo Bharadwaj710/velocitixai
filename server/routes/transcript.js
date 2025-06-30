@@ -1,7 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const mongoose = require("mongoose");
 const Course = require("../models/Course");
+const Transcript = require("../models/Transcript");
 
 // POST /api/transcripts/generate-module
 router.post("/generate-module", async (req, res) => {
@@ -11,7 +13,6 @@ router.post("/generate-module", async (req, res) => {
   }
 
   try {
-    // Call Flask for each video URL in parallel
     const results = await Promise.all(
       videoUrls.map(async (videoUrl) => {
         try {
@@ -31,9 +32,10 @@ router.post("/generate-module", async (req, res) => {
     );
     res.json({ message: "Transcript generation requests sent.", results });
   } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Transcript generation failed", details: err.message });
+    res.status(500).json({
+      error: "Transcript generation failed",
+      details: err.message,
+    });
   }
 });
 
@@ -43,11 +45,11 @@ router.post("/generate-course", async (req, res) => {
   if (!courseId) {
     return res.status(400).json({ error: "courseId required" });
   }
+
   try {
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ error: "Course not found" });
 
-    // Gather all videoUrls with valid videoId
     const videoUrls = [];
     (course.weeks || []).forEach((week) => {
       (week.modules || []).forEach((mod) => {
@@ -65,7 +67,6 @@ router.post("/generate-course", async (req, res) => {
         .json({ error: "No lessons with valid video URLs found." });
     }
 
-    // Call Flask for each video URL in parallel
     const results = await Promise.all(
       videoUrls.map(async (videoUrl) => {
         try {
@@ -85,9 +86,58 @@ router.post("/generate-course", async (req, res) => {
     );
     res.json({ message: "Transcript generation requests sent.", results });
   } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Transcript generation failed", details: err.message });
+    res.status(500).json({
+      error: "Transcript generation failed",
+      details: err.message,
+    });
+  }
+});
+
+// GET /api/transcripts/:lessonId
+router.get("/:lessonId", async (req, res) => {
+  const { lessonId } = req.params;
+  let doc = null;
+  const tried = [];
+
+  try {
+    // Try ObjectId
+    if (mongoose.Types.ObjectId.isValid(lessonId)) {
+      tried.push("ObjectId");
+      doc = await Transcript.findOne({
+        lessonId: new mongoose.Types.ObjectId(lessonId),
+      });
+    }
+
+    // Try as raw string lessonId
+    if (!doc) {
+      tried.push("lessonId string");
+      doc = await Transcript.findOne({ lessonId });
+    }
+
+    // Try as YouTube videoId (11 chars)
+    if (!doc && lessonId.length === 11 && /^[\w-]{11}$/.test(lessonId)) {
+      tried.push("videoId");
+      doc = await Transcript.findOne({ videoId: lessonId });
+    }
+
+    if (!doc) {
+      console.warn(
+        `[Transcript] Not found for: ${lessonId}. Tried: ${tried.join(", ")}`
+      );
+      return res.status(404).json({ transcript: [] });
+    }
+
+    if (!Array.isArray(doc.transcript)) {
+      console.warn(
+        `[Transcript] Invalid transcript array for lessonId=${lessonId}`
+      );
+      return res.status(500).json({ transcript: [] });
+    }
+
+    res.json({ transcript: doc.transcript });
+  } catch (err) {
+    console.error("[Transcript API] Error fetching transcript:", err);
+    res.status(500).json({ transcript: [] });
   }
 });
 

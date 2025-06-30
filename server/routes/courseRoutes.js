@@ -26,7 +26,6 @@ router.post("/", async (req, res) => {
         });
       });
     }
-    // ...existing code to create course...
     const course = new Course(req.body);
     await course.save();
     res.status(201).json(course);
@@ -72,4 +71,5 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+module.exports = router;
 module.exports = router;

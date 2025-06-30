@@ -8,7 +8,7 @@ const TranscriptSchema = new mongoose.Schema({
   },
   lessonId: { type: mongoose.Schema.Types.ObjectId, required: true },
   videoId: { type: String, required: true },
-  transcript: { type: String, required: true },
+  transcript: { type: Array, default: [] }, // Array of { start, end, text }
   createdAt: { type: Date, default: Date.now },
 });
 
