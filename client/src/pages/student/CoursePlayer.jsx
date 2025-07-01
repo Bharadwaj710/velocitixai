@@ -6,6 +6,8 @@ import AuthContext from "../../context/AuthContext";
 import StudentNavbar from "../../components/StudentNavbar";
 import YouTube from "react-youtube";
 import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
+import { ChatProvider } from "../../context/ChatContext";
+
 // Helper: flatten all lessons with their indices for navigation
 function flattenLessons(weeks) {
   const flat = [];
@@ -476,7 +478,9 @@ const CoursePlayer = () => {
           </div>
         </div>
       </div>
-      <ChatAssistant />
+      <ChatProvider courseId={courseId}>
+        <ChatAssistant courseId={courseId} />
+      </ChatProvider>
     </div>
   );
 };

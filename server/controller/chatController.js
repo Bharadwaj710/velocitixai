@@ -6,7 +6,8 @@ const axios = require("axios");
 
 exports.handleMessage = async (req, res) => {
   try {
-    const { userId, messages } = req.body;
+    const { userId, messages, courseId } = req.body;
+
 
     if (!userId || !messages || !Array.isArray(messages)) {
       return res
@@ -35,6 +36,7 @@ exports.handleMessage = async (req, res) => {
     // Call Python Flask server with context + messages
     const flaskRes = await axios.post("http://localhost:5001/generate", {
       userId,
+      courseId,
       messages,
     });
     console.log("Flask response:", flaskRes.data);
@@ -51,5 +53,24 @@ exports.handleMessage = async (req, res) => {
   } catch (err) {
     console.error("ChatController error:", err.message);
     res.status(500).json({ error: "Chatbot error" });
+  }
+};
+exports.getSuggestions = async (req, res) => {
+  try {
+    const { userId, courseId } = req.body;
+
+    if (!userId || !courseId) {
+      return res.status(400).json({ error: "Missing userId or courseId" });
+    }
+
+    const flaskRes = await axios.post("http://localhost:5001/suggestions", {
+      userId,
+      courseId,
+    });
+
+    return res.json({ questions: flaskRes.data.questions || [] });
+  } catch (err) {
+    console.error("Suggestion fetch error:", err.message);
+    return res.json({ questions: [] });
   }
 };

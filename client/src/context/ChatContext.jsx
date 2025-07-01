@@ -7,10 +7,11 @@ import React, {
 } from "react";
 import useChatBot from "../hooks/useChatBot";
 import { useAuth } from "./AuthContext";
+import axios from "axios";
 
 const ChatContext = createContext();
 
-export const ChatProvider = ({ children }) => {
+export const ChatProvider = ({ children, courseId }) => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -18,6 +19,31 @@ export const ChatProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const chatWindowRef = useRef(null);
   const sendMessageAPI = useChatBot();
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
+
+  const fetchSuggestions = async () => {
+    try {
+      const res = await axios.post("/api/chat/suggestions", {
+        userId: user?._id || user?.id,
+        courseId, // <- received from props to ChatProvider
+      });
+      console.log("Fetched suggestions:", res.data.questions);
+      if (res.data.questions?.length) {
+        setSuggestions(res.data.questions);
+        setSuggestionsVisible(true);
+      }
+    } catch (err) {
+      console.error("Suggestion error", err.message);
+    }
+  };
+
+  // When chat is opened
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
+      fetchSuggestions();
+    }
+  }, [isOpen]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -38,12 +64,14 @@ export const ChatProvider = ({ children }) => {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+    setSuggestionsVisible(false); // ✅ hide suggestions on first message
+
     try {
       const res = await sendMessageAPI({
         userId: user?._id || user?.id,
+        courseId,
         messages: [...messages, userMsg],
       });
-      console.log("Gemini chatbot response:", res);
       setMessages((prev) => [
         ...prev,
         { sender: "bot", text: res.reply, timestamp: new Date().toISOString() },
@@ -62,6 +90,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+
   const clearChat = () => setMessages([]);
 
   return (
@@ -75,7 +104,12 @@ export const ChatProvider = ({ children }) => {
         sendMessage,
         loading,
         chatWindowRef,
+        setMessages,
+        setLoading,
         clearChat,
+        suggestions,
+        suggestionsVisible,
+        setSuggestionsVisible,
       }}
     >
       {children}
