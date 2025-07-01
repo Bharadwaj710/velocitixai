@@ -144,3 +144,50 @@ Instructions:
     except Exception as e:
         print("Error:", e)
         return jsonify({"reply": "Sorry, an error occurred while processing your request."}), 500
+
+
+@chatbot_bp.route("/suggestions", methods=["POST"])
+def suggest_questions():
+    try:
+        data = request.get_json()
+        user_id = data.get("userId")
+        course_id = data.get("courseId")
+
+        if not user_id or not course_id:
+            return jsonify({"error": "Missing userId or courseId"}), 400
+
+        obj_id = ObjectId(user_id)
+        course_obj_id = ObjectId(course_id)
+
+        student = students_col.find_one({"user": obj_id})
+        assessment = assessments_col.find_one({"userId": obj_id})
+        course = db.courses.find_one({"_id": course_obj_id})
+
+        if not student or not assessment or not course:
+            return jsonify({"error": "Data not found"}), 404
+
+        course_title = course.get("title", "")
+        course_desc = course.get("description", "")
+        modules = [mod["title"] for week in course.get("weeks", []) for mod in week.get("modules", [])]
+        modules_text = ", ".join(modules[:5])
+
+        prompt = f"""
+You are a tutor AI helping students in the course: "{course_title}".
+
+Generate 3 to 5 **starter questions** a student might ask to learn or get help in this course.
+
+Course Description: {course_desc}
+Modules: {modules_text}
+
+Output as a bullet list of short questions (no extra explanation).
+"""
+
+        response = model.generate_content(prompt)
+        questions = response.text.strip().split("\n")
+        questions = [q.lstrip("-• ").strip() for q in questions if q.strip()]
+
+        return jsonify({ "questions": questions[:5] })
+
+    except Exception as e:
+        print("Suggestion error:", e)
+        return jsonify({ "questions": [] }), 200
