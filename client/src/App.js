@@ -146,9 +146,7 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <Router>
         <AuthProvider>
-          <ChatProvider>
             <AppContent />
-          </ChatProvider>
           <Toaster position="top-right" />
           <ToastContainer position="top-right" autoClose={3000} />
         </AuthProvider>

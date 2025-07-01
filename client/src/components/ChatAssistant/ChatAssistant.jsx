@@ -3,10 +3,45 @@ import { Bot } from "lucide-react";
 import { useChat } from "../../context/ChatContext";
 import Message from "./Message";
 import ChatInput from "./ChatInput";
+import axios from "axios";
 
-const ChatAssistant = () => {
-  const { isOpen, toggleChat, messages, loading, chatWindowRef, clearChat } =
-    useChat();
+const ChatAssistant = ({ courseId }) => {
+  const {
+    isOpen,
+    toggleChat,
+    messages,
+    loading,
+    chatWindowRef,
+    clearChat,
+    input,
+    setInput,
+    sendMessage,
+  } = useChat();
+
+  // Custom sendMessage to include courseId
+  const sendMessageWithCourse = async (text) => {
+    if (!text.trim()) return;
+    const user = JSON.parse(localStorage.getItem("user")) || {};
+    const userId = user._id || user.id;
+    const userMsg = {
+      sender: "user",
+      text,
+      timestamp: new Date().toISOString(),
+    };
+    // Add user message to messages array
+    // ...existing code to update messages state...
+    setInput("");
+    try {
+      const res = await axios.post("/api/chat/message", {
+        userId,
+        courseId, // Pass courseId to backend
+        messages: [...messages, userMsg],
+      });
+      // ...existing code to update messages state with bot reply...
+    } catch (err) {
+      // ...existing error handling...
+    }
+  };
 
   return (
     <>
@@ -59,7 +94,7 @@ const ChatAssistant = () => {
               </div>
             )}
           </div>
-          <ChatInput />
+          <ChatInput sendMessage={sendMessageWithCourse} />
           <button
             className="text-xs text-gray-400 hover:text-blue-600 py-1"
             onClick={clearChat}

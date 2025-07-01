@@ -6,7 +6,8 @@ const axios = require("axios");
 
 exports.handleMessage = async (req, res) => {
   try {
-    const { userId, messages } = req.body;
+    const { userId, messages, courseId } = req.body;
+
 
     if (!userId || !messages || !Array.isArray(messages)) {
       return res
@@ -35,6 +36,7 @@ exports.handleMessage = async (req, res) => {
     // Call Python Flask server with context + messages
     const flaskRes = await axios.post("http://localhost:5001/generate", {
       userId,
+      courseId,
       messages,
     });
     console.log("Flask response:", flaskRes.data);

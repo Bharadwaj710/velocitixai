@@ -10,7 +10,7 @@ import { useAuth } from "./AuthContext";
 
 const ChatContext = createContext();
 
-export const ChatProvider = ({ children }) => {
+export const ChatProvider = ({ children, courseId }) => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -41,6 +41,7 @@ export const ChatProvider = ({ children }) => {
     try {
       const res = await sendMessageAPI({
         userId: user?._id || user?.id,
+        courseId,
         messages: [...messages, userMsg],
       });
       console.log("Gemini chatbot response:", res);
