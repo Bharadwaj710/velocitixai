@@ -48,31 +48,22 @@ def generate():
         except Exception:
             return jsonify({"reply": "Invalid userId or courseId"}), 400
 
-        # Fetch student and assessment documents
         student_doc = students_col.find_one({"user": user_obj_id})
         assessment_doc = assessments_col.find_one({"userId": user_obj_id})
+        course_doc = courses_col.find_one({"_id": course_obj_id})
 
-        if not student_doc or not assessment_doc:
+        if not student_doc or not assessment_doc or not course_doc:
             return jsonify({"reply": "Student data not found"}), 404
 
-        # Fetch course document
-        course_doc = courses_col.find_one({"_id": course_obj_id})
-        if not course_doc:
-            print("Course not found for courseId:", course_id)
-            return jsonify({"reply": "Sorry, the course information couldn't be loaded. Please try again later."}), 404
-
-        # Clean MongoDB ObjectIds
         student = clean_id(student_doc)
         assessment = clean_id(assessment_doc)
         course = clean_id(course_doc)
 
-        # Extract key info
         student_name = student.get("name", "Student")
         level = assessment.get("corrected_level", "Intermediate")
         domain = assessment.get("domain", "N/A")
         skills = ', '.join(assessment.get("profile_analysis", {}).get("skills", []))
 
-        # Extract course summary
         title = course.get("title", "N/A")
         description = course.get("description", "No description provided.")
         skills_covered = ', '.join(course.get("skillsCovered", []))
@@ -83,63 +74,72 @@ def generate():
             for module in week.get("modules", []):
                 module_titles.append(module.get("title", "Untitled Module"))
 
-        modules_formatted = "\n".join(f"  • {mod}" for mod in module_titles)
+        modules_formatted = "\n".join(f"• {mod}" for mod in module_titles)
 
         course_summary = f"""
-Course Title: {title}
-Description: {description}
-Skills Covered: {skills_covered or 'N/A'}
-Challenges Addressed: {challenges or 'N/A'}
-Modules:
+**Course Title:** {title}  
+**Description:** {description}  
+**Skills Covered:** {skills_covered or 'N/A'}  
+**Challenges Addressed:** {challenges or 'N/A'}  
+**Modules:**  
 {modules_formatted or 'No modules found.'}
 """.strip()
 
-        # Prepare chat history
         chat_history = "\n".join([
-            f"User: {m['text']}" if m["sender"] == "user" else f"AI: {m['text']}"
+            f"**User:** {m['text']}" if m["sender"] == "user" else f"**AI:** {m['text']}"
             for m in messages[-10:]
         ])
 
-        # Define tone based on level
         if level == "Beginner":
-            tone = "Use simple language. Avoid jargon. Be friendly and encouraging."
+            tone = "Use simple, friendly language. Avoid jargon."
         elif level == "Advanced":
-            tone = "Use technical terms. Be concise, clear, and in-depth."
+            tone = "Use clear and concise technical language."
         else:
-            tone = "Use moderately technical language. Keep it practical and clear."
+            tone = "Use practical language with a moderately technical tone."
 
-        # Gemini prompt
         prompt = f"""
-You are a highly focused AI tutor chatbot.
+You are an expert AI tutor helping a student understand their course.
 
-The student is currently learning this course:
+### Student Info
+• **Name:** {student_name}  
+• **Level:** {level}  
+• **Domain:** {domain}  
+• **Skills:** {skills or 'Not available'}  
 
+### Course Summary
 {course_summary}
 
-✅ Only answer questions directly related to this course.  
-❌ If a question is unrelated (e.g., about another domain), reply politely:
-"I'm here to help with this course only. Please ask something related to it."
+### Rules:
+- Only answer questions **related to this course**.
+- If the user asks something off-topic, respond:
+  _"I'm here to help with this course only. Please ask something related to it."_
 
-Student Name: {student_name}
-Proficiency Level: {level}
-Domain: {domain}
-Student Skills: {skills or 'Not available'}
-
-Recent Conversation:
-{chat_history}
-
+### Style Instructions:
+- {tone}
 Instructions:
 - {tone}
-- Prefer short bullet points or numbered lists if an explanation is needed.
-- Keep answers 2–3 lines max unless detailed clarification is explicitly asked.
-- Never answer personal, off-topic, or unrelated queries.
+- Always format explanations using:
+- Bullet points (`•`) or
+- Numbered lists (`1.`, `2.`) — choose what fits best.
+- Always answer in clear, concise bullet points using dot (•) format.
+- Start each main point with a dot (•), not dashes or numbers.
+- Keep each point short — ideally 1–2 lines.
+- Do not write paragraphs unless the user explicitly asks for detailed explanation.
+- Always use proper markdown for formatting:
+  - Use `**` for bold text.
+  - Use `•` or `-` for bullet points (with line breaks).
+  - Use triple backticks ``` for code blocks if needed.
+
+### Recent Chat:
+{chat_history}
+
+Respond to the student's latest query:
 """.strip()
 
-        # Generate response
         response = model.generate_content(prompt)
         reply = response.text.strip()
 
-        return jsonify({"reply": reply})
+        return jsonify({ "reply": reply })
 
     except Exception as e:
         print("Error:", e)
@@ -161,7 +161,7 @@ def suggest_questions():
 
         student = students_col.find_one({"user": obj_id})
         assessment = assessments_col.find_one({"userId": obj_id})
-        course = db.courses.find_one({"_id": course_obj_id})
+        course = courses_col.find_one({"_id": course_obj_id})
 
         if not student or not assessment or not course:
             return jsonify({"error": "Data not found"}), 404
@@ -172,19 +172,20 @@ def suggest_questions():
         modules_text = ", ".join(modules[:5])
 
         prompt = f"""
-You are a tutor AI helping students in the course: "{course_title}".
+You are a course assistant for the course: **{course_title}**
 
-Generate 3 to 5 **starter questions** a student might ask to learn or get help in this course.
+Based on the course description and modules, generate 3–5 short **starter questions** a student might ask.
 
-Course Description: {course_desc}
-Modules: {modules_text}
+### Course Overview
+**Description:** {course_desc}  
+**Modules:** {modules_text}
 
-Output as a bullet list of short questions (no extra explanation).
+Return the questions as a clean bullet list using `•`. Do not include any explanation or intro.
 """
 
         response = model.generate_content(prompt)
-        questions = response.text.strip().split("\n")
-        questions = [q.lstrip("-• ").strip() for q in questions if q.strip()]
+        raw = response.text.strip().split("\n")
+        questions = [q.lstrip("-•* ").strip() for q in raw if q.strip()]
 
         return jsonify({ "questions": questions[:5] })
 
