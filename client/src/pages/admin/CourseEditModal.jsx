@@ -128,12 +128,42 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     (lesson) => lesson.videoId && lesson.videoId.length === 11
   );
 
+  const handleGenerateTranscriptForWeek = async (weekIdx) => {
+    const week = editedCourse.weeks[weekIdx];
+    const lessons = [];
+
+    (week.modules || []).forEach((mod) => {
+      (mod.lessons || []).forEach((lesson) => {
+        if (lesson.videoUrl && lesson.videoId && lesson._id) {
+          lessons.push({
+            videoUrl: lesson.videoUrl,
+            videoId: lesson.videoId,
+            lessonId: lesson._id,
+            courseId: editedCourse._id,
+          });
+        }
+      });
+    });
+
+    if (lessons.length === 0) {
+      return alert("No valid lessons with video ID in this week.");
+    }
+
+    try {
+      await axios.post("/api/transcripts/generate-module", { lessons });
+      alert(`Transcript generation started for Week ${week.weekNumber}!`);
+    } catch (err) {
+      console.error("Failed to generate transcript for week", err);
+      alert("Error generating transcript for this week");
+    }
+  };
+
   const handleGenerateTranscript = async () => {
     try {
       await axios.post("/api/transcripts/generate-course", {
         courseId: editedCourse._id,
       });
-      alert("Transcript generation started!");
+      alert("Transcript generation completed!");
     } catch (err) {
       console.error("Failed to generate transcript", err);
       alert("Error generating transcript");
@@ -177,9 +207,17 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
         {/* WEEK SECTIONS */}
         {editedCourse.weeks.map((week, weekIdx) => (
           <div key={weekIdx} className="mb-6 p-4 bg-gray-100 rounded-xl border">
-            <h4 className="text-lg font-bold text-blue-800 mb-2">
-              Week {week.weekNumber}
-            </h4>
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="text-lg font-bold text-blue-800">
+                Week {week.weekNumber}
+              </h4>
+              <button
+                onClick={() => handleGenerateTranscriptForWeek(weekIdx)}
+                className="bg-green-500 text-white text-sm px-3 py-1 rounded"
+              >
+                📥 Generate Transcript for this Week
+              </button>
+            </div>
 
             {week.modules.map((mod, modIdx) => (
               <div key={modIdx} className="mb-4 p-3 bg-white border rounded">

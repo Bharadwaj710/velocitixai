@@ -1,8 +1,8 @@
-import sys
 import os
 import re
 import tempfile
 import subprocess
+from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from bson import ObjectId
@@ -12,14 +12,12 @@ load_dotenv("../server/.env")
 MONGO_CONN = os.getenv("MONGO_CONN")
 AUDIO_DIR = tempfile.gettempdir()
 
-# --- Shared Functions ---
+app = Flask(__name__)
+
+# --- Utilities ---
 def extract_youtube_id(url):
-    patterns = [r"(?:v=|\/)([0-9A-Za-z_-]{11})"]
-    for pat in patterns:
-        m = re.search(pat, url)
-        if m:
-            return m.group(1)
-    return None
+    match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", url)
+    return match.group(1) if match else None
 
 def download_audio(video_url):
     print(f"[PY] Downloading audio for {video_url}")
@@ -30,12 +28,11 @@ def download_audio(video_url):
         video_url
     ]
     subprocess.run(cmd, capture_output=True, text=True)
-    vid = extract_youtube_id(video_url)
-    mp3_path = os.path.join(AUDIO_DIR, f"{vid}.mp3")
+    video_id = extract_youtube_id(video_url)
+    mp3_path = os.path.join(AUDIO_DIR, f"{video_id}.mp3")
     return mp3_path if os.path.exists(mp3_path) else None
 
 def run_whisper(audio_path):
-    print(f"[PY] Running Whisper on {audio_path}")
     try:
         import whisper
         model = whisper.load_model("base")
@@ -56,59 +53,47 @@ def save_transcript(course_id, lesson_id, video_id, transcript):
     client = MongoClient(MONGO_CONN)
     db = client["auth_db"]
     db["transcripts"].update_one(
-        {"courseId": course_id, "lessonId": lesson_id, "videoId": video_id},
+        {
+            "courseId": ObjectId(course_id),
+            "lessonId": ObjectId(lesson_id),
+            "videoId": video_id
+        },
         {
             "$set": {
-                "courseId": course_id,
-                "lessonId": lesson_id,
+                "courseId": ObjectId(course_id),
+                "lessonId": ObjectId(lesson_id),
                 "videoId": video_id,
-                "transcript": transcript,
+                "transcript": transcript
             }
         },
         upsert=True
     )
 
-def find_lesson(video_id):
-    client = MongoClient(MONGO_CONN)
-    db = client["auth_db"]
-    for course in db["courses"].find():
-        for week in course.get("weeks", []):
-            for module in week.get("modules", []):
-                for lesson in module.get("lessons", []):
-                    if lesson.get("videoId", "").strip() == video_id:
-                        return course, lesson
-    return None, None
+# --- Route ---
+@app.route("/generate-transcript", methods=["POST"])
+def generate_transcript():
+    data = request.get_json()
+    video_url = data.get("videoUrl")
+    video_id = data.get("videoId")
+    lesson_id = data.get("lessonId")
+    course_id = data.get("courseId")
 
-# --- Main Script ---
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python generate_transcript.py <YouTube URL>")
-        sys.exit(1)
+    if not all([video_url, video_id, lesson_id, course_id]):
+        return jsonify({"error": "Missing required fields"}), 400
 
-    video_url = sys.argv[1]
-    video_id = extract_youtube_id(video_url)
-    if not video_id:
-        print("[PY] Invalid YouTube URL.")
-        sys.exit(1)
+    print(f"[PY] Processing transcript for lesson {lesson_id}")
 
-    video_id = video_id.strip()
     audio_path = download_audio(video_url)
     if not audio_path:
-        print("[PY] Audio download failed.")
-        sys.exit(1)
+        return jsonify({"error": "Audio download failed"}), 500
 
     transcript = run_whisper(audio_path)
     if not transcript:
-        print("[PY] Whisper failed.")
-        sys.exit(1)
+        return jsonify({"error": "Transcription failed"}), 500
 
-    course, lesson = find_lesson(video_id)
-    if not course or not lesson:
-        print("[PY] ❌ No matching lesson found.")
-        sys.exit(1)
+    save_transcript(course_id, lesson_id, video_id, transcript)
+    return jsonify({"message": "Transcript stored successfully", "segments": transcript})
 
-    save_transcript(course["_id"], lesson["_id"], video_id, transcript)
-    print(f"[PY] ✅ Transcript stored for course '{course.get('title')}', lesson '{lesson.get('title')}'")
-
+# --- Main ---
 if __name__ == "__main__":
-    main()
+    app.run(port=5001)
