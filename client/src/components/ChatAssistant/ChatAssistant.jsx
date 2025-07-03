@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Bot } from "lucide-react";
 import { useChat } from "../../context/ChatContext";
 import Message from "./Message";
@@ -35,7 +36,7 @@ const ChatAssistant = ({ courseId }) => {
       timestamp: new Date().toISOString(),
     };
 
-    // 1. Push user message first
+    // Push user message first
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
@@ -44,18 +45,17 @@ const ChatAssistant = ({ courseId }) => {
       const res = await axios.post("/api/chat/message", {
         userId,
         courseId,
-        messages: [...messages, userMsg], // backend gets full convo
+        messages: [...messages, userMsg],
       });
 
       const reply = res.data.reply || "Sorry, I couldn’t process that.";
 
-      // 2. Add bot reply next
       setMessages((prev) => [
         ...prev,
         { sender: "bot", text: reply, timestamp: new Date().toISOString() },
       ]);
 
-      // 3. Hide suggestions now
+      // Hide suggestions
       setSuggestionsVisible(false);
     } catch (err) {
       console.error("Chat error:", err.message);
@@ -71,7 +71,6 @@ const ChatAssistant = ({ courseId }) => {
       setLoading(false);
     }
   };
-  
 
   return (
     <>
@@ -90,6 +89,7 @@ const ChatAssistant = ({ courseId }) => {
           className="fixed bottom-24 right-6 z-50 w-full max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden animate-fade-in border border-gray-200"
           style={{ maxHeight: "75vh" }}
         >
+          {/* Header */}
           <div className="flex items-center justify-between bg-blue-600 text-white px-4 py-2">
             <span className="font-semibold">AI Chat Assistant</span>
             <button onClick={toggleChat} className="text-white text-lg">
@@ -97,7 +97,7 @@ const ChatAssistant = ({ courseId }) => {
             </button>
           </div>
 
-          {/* Chat Body */}
+          {/* Body */}
           <div
             ref={chatWindowRef}
             className="flex-1 px-3 py-2 overflow-y-auto scroll-smooth bg-gray-50"
@@ -108,17 +108,30 @@ const ChatAssistant = ({ courseId }) => {
                 <div className="mb-3">
                   Here are some course-related questions you can ask:
                 </div>
-                <div className="flex flex-wrap justify-center gap-2">
+                <div className="flex flex-col gap-2 items-start">
                   {suggestionsVisible && suggestions.length > 0 ? (
-                    suggestions.map((question, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => sendMessageWithCourse(question)}
-                        className="bg-gray-200 text-black px-4 py-2 rounded-3xl text-sm max-w-xs text-left hover:bg-gray-300 transition"
-                      >
-                        {question}
-                      </button>
-                    ))
+                    suggestions.map((rawQuestion, idx) => {
+                      const question = rawQuestion
+                        .replace(/^\s*[\*\-]?\s*\d*\.?\s*/, "")
+                        .trim();
+
+                      return (
+                        <motion.div
+                          key={idx}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.1, duration: 0.3 }}
+                          className="w-full"
+                        >
+                          <button
+                            onClick={() => sendMessageWithCourse(question)}
+                            className="bg-gray-100 text-gray-900 px-4 py-2 rounded-3xl text-sm text-left w-full hover:bg-gray-200 transition whitespace-normal"
+                          >
+                            • {question}
+                          </button>
+                        </motion.div>
+                      );
+                    })
                   ) : (
                     <span className="text-gray-400 italic">
                       Loading suggestions...
@@ -149,7 +162,10 @@ const ChatAssistant = ({ courseId }) => {
             )}
           </div>
 
+          {/* Input */}
           <ChatInput sendMessage={sendMessageWithCourse} />
+
+          {/* Clear Chat */}
           <button
             className="text-xs text-gray-400 hover:text-blue-600 py-1"
             onClick={clearChat}

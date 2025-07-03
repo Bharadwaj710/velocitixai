@@ -199,7 +199,7 @@ const CoursePlayer = () => {
     setTranscript([]);
     setActiveTranscriptIdx(-1);
     axios
-      .get(`/api/transcripts/${lessonId}`)
+      .get(`http://localhost:8080/api/transcripts/by-lesson/${lessonId}`)
       .then((res) => {
         if (Array.isArray(res.data.transcript)) {
           setTranscript(res.data.transcript);
