@@ -170,6 +170,41 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     }
   };
 
+  // Toggle quizEnabled for a lesson
+  const handleQuizToggle = (weekIdx, modIdx, lessonIdx) => {
+    setEditedCourse((prev) => {
+      const updated = { ...prev };
+      updated.weeks = [...updated.weeks];
+      updated.weeks[weekIdx] = { ...updated.weeks[weekIdx] };
+      updated.weeks[weekIdx].modules = [...updated.weeks[weekIdx].modules];
+      updated.weeks[weekIdx].modules[modIdx] = {
+        ...updated.weeks[weekIdx].modules[modIdx],
+      };
+      updated.weeks[weekIdx].modules[modIdx].lessons = [
+        ...updated.weeks[weekIdx].modules[modIdx].lessons,
+      ];
+      const lesson = {
+        ...updated.weeks[weekIdx].modules[modIdx].lessons[lessonIdx],
+      };
+      lesson.quizEnabled =
+        lesson.quizEnabled === false ? true : !lesson.quizEnabled;
+      updated.weeks[weekIdx].modules[modIdx].lessons[lessonIdx] = lesson;
+      return updated;
+    });
+  };
+
+  // Generate Quiz for a week
+  const handleGenerateQuiz = async (weekNumber) => {
+    try {
+      await axios.post(
+        `/api/quiz/generate-module/${editedCourse._id}/${weekNumber}`
+      );
+      alert("Quiz generation started for this week!");
+    } catch (err) {
+      alert("Quiz generation failed.");
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-xl max-w-4xl w-full relative overflow-y-auto max-h-[90vh]">
@@ -309,6 +344,17 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                       >
                         ✕
                       </button>
+                      <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={lesson.quizEnabled !== false}
+                          onChange={() =>
+                            handleQuizToggle(weekIdx, modIdx, lessonIdx)
+                          }
+                          className="accent-blue-600"
+                        />
+                        Enable Quiz
+                      </label>
                     </div>
                   ))}
                   <button
@@ -326,6 +372,14 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
               className="text-green-600 text-sm"
             >
               + Add Module
+            </button>
+
+            {/* --- Generate Quiz Button for this week --- */}
+            <button
+              className="bg-yellow-500 text-white px-4 py-2 rounded mt-2"
+              onClick={() => handleGenerateQuiz(week.weekNumber)}
+            >
+              📝 Generate Quiz for Week {week.weekNumber}
             </button>
           </div>
         ))}

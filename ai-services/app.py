@@ -9,12 +9,15 @@ import subprocess
 import re
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from flask_cors import CORS
+from generate_quiz import generate_quiz_from_transcript
 
 # --- Init ---
 load_dotenv("../server/.env")
 MONGO_CONN = os.getenv("MONGO_CONN")
 
 app = Flask(__name__)
+CORS(app)
 app.register_blueprint(chatbot_bp)
 
 # --- CORS ---
@@ -215,5 +218,26 @@ def generate_transcript():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/generate-quiz", methods=["POST"])
+def generate_quiz():
+    data = request.get_json()
+    if not data or "transcript" not in data:
+        return jsonify({"error": "Transcript is required"}), 400
+
+    raw_transcript = data["transcript"]
+
+    # 🔧 Handle array of transcript segments (extract text and join)
+    if isinstance(raw_transcript, list):
+        transcript = " ".join(seg.get("text", "") for seg in raw_transcript)
+    elif isinstance(raw_transcript, str):
+        transcript = raw_transcript.strip()
+    else:
+        return jsonify({"error": "Invalid transcript format"}), 400
+
+    # ✅ Generate quiz using Gemini
+    quiz = generate_quiz_from_transcript(transcript)
+    return jsonify(quiz), 200
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(port=5001)

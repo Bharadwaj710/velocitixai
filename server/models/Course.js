@@ -16,6 +16,7 @@ const lessonSchema = new mongoose.Schema({
   duration: {
     type: String, // Optional, e.g., "12:34"
   },
+  quizEnabled: { type: Boolean, default: true },
 });
 
 // 🔹 Module Schema
