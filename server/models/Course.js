@@ -16,6 +16,13 @@ const lessonSchema = new mongoose.Schema({
   duration: {
     type: String, // Optional, e.g., "12:34"
   },
+
+  resources: [
+    {
+      name: String,
+      url: String,
+    },
+  ], // <-- Add this for PDFs
   quizEnabled: { type: Boolean, default: true },
 });
 
