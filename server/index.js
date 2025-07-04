@@ -59,3 +59,11 @@ app.use("/api/chat", chatRoutes);
 
 const transcriptRoutes = require("./routes/transcript");
 app.use("/api/transcripts", transcriptRoutes);
+
+
+const notesRoutes = require("./routes/notes");
+app.use("/api/notes", notesRoutes);
+
+const quizRoutes = require("./routes/quizRoutes");
+app.use("/api/quiz", quizRoutes);
+

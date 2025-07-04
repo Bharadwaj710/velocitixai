@@ -119,3 +119,37 @@ exports.updateCourse = async (req, res) => {
   }
 };
 
+// controllers/courseController.js
+exports.addPdfToLesson = async (req, res) => {
+  try {
+    const { courseId, lessonId } = req.params;
+    const { pdfName, pdfUrl } = req.body;
+
+    const course = await Course.findById(courseId);
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    let lessonFound = false;
+
+    course.weeks.forEach((week) => {
+      week.modules.forEach((module) => {
+        module.lessons.forEach((lesson) => {
+          if (lesson._id.toString() === lessonId) {
+            lesson.resources = lesson.resources || [];
+            lesson.resources.push({ name: pdfName, url: pdfUrl });
+            lessonFound = true;
+          }
+        });
+      });
+    });
+
+    if (!lessonFound) {
+      return res.status(404).json({ message: "Lesson not found" });
+    }
+
+    await course.save();
+    res.status(200).json({ message: "PDF added to lesson successfully" });
+  } catch (err) {
+    console.error("Add PDF to Lesson Error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

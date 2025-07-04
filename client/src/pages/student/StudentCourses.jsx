@@ -38,7 +38,7 @@ const StudentCourses = () => {
     skills: "Skills",
     challenges: "Challenges",
   };
-  
+
   useEffect(() => {
     if (showDetailsModal) {
       const timeout = setTimeout(() => {
@@ -231,7 +231,7 @@ const StudentCourses = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-pink-50 py-10 px-2 sm:px-4 md:px-8">
-      {/* Modal for student details completion */}
+    {/* Modal for student details completion */}
       {showDetailsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full flex flex-col items-center">

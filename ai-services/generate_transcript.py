@@ -81,7 +81,7 @@ def generate_transcript():
     if not all([video_url, video_id, lesson_id, course_id]):
         return jsonify({"error": "Missing required fields"}), 400
 
-    print(f"[PY] Processing transcript for lesson {lesson_id}")
+    print(f"[PY] 📌 Generating transcript for lessonId: {lesson_id}")
 
     audio_path = download_audio(video_url)
     if not audio_path:
@@ -92,7 +92,12 @@ def generate_transcript():
         return jsonify({"error": "Transcription failed"}), 500
 
     save_transcript(course_id, lesson_id, video_id, transcript)
-    return jsonify({"message": "Transcript stored successfully", "segments": transcript})
+
+    print(f"[PY] ✅ Transcript saved for lessonId: {lesson_id}")
+    return jsonify({
+        "message": "Transcript stored successfully",
+        "segments": transcript
+    })
 
 # --- Main ---
 if __name__ == "__main__":

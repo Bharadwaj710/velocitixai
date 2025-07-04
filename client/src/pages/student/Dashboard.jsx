@@ -14,6 +14,7 @@ const StudentDashboard = () => {
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [progressPercent, setProgressPercent] = useState(0);
   const [recentCourse, setRecentCourse] = useState(null);
+  const [lastFlatIdx, setLastFlatIdx] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -41,9 +42,9 @@ const StudentDashboard = () => {
         let courses = details.course || [];
         if (!Array.isArray(courses)) courses = courses ? [courses] : [];
 
-        // Show the most recently enrolled course (last in array)
         let recent = null;
         let progress = 0;
+        let lastIdx = 0;
         if (courses.length > 0) {
           recent = courses[courses.length - 1];
           try {
@@ -52,16 +53,26 @@ const StudentDashboard = () => {
             );
             const courseRes = await axios.get(`/api/courses/${recent._id}`);
             // Count all lessons in all weeks
-            const totalLessons = (courseRes.data.weeks || []).reduce(
-              (sum, w) =>
-                sum +
-                (w.modules || []).reduce(
-                  (msum, m) => msum + (m.lessons ? m.lessons.length : 0),
-                  0
-                ),
-              0
-            );
-            const completed = (progressRes.data.completedLessons || []).length;
+            const weeks = courseRes.data.weeks || [];
+            let totalLessons = 0;
+            let completedLessons = progressRes.data.completedLessons || [];
+            let found = false;
+            let flatIdx = 0;
+            for (let w = 0; w < weeks.length; w++) {
+              for (let m = 0; m < (weeks[w].modules || []).length; m++) {
+                for (let l = 0; l < (weeks[w].modules[m].lessons || []).length; l++) {
+                  totalLessons++;
+                  const lesson = weeks[w].modules[m].lessons[l];
+                  if (!found && !completedLessons.includes(lesson.title)) {
+                    lastIdx = flatIdx;
+                    found = true;
+                  }
+                  flatIdx++;
+                }
+              }
+            }
+            if (!found) lastIdx = 0; // If all completed, start from first
+            const completed = completedLessons.length;
             progress =
               totalLessons > 0
                 ? Math.round((completed / totalLessons) * 100)
@@ -70,6 +81,7 @@ const StudentDashboard = () => {
         }
         setProgressPercent(progress);
         setRecentCourse(recent);
+        setLastFlatIdx(lastIdx);
 
         if (assessmentExists && hasFilledDetails) {
           setShowAssessmentBtn(false);
@@ -184,7 +196,8 @@ const StudentDashboard = () => {
             </h2>
             <button
               onClick={() => navigate("/student/my-learning")}
-              className="text-sm text-blue-600 hover:underline font-semibold"
+              className="text-sm font-semibold px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow hover:from-blue-700 hover:to-purple-700 transition-all"
+              style={{ boxShadow: "0 2px 8px 0 rgba(60,60,180,0.08)" }}
             >
               My Learning
             </button>
@@ -229,10 +242,16 @@ const StudentDashboard = () => {
                     className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
                     onClick={() => {
                       if (
-                        getCourseStatus(recentCourse) === "Get Started" ||
-                        getCourseStatus(recentCourse) === "Resume"
+                        getCourseStatus(recentCourse) === "Get Started"
                       ) {
                         navigate(`/course-player/${recentCourse._id}`);
+                      } else if (
+                        getCourseStatus(recentCourse) === "Resume"
+                      ) {
+                        // Resume from last incomplete lesson
+                        navigate(`/course-player/${recentCourse._id}`, {
+                          state: { flatIdx: lastFlatIdx },
+                        });
                       }
                     }}
                   >

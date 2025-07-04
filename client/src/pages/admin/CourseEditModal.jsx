@@ -8,6 +8,39 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     durationWeeks: course.durationWeeks || "",
     weeks: course.weeks || [],
   });
+  // Add a new state to track selected PDFs for each lesson before upload
+  const [pendingPdfs, setPendingPdfs] = useState({}); // { [weekIdx-modIdx-lessonIdx]: File }
+
+  // --- NEW: Track transcript status for lessons ---
+  const [lessonTranscriptStatus, setLessonTranscriptStatus] = useState({}); // {lessonId: true/false}
+
+  // Fetch transcript status for all lessons in this course
+  useEffect(() => {
+    const fetchTranscriptStatus = async () => {
+      const status = {};
+      for (const week of editedCourse.weeks || []) {
+        for (const mod of week.modules || []) {
+          for (const lesson of mod.lessons || []) {
+            if (lesson._id) {
+              try {
+                const res = await axios.get(
+                  `/api/transcripts/by-lesson/${lesson._id}`
+                );
+                status[lesson._id] =
+                  Array.isArray(res.data.transcript) &&
+                  res.data.transcript.length > 0;
+              } catch {
+                status[lesson._id] = false;
+              }
+            }
+          }
+        }
+      }
+      setLessonTranscriptStatus(status);
+    };
+    fetchTranscriptStatus();
+    // eslint-disable-next-line
+  }, [editedCourse._id, editedCourse.weeks]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -76,22 +109,77 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   };
 
   const handleSave = async () => {
-    // Transform weeks to ensure correct structure
-    const weeks = (editedCourse.weeks || []).map((week, idx) => ({
-      weekNumber: week.weekNumber || idx + 1,
-      modules: (week.modules || []).map((mod) => ({
-        title: mod.title,
-        content: mod.content,
-        lessons: (mod.lessons || []).map((lesson) => ({
-          title: lesson.title,
-          videoUrl: lesson.videoUrl,
-          duration: lesson.duration || "",
-        })),
-        resources: mod.resources || [],
-        _id: mod._id, // preserve _id if present
-      })),
-      _id: week._id, // preserve _id if present
+    // 1. Upload all pending PDFs and collect their URLs
+    const pdfUploads = [];
+    for (let weekIdx = 0; weekIdx < (editedCourse.weeks || []).length; weekIdx++) {
+      const week = editedCourse.weeks[weekIdx];
+      for (let modIdx = 0; modIdx < (week.modules || []).length; modIdx++) {
+        const mod = week.modules[modIdx];
+        for (let lessonIdx = 0; lessonIdx < (mod.lessons || []).length; lessonIdx++) {
+          const lesson = mod.lessons[lessonIdx];
+          const pendingKey = `${weekIdx}-${modIdx}-${lessonIdx}`;
+          if (pendingPdfs[pendingKey]) {
+            const formData = new FormData();
+            formData.append("pdf", pendingPdfs[pendingKey]);
+            pdfUploads.push(
+              axios
+                .post("http://localhost:8080/api/upload/pdf", formData)
+                .then(res => ({
+                  weekIdx,
+                  modIdx,
+                  lessonIdx,
+                  name: res.data.name,
+                  url: res.data.url
+                }))
+            );
+          }
+        }
+      }
+    }
+    const uploadedPdfs = await Promise.all(pdfUploads);
+
+    // 2. Attach uploaded PDFs to lessons' resources
+    const weeksWithPdfs = (editedCourse.weeks || []).map((week, weekIdx) => ({
+      ...week,
+      modules: (week.modules || []).map((mod, modIdx) => ({
+        ...mod,
+        lessons: (mod.lessons || []).map((lesson, lessonIdx) => {
+          const found = uploadedPdfs.find(
+            pdf =>
+              pdf.weekIdx === weekIdx &&
+              pdf.modIdx === modIdx &&
+              pdf.lessonIdx === lessonIdx
+          );
+          if (found) {
+            return {
+              ...lesson,
+              resources: [{ name: found.name, url: found.url }]
+            };
+          }
+          return lesson;
+        })
+      }))
     }));
+
+    // 3. Prepare payload
+    const weeks = (weeksWithPdfs || []).map((week, idx) => ({
+  weekNumber: week.weekNumber || idx + 1,
+  modules: (week.modules || []).map((mod) => ({
+    title: mod.title,
+    content: mod.content,
+    lessons: (mod.lessons || []).map((lesson) => ({
+      _id: lesson._id, // ✅ Preserve lesson ID
+      title: lesson.title,
+      videoUrl: lesson.videoUrl,
+      duration: lesson.duration || "",
+      resources: lesson.resources || []
+    })),
+    resources: mod.resources || [],
+    _id: mod._id,
+  })),
+  _id: week._id,
+}));
+
 
     const payload = {
       ...editedCourse,
@@ -103,6 +191,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     try {
       await onSave(payload);
       toast.success("Course updated!");
+      setPendingPdfs({});
       onClose();
     } catch (err) {
       console.error(err);
@@ -128,6 +217,20 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     (lesson) => lesson.videoId && lesson.videoId.length === 11
   );
 
+  // Helper: check if all lessons in a week have transcript
+  const allLessonsHaveTranscript = (week) => {
+    let foundLesson = false;
+    for (const mod of week.modules || []) {
+      for (const lesson of mod.lessons || []) {
+        if (lesson._id) {
+          foundLesson = true;
+          if (!lessonTranscriptStatus[lesson._id]) return false;
+        }
+      }
+    }
+    return foundLesson;
+  };
+
   const handleGenerateTranscriptForWeek = async (weekIdx) => {
     const week = editedCourse.weeks[weekIdx];
     const lessons = [];
@@ -146,29 +249,38 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     });
 
     if (lessons.length === 0) {
-      return alert("No valid lessons with video ID in this week.");
+      toast.error("❌ No valid lessons with YouTube video IDs in this week.");
+      return;
     }
 
+    toast.info(
+      `⏳ Transcript generation started for Week ${week.weekNumber}...`
+    );
     try {
       await axios.post("/api/transcripts/generate-module", { lessons });
-      alert(`Transcript generation started for Week ${week.weekNumber}!`);
+      toast.success(`✅ Transcript generated for Week ${week.weekNumber}!`);
+      setTimeout(() => setLessonTranscriptStatus({}), 2000);
     } catch (err) {
-      console.error("Failed to generate transcript for week", err);
-      alert("Error generating transcript for this week");
+      console.error("Transcript generation failed", err);
+      toast.error("❌ Transcript generation failed for this week.");
     }
   };
+  
 
   const handleGenerateTranscript = async () => {
+    toast.info("⏳ Generating transcript for all lessons...");
     try {
       await axios.post("/api/transcripts/generate-course", {
         courseId: editedCourse._id,
       });
-      alert("Transcript generation completed!");
+      toast.success("✅ Transcript generation completed for all lessons!");
+      setTimeout(() => setLessonTranscriptStatus({}), 2000);
     } catch (err) {
-      console.error("Failed to generate transcript", err);
-      alert("Error generating transcript");
+      console.error("Transcript generation failed", err);
+      toast.error("❌ Error generating transcripts for all lessons.");
     }
   };
+  
 
   // Toggle quizEnabled for a lesson
   const handleQuizToggle = (weekIdx, modIdx, lessonIdx) => {
@@ -193,16 +305,74 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     });
   };
 
-  // Generate Quiz for a week
   const handleGenerateQuiz = async (weekNumber) => {
+    toast.info(`🧠 Generating quiz for Week ${weekNumber}...`);
     try {
       await axios.post(
         `/api/quiz/generate-module/${editedCourse._id}/${weekNumber}`
       );
-      alert("Quiz generation started for this week!");
+      toast.success(`✅ Quiz generated for Week ${weekNumber}!`);
     } catch (err) {
-      alert("Quiz generation failed.");
+      console.error(err);
+      toast.error(`❌ Quiz generation failed for Week ${weekNumber}.`);
     }
+  };
+  
+
+  // PDF upload handler for a lesson
+  const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("pdf", file);
+    try {
+      // Always use backend API base URL for all PDF-related endpoints
+      const API_BASE = "http://localhost:8080";
+      // Upload PDF to backend (Cloudinary)
+      const uploadRes = await axios.post(`${API_BASE}/api/upload/pdf`, formData);
+      const { url, name } = uploadRes.data;
+      // Save PDF to lesson in backend (persist in DB)
+      const lessonId = editedCourse.weeks[weekIdx].modules[modIdx].lessons[lessonIdx]._id;
+      const courseId = editedCourse._id;
+      await axios.put(
+        `${API_BASE}/api/courses/${courseId}/lessons/${lessonId}/add-pdf`,
+        {
+          pdfName: name,
+          pdfUrl: url,
+        }
+      );
+      // Fetch updated course to get new resources array
+      const updated = await axios.get(`${API_BASE}/api/courses/${courseId}`);
+      setEditedCourse(updated.data);
+      toast.success("PDF uploaded and attached!");
+    } catch (err) {
+      toast.error("Failed to upload PDF");
+    }
+  };
+
+  // Remove PDF from lesson (optional: you may want to call a backend endpoint for this)
+  const handleRemovePdf = (weekIdx, modIdx, lessonIdx, pdfIdx) => {
+    setEditedCourse((prev) => {
+      const updated = { ...prev };
+      const lesson = updated.weeks[weekIdx].modules[modIdx].lessons[lessonIdx];
+      lesson.resources = (lesson.resources || []).filter((_, i) => i !== pdfIdx);
+      return updated;
+    });
+  };
+
+  const handlePdfSelect = (weekIdx, modIdx, lessonIdx, file) => {
+    if (!file) return;
+    setPendingPdfs(prev => ({
+      ...prev,
+      [`${weekIdx}-${modIdx}-${lessonIdx}`]: file
+    }));
+  };
+
+  const handleRemovePendingPdf = (weekIdx, modIdx, lessonIdx) => {
+    setPendingPdfs(prev => {
+      const updated = { ...prev };
+      delete updated[`${weekIdx}-${modIdx}-${lessonIdx}`];
+      return updated;
+    });
   };
 
   return (
@@ -246,12 +416,18 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
               <h4 className="text-lg font-bold text-blue-800">
                 Week {week.weekNumber}
               </h4>
-              <button
-                onClick={() => handleGenerateTranscriptForWeek(weekIdx)}
-                className="bg-green-500 text-white text-sm px-3 py-1 rounded"
-              >
-                📥 Generate Transcript for this Week
-              </button>
+              {week.modules.some((mod) =>
+                mod.lessons.some(
+                  (lesson) => lesson.videoId && lesson.videoId.length === 11
+                )
+              ) && (
+                <button
+                  onClick={() => handleGenerateTranscriptForWeek(weekIdx)}
+                  className="bg-green-500 text-white text-sm px-3 py-1 rounded"
+                >
+                  📥 Generate Transcript for this Week
+                </button>
+              )}
             </div>
 
             {week.modules.map((mod, modIdx) => (
@@ -296,65 +472,142 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                       key={lessonIdx}
                       className="flex flex-col md:flex-row gap-2 items-start mb-2"
                     >
-                      <input
-                        className="border p-2 flex-1 w-full"
-                        placeholder="Lesson Title"
-                        value={lesson.title}
-                        onChange={(e) =>
-                          handleLessonChange(
-                            weekIdx,
-                            modIdx,
-                            lessonIdx,
-                            "title",
-                            e.target.value
-                          )
-                        }
-                      />
-                      <input
-                        className="border p-2 flex-1 w-full"
-                        placeholder="YouTube Video URL"
-                        value={lesson.videoUrl}
-                        onChange={(e) =>
-                          handleLessonChange(
-                            weekIdx,
-                            modIdx,
-                            lessonIdx,
-                            "videoUrl",
-                            e.target.value
-                          )
-                        }
-                      />
-                      <input
-                        className="border p-2 w-32"
-                        placeholder="Duration"
-                        value={lesson.duration}
-                        onChange={(e) =>
-                          handleLessonChange(
-                            weekIdx,
-                            modIdx,
-                            lessonIdx,
-                            "duration",
-                            e.target.value
-                          )
-                        }
-                      />
-                      <button
-                        className="text-red-600 mt-1 md:mt-0"
-                        onClick={() => removeLesson(weekIdx, modIdx, lessonIdx)}
+                      <div
+                        key={lessonIdx}
+                        className="flex flex-col md:flex-row gap-2 items-start mb-2"
                       >
-                        ✕
-                      </button>
-                      <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={lesson.quizEnabled !== false}
-                          onChange={() =>
-                            handleQuizToggle(weekIdx, modIdx, lessonIdx)
+                        <button
+                          className="text-red-600 mt-1 md:mt-0"
+                          onClick={() =>
+                            removeLesson(weekIdx, modIdx, lessonIdx)
                           }
-                          className="accent-blue-600"
+                        >
+                          ✕
+                        </button>
+                        <input
+                          className="border p-2 flex-1 w-full"
+                          placeholder="Lesson Title"
+                          value={lesson.title}
+                          onChange={(e) =>
+                            handleLessonChange(
+                              weekIdx,
+                              modIdx,
+                              lessonIdx,
+                              "title",
+                              e.target.value
+                            )
+                          }
                         />
-                        Enable Quiz
-                      </label>
+                        <input
+                          className="border p-2 flex-1 w-full"
+                          placeholder="YouTube Video URL"
+                          value={lesson.videoUrl}
+                          onChange={(e) =>
+                            handleLessonChange(
+                              weekIdx,
+                              modIdx,
+                              lessonIdx,
+                              "videoUrl",
+                              e.target.value
+                            )
+                          }
+                        />
+                        {/* Quiz toggle */}
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={lesson.quizEnabled !== false}
+                            onChange={() =>
+                              handleQuizToggle(weekIdx, modIdx, lessonIdx)
+                            }
+                            className="accent-blue-600"
+                          />
+                          Enable Quiz
+                        </label>
+                        {/* PDF select (not upload) */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            id={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
+                            className="hidden"
+                            onChange={(e) =>
+                              handlePdfSelect(
+                                weekIdx,
+                                modIdx,
+                                lessonIdx,
+                                e.target.files[0]
+                              )
+                            }
+                          />
+                          <label
+                            htmlFor={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
+                            className="bg-blue-600 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-700 whitespace-nowrap"
+                          >
+                            Select PDF
+                          </label>
+                        </div>
+
+                        {/* Show selected (pending) PDF with remove button */}
+                        {pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`] && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-blue-700">
+                              {
+                                pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`]
+                                  .name
+                              }
+                            </span>
+                            <button
+                              className="text-xs text-red-500"
+                              onClick={() =>
+                                handleRemovePendingPdf(
+                                  weekIdx,
+                                  modIdx,
+                                  lessonIdx
+                                )
+                              }
+                              title="Remove PDF"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Show already attached PDFs (if any) */}
+                        {lesson.resources && lesson.resources.length > 0 && (
+                          <div className="flex flex-col gap-1 mt-1">
+                            {lesson.resources.map((pdf, pdfIdx) => (
+                              <div
+                                key={pdfIdx}
+                                className="flex items-center gap-2"
+                              >
+                                <a
+                                  href={pdf.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 underline text-xs"
+                                >
+                                  {pdf.name}
+                                </a>
+                                <button
+                                  className="text-xs text-red-500"
+                                  onClick={() =>
+                                    handleRemovePdf(
+                                      weekIdx,
+                                      modIdx,
+                                      lessonIdx,
+                                      pdfIdx
+                                    )
+                                  }
+                                  title="Remove PDF"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                   <button
@@ -375,28 +628,29 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
             </button>
 
             {/* --- Generate Quiz Button for this week --- */}
-            <button
-              className="bg-yellow-500 text-white px-4 py-2 rounded mt-2"
-              onClick={() => handleGenerateQuiz(week.weekNumber)}
-            >
-              📝 Generate Quiz for Week {week.weekNumber}
-            </button>
+            {allLessonsHaveTranscript(week) ? (
+              <button
+                className="bg-yellow-500 text-white px-4 py-2 rounded mt-2"
+                onClick={() => handleGenerateQuiz(week.weekNumber)}
+              >
+                📝 Generate Quiz for Week {week.weekNumber}
+              </button>
+            ) : (
+              <div className="text-xs text-gray-500 mt-2">
+                Generate transcripts for all lessons in this week to enable quiz
+                generation.
+              </div>
+            )}
           </div>
         ))}
 
-        {/* Generate Transcript Button */}
-        {hasValidVideoId ? (
+        {hasValidVideoId && (
           <button
             className="bg-yellow-500 text-white px-4 py-2 rounded mt-4"
             onClick={handleGenerateTranscript}
           >
             📜 Generate Transcript for All Lessons
           </button>
-        ) : (
-          <div className="text-sm text-gray-500 mt-4">
-            Add at least one lesson with a valid YouTube video to enable
-            transcript generation.
-          </div>
         )}
 
         <div className="text-right mt-6">
