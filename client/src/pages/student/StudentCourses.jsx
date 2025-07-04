@@ -38,6 +38,7 @@ const StudentCourses = () => {
     skills: "Skills",
     challenges: "Challenges",
   };
+
   useEffect(() => {
     if (showDetailsModal) {
       const timeout = setTimeout(() => {
@@ -283,7 +284,9 @@ const StudentCourses = () => {
                 className="flex items-center gap-2 px-3 py-1.5 rounded bg-blue-100 text-blue-700 font-medium hover:bg-blue-200 transition disabled:opacity-60"
                 title="Refresh Recommendations"
               >
-                <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`}
+                />
                 Refresh
               </button>
             </div>
@@ -321,15 +324,19 @@ const StudentCourses = () => {
                             </span>
                           )}
                           {course.recommendation_label && (
-                            <span className={`text-xs font-semibold px-2 py-1 rounded
+                            <span
+                              className={`text-xs font-semibold px-2 py-1 rounded
                               ${
-                                course.recommendation_label === "Highly Recommended"
+                                course.recommendation_label ===
+                                "Highly Recommended"
                                   ? "bg-green-100 text-green-700"
-                                  : course.recommendation_label === "Recommended"
+                                  : course.recommendation_label ===
+                                    "Recommended"
                                   ? "bg-yellow-100 text-yellow-700"
                                   : "bg-gray-100 text-gray-700"
                               }
-                            `}>
+                            `}
+                            >
                               {course.recommendation_label}
                             </span>
                           )}

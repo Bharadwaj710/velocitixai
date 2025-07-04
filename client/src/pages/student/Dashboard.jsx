@@ -142,6 +142,7 @@ const StudentDashboard = () => {
       </div>
     );
   }
+  
 
   // Helper to get progress percent for a course (simulate for now)
   const getCourseProgress = (course) => {

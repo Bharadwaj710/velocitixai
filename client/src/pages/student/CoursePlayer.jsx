@@ -7,7 +7,7 @@ import StudentNavbar from "../../components/StudentNavbar";
 import YouTube from "react-youtube";
 import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
 import { saveNote, fetchNotes, deleteNote, updateNote } from '../../api/notes';
-
+import { ChatProvider } from "../../context/ChatContext";
 // Helper: flatten all lessons and PDFs for navigation and progress
 function flattenItems(weeks) {
   const flat = [];
@@ -887,7 +887,9 @@ const CoursePlayer = () => {
           </div>
         </div>
       </div>
-      <ChatAssistant />
+      <ChatProvider courseId={courseId}>
+        <ChatAssistant courseId={courseId} />
+      </ChatProvider>
     </div>
   );
 };
