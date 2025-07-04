@@ -8,6 +8,8 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     durationWeeks: course.durationWeeks || "",
     weeks: course.weeks || [],
   });
+  // Add a new state to track selected PDFs for each lesson before upload
+  const [pendingPdfs, setPendingPdfs] = useState({}); // { [weekIdx-modIdx-lessonIdx]: File }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -76,22 +78,77 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   };
 
   const handleSave = async () => {
-    // Transform weeks to ensure correct structure
-    const weeks = (editedCourse.weeks || []).map((week, idx) => ({
-      weekNumber: week.weekNumber || idx + 1,
-      modules: (week.modules || []).map((mod) => ({
-        title: mod.title,
-        content: mod.content,
-        lessons: (mod.lessons || []).map((lesson) => ({
-          title: lesson.title,
-          videoUrl: lesson.videoUrl,
-          duration: lesson.duration || "",
-        })),
-        resources: mod.resources || [],
-        _id: mod._id, // preserve _id if present
-      })),
-      _id: week._id, // preserve _id if present
+    // 1. Upload all pending PDFs and collect their URLs
+    const pdfUploads = [];
+    for (let weekIdx = 0; weekIdx < (editedCourse.weeks || []).length; weekIdx++) {
+      const week = editedCourse.weeks[weekIdx];
+      for (let modIdx = 0; modIdx < (week.modules || []).length; modIdx++) {
+        const mod = week.modules[modIdx];
+        for (let lessonIdx = 0; lessonIdx < (mod.lessons || []).length; lessonIdx++) {
+          const lesson = mod.lessons[lessonIdx];
+          const pendingKey = `${weekIdx}-${modIdx}-${lessonIdx}`;
+          if (pendingPdfs[pendingKey]) {
+            const formData = new FormData();
+            formData.append("pdf", pendingPdfs[pendingKey]);
+            pdfUploads.push(
+              axios
+                .post("http://localhost:8080/api/upload/pdf", formData)
+                .then(res => ({
+                  weekIdx,
+                  modIdx,
+                  lessonIdx,
+                  name: res.data.name,
+                  url: res.data.url
+                }))
+            );
+          }
+        }
+      }
+    }
+    const uploadedPdfs = await Promise.all(pdfUploads);
+
+    // 2. Attach uploaded PDFs to lessons' resources
+    const weeksWithPdfs = (editedCourse.weeks || []).map((week, weekIdx) => ({
+      ...week,
+      modules: (week.modules || []).map((mod, modIdx) => ({
+        ...mod,
+        lessons: (mod.lessons || []).map((lesson, lessonIdx) => {
+          const found = uploadedPdfs.find(
+            pdf =>
+              pdf.weekIdx === weekIdx &&
+              pdf.modIdx === modIdx &&
+              pdf.lessonIdx === lessonIdx
+          );
+          if (found) {
+            return {
+              ...lesson,
+              resources: [{ name: found.name, url: found.url }]
+            };
+          }
+          return lesson;
+        })
+      }))
     }));
+
+    // 3. Prepare payload
+    const weeks = (weeksWithPdfs || []).map((week, idx) => ({
+  weekNumber: week.weekNumber || idx + 1,
+  modules: (week.modules || []).map((mod) => ({
+    title: mod.title,
+    content: mod.content,
+    lessons: (mod.lessons || []).map((lesson) => ({
+      _id: lesson._id, // ✅ Preserve lesson ID
+      title: lesson.title,
+      videoUrl: lesson.videoUrl,
+      duration: lesson.duration || "",
+      resources: lesson.resources || []
+    })),
+    resources: mod.resources || [],
+    _id: mod._id,
+  })),
+  _id: week._id,
+}));
+
 
     const payload = {
       ...editedCourse,
@@ -103,6 +160,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     try {
       await onSave(payload);
       toast.success("Course updated!");
+      setPendingPdfs({});
       onClose();
     } catch (err) {
       console.error(err);
@@ -138,6 +196,62 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
       console.error("Failed to generate transcript", err);
       alert("Error generating transcript");
     }
+  };
+
+  // PDF upload handler for a lesson
+  const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("pdf", file);
+    try {
+      // Always use backend API base URL for all PDF-related endpoints
+      const API_BASE = "http://localhost:8080";
+      // Upload PDF to backend (Cloudinary)
+      const uploadRes = await axios.post(`${API_BASE}/api/upload/pdf`, formData);
+      const { url, name } = uploadRes.data;
+      // Save PDF to lesson in backend (persist in DB)
+      const lessonId = editedCourse.weeks[weekIdx].modules[modIdx].lessons[lessonIdx]._id;
+      const courseId = editedCourse._id;
+      await axios.put(
+        `${API_BASE}/api/courses/${courseId}/lessons/${lessonId}/add-pdf`,
+        {
+          pdfName: name,
+          pdfUrl: url,
+        }
+      );
+      // Fetch updated course to get new resources array
+      const updated = await axios.get(`${API_BASE}/api/courses/${courseId}`);
+      setEditedCourse(updated.data);
+      toast.success("PDF uploaded and attached!");
+    } catch (err) {
+      toast.error("Failed to upload PDF");
+    }
+  };
+
+  // Remove PDF from lesson (optional: you may want to call a backend endpoint for this)
+  const handleRemovePdf = (weekIdx, modIdx, lessonIdx, pdfIdx) => {
+    setEditedCourse((prev) => {
+      const updated = { ...prev };
+      const lesson = updated.weeks[weekIdx].modules[modIdx].lessons[lessonIdx];
+      lesson.resources = (lesson.resources || []).filter((_, i) => i !== pdfIdx);
+      return updated;
+    });
+  };
+
+  const handlePdfSelect = (weekIdx, modIdx, lessonIdx, file) => {
+    if (!file) return;
+    setPendingPdfs(prev => ({
+      ...prev,
+      [`${weekIdx}-${modIdx}-${lessonIdx}`]: file
+    }));
+  };
+
+  const handleRemovePendingPdf = (weekIdx, modIdx, lessonIdx) => {
+    setPendingPdfs(prev => {
+      const updated = { ...prev };
+      delete updated[`${weekIdx}-${modIdx}-${lessonIdx}`];
+      return updated;
+    });
   };
 
   return (
@@ -271,6 +385,65 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                       >
                         ✕
                       </button>
+                  {/* PDF select (not upload) */}
+<div className="flex items-center gap-2">
+  <input
+    type="file"
+    accept="application/pdf"
+    id={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
+    className="hidden"
+    onChange={(e) =>
+      handlePdfSelect(weekIdx, modIdx, lessonIdx, e.target.files[0])
+    }
+  />
+
+  <label
+    htmlFor={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
+    className="bg-blue-600 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-700 whitespace-nowrap"
+  >
+    Select PDF
+  </label>
+</div>
+
+{/* Show selected (pending) PDF with remove button */}
+{pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`] && (
+  <div className="flex items-center gap-2 mt-1">
+    <span className="text-xs text-blue-700">
+      {pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`].name}
+    </span>
+    <button
+      className="text-xs text-red-500"
+      onClick={() => handleRemovePendingPdf(weekIdx, modIdx, lessonIdx)}
+      title="Remove PDF"
+    >
+      ×
+    </button>
+  </div>
+)}
+                      {/* Show already attached PDFs (if any) */}
+                      {lesson.resources && lesson.resources.length > 0 && (
+                        <div className="flex flex-col gap-1 mt-1">
+                          {lesson.resources.map((pdf, pdfIdx) => (
+                            <div key={pdfIdx} className="flex items-center gap-2">
+                              <a
+                                href={pdf.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline text-xs"
+                              >
+                                {pdf.name}
+                              </a>
+                              <button
+                                className="text-xs text-red-500"
+                                onClick={() => handleRemovePdf(weekIdx, modIdx, lessonIdx, pdfIdx)}
+                                title="Remove PDF"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                   <button

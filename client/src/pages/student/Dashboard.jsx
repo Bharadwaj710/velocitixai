@@ -14,6 +14,7 @@ const StudentDashboard = () => {
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [progressPercent, setProgressPercent] = useState(0);
   const [recentCourse, setRecentCourse] = useState(null);
+  const [lastFlatIdx, setLastFlatIdx] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -41,9 +42,9 @@ const StudentDashboard = () => {
         let courses = details.course || [];
         if (!Array.isArray(courses)) courses = courses ? [courses] : [];
 
-        // Show the most recently enrolled course (last in array)
         let recent = null;
         let progress = 0;
+        let lastIdx = 0;
         if (courses.length > 0) {
           recent = courses[courses.length - 1];
           try {
@@ -52,16 +53,26 @@ const StudentDashboard = () => {
             );
             const courseRes = await axios.get(`/api/courses/${recent._id}`);
             // Count all lessons in all weeks
-            const totalLessons = (courseRes.data.weeks || []).reduce(
-              (sum, w) =>
-                sum +
-                (w.modules || []).reduce(
-                  (msum, m) => msum + (m.lessons ? m.lessons.length : 0),
-                  0
-                ),
-              0
-            );
-            const completed = (progressRes.data.completedLessons || []).length;
+            const weeks = courseRes.data.weeks || [];
+            let totalLessons = 0;
+            let completedLessons = progressRes.data.completedLessons || [];
+            let found = false;
+            let flatIdx = 0;
+            for (let w = 0; w < weeks.length; w++) {
+              for (let m = 0; m < (weeks[w].modules || []).length; m++) {
+                for (let l = 0; l < (weeks[w].modules[m].lessons || []).length; l++) {
+                  totalLessons++;
+                  const lesson = weeks[w].modules[m].lessons[l];
+                  if (!found && !completedLessons.includes(lesson.title)) {
+                    lastIdx = flatIdx;
+                    found = true;
+                  }
+                  flatIdx++;
+                }
+              }
+            }
+            if (!found) lastIdx = 0; // If all completed, start from first
+            const completed = completedLessons.length;
             progress =
               totalLessons > 0
                 ? Math.round((completed / totalLessons) * 100)
@@ -70,6 +81,7 @@ const StudentDashboard = () => {
         }
         setProgressPercent(progress);
         setRecentCourse(recent);
+        setLastFlatIdx(lastIdx);
 
         if (assessmentExists && hasFilledDetails) {
           setShowAssessmentBtn(false);
@@ -100,19 +112,33 @@ const StudentDashboard = () => {
 
   if (showAssessmentBtn) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <h1 className="text-3xl font-bold mb-6">
-          Welcome, {user.name?.split(" ")[0]}!
-        </h1>
-        <p className="mb-6 text-gray-600">
-          To get started, please take your Career Assessment.
-        </p>
-        <button
-          onClick={() => navigate("/student/assessments")}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2"
-        >
-          Take Career Assessment <ArrowRight className="inline ml-1" />
-        </button>
+      <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50 px-4 text-center">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Welcome, {user.name?.split(" ")[0]}!
+            </span>
+            <br />
+          </h1>
+          <h3 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+            <span className="text-gray-900">Kickstart Your Career Journey</span>
+          </h3>
+
+          <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-3xl mx-auto leading-relaxed">
+            To get started, please take your AI-powered Career Assessment and
+            unlock personalized opportunities.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <button
+              onClick={() => navigate("/student/assessments")}
+              className="group bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center space-x-2"
+            >
+              <span>Take Career Assessment</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -169,7 +195,8 @@ const StudentDashboard = () => {
             </h2>
             <button
               onClick={() => navigate("/student/my-learning")}
-              className="text-sm text-blue-600 hover:underline font-semibold"
+              className="text-sm font-semibold px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow hover:from-blue-700 hover:to-purple-700 transition-all"
+              style={{ boxShadow: "0 2px 8px 0 rgba(60,60,180,0.08)" }}
             >
               My Learning
             </button>
@@ -214,10 +241,16 @@ const StudentDashboard = () => {
                     className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
                     onClick={() => {
                       if (
-                        getCourseStatus(recentCourse) === "Get Started" ||
-                        getCourseStatus(recentCourse) === "Resume"
+                        getCourseStatus(recentCourse) === "Get Started"
                       ) {
                         navigate(`/course-player/${recentCourse._id}`);
+                      } else if (
+                        getCourseStatus(recentCourse) === "Resume"
+                      ) {
+                        // Resume from last incomplete lesson
+                        navigate(`/course-player/${recentCourse._id}`, {
+                          state: { flatIdx: lastFlatIdx },
+                        });
                       }
                     }}
                   >

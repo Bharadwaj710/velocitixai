@@ -105,7 +105,7 @@ exports.getStudentDetails = async (req, res) => {
 
     // If not found, try using ObjectId directly
     if (!student) {
-      student = await Student.findOne({ user: mongoose.Types.ObjectId(userId) }).populate({
+      student = await Student.findOne({ user: new mongoose.Types.ObjectId(userId) }).populate({
         path: "course",
         strictPopulate: false
       });

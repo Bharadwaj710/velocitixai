@@ -38,6 +38,15 @@ const StudentCourses = () => {
     skills: "Skills",
     challenges: "Challenges",
   };
+  useEffect(() => {
+    if (showDetailsModal) {
+      const timeout = setTimeout(() => {
+        navigate("/student/details");
+      }, 5000); // 5 seconds
+  
+      return () => clearTimeout(timeout); // Cleanup if component unmounts or modal closes
+    }
+  }, [showDetailsModal]);
 
   // Fetch enrolled and recommended courses
   const fetchCourses = async (forceRefresh = false) => {
@@ -221,22 +230,19 @@ const StudentCourses = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-pink-50 py-10 px-2 sm:px-4 md:px-8">
-      {/* Modal for student details completion */}
+    {/* Modal for student details completion */}
       {showDetailsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full flex flex-col items-center">
-            <h3 className="text-lg font-bold mb-2 text-gray-800 text-center">
+            <h3 className="text-lg font-bold mb-3 text-gray-800 text-center">
               Please complete your student details to proceed.
             </h3>
-            <button
-              onClick={() => {
-                setShowDetailsModal(false);
-                navigate("/student/details");
-              }}
-              className="mt-4 flex items-center gap-2 py-2 px-6 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold shadow hover:from-blue-600 hover:to-purple-700 transition-all"
-            >
-              Student Details <span className="ml-1">→</span>
-            </button>
+            <p className="text-sm text-gray-600 text-center mb-4">
+              You will be redirected in 5 seconds...
+            </p>
+            <div className="animate-pulse text-blue-600 font-medium">
+              Redirecting...
+            </div>
           </div>
         </div>
       )}

@@ -23,23 +23,34 @@ const MyLearning = () => {
                 `/api/progress/${userId}/${course._id}`
               );
               const courseRes = await axios.get(`/api/courses/${course._id}`);
-              const totalLessons = (courseRes.data.weeks || []).reduce(
-                (sum, w) =>
-                  sum +
-                  (w.modules || []).reduce(
-                    (msum, m) => msum + (m.lessons ? m.lessons.length : 0),
-                    0
-                  ),
-                0
-              );
-              const completed = (progressRes.data.completedLessons || []).length;
+              const weeks = courseRes.data.weeks || [];
+              let totalLessons = 0;
+              let completedLessons = progressRes.data.completedLessons || [];
+              let found = false;
+              let flatIdx = 0;
+              let lastFlatIdx = 0;
+              for (let w = 0; w < weeks.length; w++) {
+                for (let m = 0; m < (weeks[w].modules || []).length; m++) {
+                  for (let l = 0; l < (weeks[w].modules[m].lessons || []).length; l++) {
+                    totalLessons++;
+                    const lesson = weeks[w].modules[m].lessons[l];
+                    if (!found && !completedLessons.includes(lesson.title)) {
+                      lastFlatIdx = flatIdx;
+                      found = true;
+                    }
+                    flatIdx++;
+                  }
+                }
+              }
+              if (!found) lastFlatIdx = 0; // If all completed, start from first
+              const completed = completedLessons.length;
               const progressPercent =
                 totalLessons > 0
                   ? Math.round((completed / totalLessons) * 100)
                   : 0;
-              return { ...course, progressPercent };
+              return { ...course, progressPercent, lastFlatIdx };
             } catch {
-              return { ...course, progressPercent: 0 };
+              return { ...course, progressPercent: 0, lastFlatIdx: 0 };
             }
           })
         );
@@ -116,7 +127,13 @@ const MyLearning = () => {
 
               <button
                 className="mt-auto bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
-                onClick={() => navigate(`/course-player/${course._id}`)}
+                onClick={() =>
+                  getCourseProgress(course) > 0
+                    ? navigate(`/course-player/${course._id}`, {
+                        state: { flatIdx: course.lastFlatIdx },
+                      })
+                    : navigate(`/course-player/${course._id}`)
+                }
               >
                 {getCourseStatus(course)}
               </button>

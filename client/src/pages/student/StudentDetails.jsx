@@ -73,45 +73,46 @@ const StudentDetails = () => {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const user = JSON.parse(localStorage.getItem("user"));
+  e.preventDefault();
+  setSubmitting(true);
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const slug = generateSlug(form.college);
 
-      const slug = generateSlug(form.college);
+    const payload = {
+      ...form,
+      user: user?.id || user?._id,
+      skills: form.skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      collegeSlug: slug,
+    };
 
-      const payload = {
-        ...form,
-        user: user?.id || user?._id,
-        skills: form.skills
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        collegeSlug: slug, // 🆕 Add generated slug
-      };
-      
-      await axios.post("/api/students/details", payload, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-     
-      // Optionally update localStorage.user with new slug if you want dynamic routing later
-      const updatedUser = { ...user, collegeSlug: slug };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+    await axios.post("/api/students/details", payload, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
 
-      toast.success("Details saved successfully");
-      // Always redirect to dashboard after save
-      setTimeout(() => {
-        navigate("/student/dashboard");
-      }, 800);
-    } 
-    catch (err) {
-      toast.error(err?.response?.data?.message || "Submission failed");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    // 👉 Refetch updated student and update localStorage
+    const refetchRes = await axios.get(`/api/students/details/${user.id || user._id}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+    localStorage.setItem("student", JSON.stringify(refetchRes.data));
+
+    toast.success("Details saved successfully");
+    setTimeout(() => {
+      navigate("/student/dashboard");
+    }, 800);
+  } catch (err) {
+    toast.error(err?.response?.data?.message || "Submission failed");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (loading) {
     return (

@@ -57,19 +57,14 @@ router.put("/:id", async (req, res) => {
 
 router.get("/", courseController.getCourses);
 router.delete("/:id", courseController.deleteCourse);
+router.put('/:courseId/lessons/:lessonId/add-pdf', courseController.addPdfToLesson);
+
 router.get("/:id", courseController.getCourseById);
+// Add this route in your course routes
+
 
 // ✅ Fix: use the actual Course model
-router.get("/:id", async (req, res) => {
-  try {
-    const course = await Course.findById(req.params.id);
-    if (!course) return res.status(404).json({ message: "Course not found" });
-    res.json(course);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch course" });
-  }
-});
+
 
 module.exports = router;
-module.exports = router;
+
