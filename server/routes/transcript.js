@@ -16,7 +16,9 @@ async function sendToFlask(lessonData) {
   } catch (err) {
     return {
       status: "error",
-      error: err.response?.data || err.message,
+      error: err?.response?.data || err?.message || "Unknown error",
+      videoId: lessonData?.videoId,
+      lessonId: lessonData?.lessonId,
     };
   }
 }
@@ -60,10 +62,12 @@ router.post("/generate-course", async (req, res) => {
       (week.modules || []).forEach((mod) => {
         (mod.lessons || []).forEach((lesson) => {
           if (lesson.videoUrl && lesson.videoId && lesson._id) {
+            const lessonIdStr = lesson._id.toString();
+            console.log(`[Transcript] Preparing lessonId: ${lessonIdStr}`);
             lessons.push({
               videoUrl: lesson.videoUrl,
               videoId: lesson.videoId,
-              lessonId: lesson._id.toString(),
+              lessonId: lessonIdStr,
               courseId: course._id.toString(),
             });
           }
@@ -76,6 +80,10 @@ router.post("/generate-course", async (req, res) => {
         .status(400)
         .json({ error: "No valid lessons with video found." });
     }
+
+    console.log(
+      `[Transcript] Generating for ${lessons.length} lessons in course "${course.title}"`
+    );
 
     const results = await Promise.all(
       lessons.map(async (lesson) => ({
@@ -96,11 +104,10 @@ router.get("/by-lesson/:lessonId", async (req, res) => {
   const { lessonId } = req.params;
 
   try {
-    const query = mongoose.Types.ObjectId.isValid(lessonId)
-      ? { lessonId: new mongoose.Types.ObjectId(lessonId) }
-      : { lessonId };
-
-    const transcript = await Transcript.findOne(query);
+    // Always store and query lessonId as string
+    const transcript = await Transcript.findOne({
+      lessonId: lessonId.toString(),
+    });
 
     if (!transcript) {
       return res

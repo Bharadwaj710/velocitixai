@@ -9,6 +9,37 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     weeks: course.weeks || [],
   });
 
+  // --- NEW: Track transcript status for lessons ---
+  const [lessonTranscriptStatus, setLessonTranscriptStatus] = useState({}); // {lessonId: true/false}
+
+  // Fetch transcript status for all lessons in this course
+  useEffect(() => {
+    const fetchTranscriptStatus = async () => {
+      const status = {};
+      for (const week of editedCourse.weeks || []) {
+        for (const mod of week.modules || []) {
+          for (const lesson of mod.lessons || []) {
+            if (lesson._id) {
+              try {
+                const res = await axios.get(
+                  `/api/transcripts/by-lesson/${lesson._id}`
+                );
+                status[lesson._id] =
+                  Array.isArray(res.data.transcript) &&
+                  res.data.transcript.length > 0;
+              } catch {
+                status[lesson._id] = false;
+              }
+            }
+          }
+        }
+      }
+      setLessonTranscriptStatus(status);
+    };
+    fetchTranscriptStatus();
+    // eslint-disable-next-line
+  }, [editedCourse._id, editedCourse.weeks]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
@@ -128,6 +159,20 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     (lesson) => lesson.videoId && lesson.videoId.length === 11
   );
 
+  // Helper: check if all lessons in a week have transcript
+  const allLessonsHaveTranscript = (week) => {
+    let foundLesson = false;
+    for (const mod of week.modules || []) {
+      for (const lesson of mod.lessons || []) {
+        if (lesson._id) {
+          foundLesson = true;
+          if (!lessonTranscriptStatus[lesson._id]) return false;
+        }
+      }
+    }
+    return foundLesson;
+  };
+
   const handleGenerateTranscriptForWeek = async (weekIdx) => {
     const week = editedCourse.weeks[weekIdx];
     const lessons = [];
@@ -146,29 +191,38 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     });
 
     if (lessons.length === 0) {
-      return alert("No valid lessons with video ID in this week.");
+      toast.error("❌ No valid lessons with YouTube video IDs in this week.");
+      return;
     }
 
+    toast.info(
+      `⏳ Transcript generation started for Week ${week.weekNumber}...`
+    );
     try {
       await axios.post("/api/transcripts/generate-module", { lessons });
-      alert(`Transcript generation started for Week ${week.weekNumber}!`);
+      toast.success(`✅ Transcript generated for Week ${week.weekNumber}!`);
+      setTimeout(() => setLessonTranscriptStatus({}), 2000);
     } catch (err) {
-      console.error("Failed to generate transcript for week", err);
-      alert("Error generating transcript for this week");
+      console.error("Transcript generation failed", err);
+      toast.error("❌ Transcript generation failed for this week.");
     }
   };
+  
 
   const handleGenerateTranscript = async () => {
+    toast.info("⏳ Generating transcript for all lessons...");
     try {
       await axios.post("/api/transcripts/generate-course", {
         courseId: editedCourse._id,
       });
-      alert("Transcript generation completed!");
+      toast.success("✅ Transcript generation completed for all lessons!");
+      setTimeout(() => setLessonTranscriptStatus({}), 2000);
     } catch (err) {
-      console.error("Failed to generate transcript", err);
-      alert("Error generating transcript");
+      console.error("Transcript generation failed", err);
+      toast.error("❌ Error generating transcripts for all lessons.");
     }
   };
+  
 
   // Toggle quizEnabled for a lesson
   const handleQuizToggle = (weekIdx, modIdx, lessonIdx) => {
@@ -193,17 +247,19 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
     });
   };
 
-  // Generate Quiz for a week
   const handleGenerateQuiz = async (weekNumber) => {
+    toast.info(`🧠 Generating quiz for Week ${weekNumber}...`);
     try {
       await axios.post(
         `/api/quiz/generate-module/${editedCourse._id}/${weekNumber}`
       );
-      alert("Quiz generation started for this week!");
+      toast.success(`✅ Quiz generated for Week ${weekNumber}!`);
     } catch (err) {
-      alert("Quiz generation failed.");
+      console.error(err);
+      toast.error(`❌ Quiz generation failed for Week ${weekNumber}.`);
     }
   };
+  
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -246,12 +302,18 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
               <h4 className="text-lg font-bold text-blue-800">
                 Week {week.weekNumber}
               </h4>
-              <button
-                onClick={() => handleGenerateTranscriptForWeek(weekIdx)}
-                className="bg-green-500 text-white text-sm px-3 py-1 rounded"
-              >
-                📥 Generate Transcript for this Week
-              </button>
+              {week.modules.some((mod) =>
+                mod.lessons.some(
+                  (lesson) => lesson.videoId && lesson.videoId.length === 11
+                )
+              ) && (
+                <button
+                  onClick={() => handleGenerateTranscriptForWeek(weekIdx)}
+                  className="bg-green-500 text-white text-sm px-3 py-1 rounded"
+                >
+                  📥 Generate Transcript for this Week
+                </button>
+              )}
             </div>
 
             {week.modules.map((mod, modIdx) => (
@@ -375,28 +437,29 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
             </button>
 
             {/* --- Generate Quiz Button for this week --- */}
-            <button
-              className="bg-yellow-500 text-white px-4 py-2 rounded mt-2"
-              onClick={() => handleGenerateQuiz(week.weekNumber)}
-            >
-              📝 Generate Quiz for Week {week.weekNumber}
-            </button>
+            {allLessonsHaveTranscript(week) ? (
+              <button
+                className="bg-yellow-500 text-white px-4 py-2 rounded mt-2"
+                onClick={() => handleGenerateQuiz(week.weekNumber)}
+              >
+                📝 Generate Quiz for Week {week.weekNumber}
+              </button>
+            ) : (
+              <div className="text-xs text-gray-500 mt-2">
+                Generate transcripts for all lessons in this week to enable quiz
+                generation.
+              </div>
+            )}
           </div>
         ))}
 
-        {/* Generate Transcript Button */}
-        {hasValidVideoId ? (
+        {hasValidVideoId && (
           <button
             className="bg-yellow-500 text-white px-4 py-2 rounded mt-4"
             onClick={handleGenerateTranscript}
           >
             📜 Generate Transcript for All Lessons
           </button>
-        ) : (
-          <div className="text-sm text-gray-500 mt-4">
-            Add at least one lesson with a valid YouTube video to enable
-            transcript generation.
-          </div>
         )}
 
         <div className="text-right mt-6">
