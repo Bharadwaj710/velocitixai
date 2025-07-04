@@ -472,158 +472,142 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                       key={lessonIdx}
                       className="flex flex-col md:flex-row gap-2 items-start mb-2"
                     >
-                      <input
-                        className="border p-2 flex-1 w-full"
-                        placeholder="Lesson Title"
-                        value={lesson.title}
-                        onChange={(e) =>
-                          handleLessonChange(
-                            weekIdx,
-                            modIdx,
-                            lessonIdx,
-                            "title",
-                            e.target.value
-                          )
-                        }
-                      />
-                      <input
-                        className="border p-2 flex-1 w-full"
-                        placeholder="YouTube Video URL"
-                        value={lesson.videoUrl}
-                        onChange={(e) =>
-                          handleLessonChange(
-                            weekIdx,
-                            modIdx,
-                            lessonIdx,
-                            "videoUrl",
-                            e.target.value
-                          )
-                        }
-                      />
-                      <input
-                        className="border p-2 w-32"
-                        placeholder="Duration"
-                        value={lesson.duration}
-                        onChange={(e) =>
-                          handleLessonChange(
-                            weekIdx,
-                            modIdx,
-                            lessonIdx,
-                            "duration",
-                            e.target.value
-                          )
-                        }
-                      />
-                      <button
-                        className="text-red-600 mt-1 md:mt-0"
-                        onClick={() => removeLesson(weekIdx, modIdx, lessonIdx)}
+                      <div
+                        key={lessonIdx}
+                        className="flex flex-col md:flex-row gap-2 items-start mb-2"
                       >
-                        ✕
-                      </button>
-<div key={lessonIdx} className="flex flex-col md:flex-row gap-2 items-start mb-2">
-  <input
-    className="border p-2 flex-1 w-full"
-    placeholder="Lesson Title"
-    value={lesson.title}
-    onChange={(e) =>
-      handleLessonChange(weekIdx, modIdx, lessonIdx, "title", e.target.value)
-    }
-  />
-  <input
-    className="border p-2 flex-1 w-full"
-    placeholder="YouTube Video URL"
-    value={lesson.videoUrl}
-    onChange={(e) =>
-      handleLessonChange(weekIdx, modIdx, lessonIdx, "videoUrl", e.target.value)
-    }
-  />
-  <input
-    className="border p-2 w-32"
-    placeholder="Duration"
-    value={lesson.duration}
-    onChange={(e) =>
-      handleLessonChange(weekIdx, modIdx, lessonIdx, "duration", e.target.value)
-    }
-  />
-  <button
-    className="text-red-600 mt-1 md:mt-0"
-    onClick={() => removeLesson(weekIdx, modIdx, lessonIdx)}
-  >
-    ✕
-  </button>
+                        <button
+                          className="text-red-600 mt-1 md:mt-0"
+                          onClick={() =>
+                            removeLesson(weekIdx, modIdx, lessonIdx)
+                          }
+                        >
+                          ✕
+                        </button>
+                        <input
+                          className="border p-2 flex-1 w-full"
+                          placeholder="Lesson Title"
+                          value={lesson.title}
+                          onChange={(e) =>
+                            handleLessonChange(
+                              weekIdx,
+                              modIdx,
+                              lessonIdx,
+                              "title",
+                              e.target.value
+                            )
+                          }
+                        />
+                        <input
+                          className="border p-2 flex-1 w-full"
+                          placeholder="YouTube Video URL"
+                          value={lesson.videoUrl}
+                          onChange={(e) =>
+                            handleLessonChange(
+                              weekIdx,
+                              modIdx,
+                              lessonIdx,
+                              "videoUrl",
+                              e.target.value
+                            )
+                          }
+                        />
+                        {/* Quiz toggle */}
+                        <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={lesson.quizEnabled !== false}
+                            onChange={() =>
+                              handleQuizToggle(weekIdx, modIdx, lessonIdx)
+                            }
+                            className="accent-blue-600"
+                          />
+                          Enable Quiz
+                        </label>
+                        {/* PDF select (not upload) */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            id={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
+                            className="hidden"
+                            onChange={(e) =>
+                              handlePdfSelect(
+                                weekIdx,
+                                modIdx,
+                                lessonIdx,
+                                e.target.files[0]
+                              )
+                            }
+                          />
+                          <label
+                            htmlFor={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
+                            className="bg-blue-600 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-700 whitespace-nowrap"
+                          >
+                            Select PDF
+                          </label>
+                        </div>
 
-  {/* PDF select (not upload) */}
-  <div className="flex items-center gap-2">
-    <input
-      type="file"
-      accept="application/pdf"
-      id={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
-      className="hidden"
-      onChange={(e) =>
-        handlePdfSelect(weekIdx, modIdx, lessonIdx, e.target.files[0])
-      }
-    />
-    <label
-      htmlFor={`pdf-input-${weekIdx}-${modIdx}-${lessonIdx}`}
-      className="bg-blue-600 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-700 whitespace-nowrap"
-    >
-      Select PDF
-    </label>
-  </div>
+                        {/* Show selected (pending) PDF with remove button */}
+                        {pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`] && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-blue-700">
+                              {
+                                pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`]
+                                  .name
+                              }
+                            </span>
+                            <button
+                              className="text-xs text-red-500"
+                              onClick={() =>
+                                handleRemovePendingPdf(
+                                  weekIdx,
+                                  modIdx,
+                                  lessonIdx
+                                )
+                              }
+                              title="Remove PDF"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
 
-  {/* Show selected (pending) PDF with remove button */}
-  {pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`] && (
-    <div className="flex items-center gap-2 mt-1">
-      <span className="text-xs text-blue-700">
-        {pendingPdfs[`${weekIdx}-${modIdx}-${lessonIdx}`].name}
-      </span>
-      <button
-        className="text-xs text-red-500"
-        onClick={() => handleRemovePendingPdf(weekIdx, modIdx, lessonIdx)}
-        title="Remove PDF"
-      >
-        ×
-      </button>
-    </div>
-  )}
-
-  {/* Show already attached PDFs (if any) */}
-  {lesson.resources && lesson.resources.length > 0 && (
-    <div className="flex flex-col gap-1 mt-1">
-      {lesson.resources.map((pdf, pdfIdx) => (
-        <div key={pdfIdx} className="flex items-center gap-2">
-          <a
-            href={pdf.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline text-xs"
-          >
-            {pdf.name}
-          </a>
-          <button
-            className="text-xs text-red-500"
-            onClick={() => handleRemovePdf(weekIdx, modIdx, lessonIdx, pdfIdx)}
-            title="Remove PDF"
-          >
-            ×
-          </button>
-        </div>
-      ))}
-    </div>
-  )}
-
-  {/* Quiz toggle */}
-  <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
-    <input
-      type="checkbox"
-      checked={lesson.quizEnabled !== false}
-      onChange={() => handleQuizToggle(weekIdx, modIdx, lessonIdx)}
-      className="accent-blue-600"
-    />
-    Enable Quiz
-  </label>
-</div>
-
+                        {/* Show already attached PDFs (if any) */}
+                        {lesson.resources && lesson.resources.length > 0 && (
+                          <div className="flex flex-col gap-1 mt-1">
+                            {lesson.resources.map((pdf, pdfIdx) => (
+                              <div
+                                key={pdfIdx}
+                                className="flex items-center gap-2"
+                              >
+                                <a
+                                  href={pdf.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 underline text-xs"
+                                >
+                                  {pdf.name}
+                                </a>
+                                <button
+                                  className="text-xs text-red-500"
+                                  onClick={() =>
+                                    handleRemovePdf(
+                                      weekIdx,
+                                      modIdx,
+                                      lessonIdx,
+                                      pdfIdx
+                                    )
+                                  }
+                                  title="Remove PDF"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                   <button
