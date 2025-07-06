@@ -1,15 +1,39 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FileText, Video, CheckCircle, Circle, Info, BookOpen, Folder } from "lucide-react";
-import { fetchNotes, deleteNote } from '../../api/notes'; // Adjust the path based on your project
+import {
+  FileText,
+  Video,
+  CheckCircle,
+  Circle,
+  Info,
+  BookOpen,
+  Folder,
+} from "lucide-react";
+import { fetchNotes, deleteNote, updateNote } from "../../api/notes"; // Adjust the path based on your project
 
 const SIDEBAR_SECTIONS = [
-  { key: "modules", label: "Modules", icon: <BookOpen className="w-5 h-5 mr-2" /> },
-  { key: "materials", label: "Materials", icon: <Folder className="w-5 h-5 mr-2" /> },
-  { key: "grades", label: "Grades", icon: <CheckCircle className="w-5 h-5 mr-2" /> },
+  {
+    key: "modules",
+    label: "Modules",
+    icon: <BookOpen className="w-5 h-5 mr-2" />,
+  },
+  {
+    key: "materials",
+    label: "Materials",
+    icon: <Folder className="w-5 h-5 mr-2" />,
+  },
+  {
+    key: "grades",
+    label: "Grades",
+    icon: <CheckCircle className="w-5 h-5 mr-2" />,
+  },
   { key: "notes", label: "Notes", icon: <FileText className="w-5 h-5 mr-2" /> },
-  { key: "info", label: "Course Info", icon: <Info className="w-5 h-5 mr-2" /> },
+  {
+    key: "info",
+    label: "Course Info",
+    icon: <Info className="w-5 h-5 mr-2" />,
+  },
 ];
 
 // Helper: flatten all lessons and PDFs for navigation and progress
@@ -96,16 +120,24 @@ const LearningPath = () => {
   const [activeWeekIdx, setActiveWeekIdx] = useState(0);
   const [activeSection, setActiveSection] = useState("modules");
   const [completedLessons, setCompletedLessons] = useState([]);
-  const [firstUncompleted, setFirstUncompleted] = useState({ weekIdx: 0, modIdx: 0, lessonIdx: 0 });
+  const [firstUncompleted, setFirstUncompleted] = useState({
+    weekIdx: 0,
+    modIdx: 0,
+    lessonIdx: 0,
+  });
   const [flatItems, setFlatItems] = useState([]);
   const [materialsByModule, setMaterialsByModule] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editedContent, setEditedContent] = useState("");
 
   const findFlatIdxForLesson = (lessonTitle) => {
-    return flatItems.findIndex(item => item.title === lessonTitle && item.type === "video");
+    return flatItems.findIndex(
+      (item) => item.title === lessonTitle && item.type === "video"
+    );
   };
   const handleDeleteNote = (note) => {
-    if (window.confirm('Are you sure you want to delete this note?')) {
+    if (window.confirm("Are you sure you want to delete this note?")) {
       deleteNote(note._id).then(() => {
         // After deletion, refresh notes from backend
         fetchNotes(userId, courseId).then((res) => setNotes(res.data));
@@ -122,9 +154,11 @@ const LearningPath = () => {
       try {
         const [courseRes, progressRes] = await Promise.all([
           axios.get(`/api/courses/${courseId}`),
-          axios.get(`/api/progress/${userId}/${courseId}`)
+          axios.get(`/api/progress/${userId}/${courseId}`),
         ]);
-        const courseData = Array.isArray(courseRes.data) ? courseRes.data[0] : courseRes.data;
+        const courseData = Array.isArray(courseRes.data)
+          ? courseRes.data[0]
+          : courseRes.data;
         setCourse(courseData);
         setWeeks(courseData?.weeks || []);
         setCompletedLessons(progressRes.data.completedLessons || []);
@@ -148,23 +182,29 @@ const LearningPath = () => {
   }, [weeks]);
 
   // Helper: is lesson completed
-  const isLessonCompleted = (lessonTitle) => completedLessons.includes(lessonTitle);
+  const isLessonCompleted = (lessonTitle) =>
+    completedLessons.includes(lessonTitle);
 
   // Helper: is week completed (all lessons in all modules are completed)
   const isWeekCompleted = (week) => {
-    const allLessonTitles = (week.modules || []).flatMap(
-      m => (m.lessons || []).map(l => l.title)
+    const allLessonTitles = (week.modules || []).flatMap((m) =>
+      (m.lessons || []).map((l) => l.title)
     );
-    return allLessonTitles.length > 0 && allLessonTitles.every(t => completedLessons.includes(t));
+    return (
+      allLessonTitles.length > 0 &&
+      allLessonTitles.every((t) => completedLessons.includes(t))
+    );
   };
 
   // Helper: week progress (0-1)
   const getWeekProgress = (week) => {
-    const allLessonTitles = (week.modules || []).flatMap(
-      m => (m.lessons || []).map(l => l.title)
+    const allLessonTitles = (week.modules || []).flatMap((m) =>
+      (m.lessons || []).map((l) => l.title)
     );
     if (!allLessonTitles.length) return 0;
-    const completed = allLessonTitles.filter(t => completedLessons.includes(t)).length;
+    const completed = allLessonTitles.filter((t) =>
+      completedLessons.includes(t)
+    ).length;
     return completed / allLessonTitles.length;
   };
 
@@ -172,7 +212,7 @@ const LearningPath = () => {
   const getModuleProgress = (mod) => {
     const lessons = mod.lessons || [];
     if (!lessons.length) return 0;
-    const completed = lessons.filter(l => isLessonCompleted(l.title)).length;
+    const completed = lessons.filter((l) => isLessonCompleted(l.title)).length;
     return completed / lessons.length;
   };
 
@@ -237,7 +277,8 @@ const LearningPath = () => {
         let min = 0;
         if (item.duration) {
           const parts = item.duration.split(":").map(Number);
-          if (parts.length === 3) min = parts[0] * 60 + parts[1] + parts[2] / 60;
+          if (parts.length === 3)
+            min = parts[0] * 60 + parts[1] + parts[2] / 60;
           else if (parts.length === 2) min = parts[0] + parts[1] / 60;
           else min = Number(item.duration) || 0;
         }
@@ -287,13 +328,19 @@ const LearningPath = () => {
               {course.title?.[0] || "C"}
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">{course.title}</h2>
-              <div className="text-xs text-gray-500">{course.provider || "Velocitix AI"}</div>
+              <h2 className="text-lg font-bold text-gray-900">
+                {course.title}
+              </h2>
+              <div className="text-xs text-gray-500">
+                {course.provider || "Velocitix AI"}
+              </div>
             </div>
           </div>
         </div>
         <div className="p-4">
-          <div className="font-semibold text-gray-700 mb-2">Project Material</div>
+          <div className="font-semibold text-gray-700 mb-2">
+            Project Material
+          </div>
           <ul className="space-y-2 mb-6">
             {weeks.map((week, idx) => {
               const progress = getWeekProgress(week);
@@ -317,9 +364,7 @@ const LearningPath = () => {
                     ) : (
                       <Circle
                         className={`w-5 h-5 ${
-                          progress > 0
-                            ? "text-blue-400"
-                            : "text-gray-300"
+                          progress > 0 ? "text-blue-400" : "text-gray-300"
                         }`}
                         fill={progress > 0 ? "#60a5fa" : "none"}
                       />
@@ -362,20 +407,25 @@ const LearningPath = () => {
               <div className="flex items-center gap-8 mb-4">
                 <div className="flex items-center gap-2 text-gray-700">
                   <Video className="w-5 h-5 mr-1 text-blue-600" />
-                  <span className="font-semibold">{courseStats.videoMinutesLeft} min</span>
+                  <span className="font-semibold">
+                    {courseStats.videoMinutesLeft} min
+                  </span>
                   <span className="text-sm">of videos left</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-700">
                   <FileText className="w-5 h-5 mr-1 text-yellow-600" />
                   <span className="font-semibold">
-                    {courseStats.pdfsLeft} {courseStats.pdfsLeft === 1 ? "reading" : "readings"} left
+                    {courseStats.pdfsLeft}{" "}
+                    {courseStats.pdfsLeft === 1 ? "reading" : "readings"} left
                   </span>
                 </div>
               </div>
               <h3 className="text-xl font-bold text-blue-700 mb-4">
                 {activeWeek ? `Week ${activeWeek.weekNumber}` : "Select a week"}
               </h3>
-              {activeWeek && activeWeek.modules && activeWeek.modules.length > 0 ? (
+              {activeWeek &&
+              activeWeek.modules &&
+              activeWeek.modules.length > 0 ? (
                 <div className="space-y-6">
                   {activeWeek.modules.map((mod, modIdx) => (
                     <div
@@ -387,15 +437,21 @@ const LearningPath = () => {
                           {mod.title || `Module ${modIdx + 1}`}
                         </div>
                         <div className="text-gray-700 mb-2">
-                          {mod.content || "No description available for this module."}
+                          {mod.content ||
+                            "No description available for this module."}
                         </div>
                         {/* Lessons only (no PDFs here) */}
                         {mod.lessons && mod.lessons.length > 0 && (
                           <div className="mb-2">
-                            <div className="font-semibold text-gray-700 mb-1">Lessons:</div>
+                            <div className="font-semibold text-gray-700 mb-1">
+                              Lessons:
+                            </div>
                             <ul className="list-none space-y-1">
                               {mod.lessons.map((lesson, lessonIdx) => (
-                                <li key={lesson.title || lessonIdx} className="flex items-center gap-2">
+                                <li
+                                  key={lesson.title || lessonIdx}
+                                  className="flex items-center gap-2"
+                                >
                                   <span>
                                     {isItemCompleted({
                                       type: "video",
@@ -416,7 +472,9 @@ const LearningPath = () => {
                                           item.modIdx === modIdx &&
                                           item.lessonIdx === lessonIdx
                                       );
-                                      navigate(`/course-player/${course._id}`, { state: { flatIdx } });
+                                      navigate(`/course-player/${course._id}`, {
+                                        state: { flatIdx },
+                                      });
                                     }}
                                   >
                                     {lesson.title}
@@ -441,12 +499,15 @@ const LearningPath = () => {
                               item.modIdx === modIdx &&
                               !isItemCompleted(item)
                           );
-                          if (flatIdx === -1) flatIdx = flatItems.findIndex(
-                            (item) =>
-                              item.weekIdx === activeWeekIdx &&
-                              item.modIdx === modIdx
-                          );
-                          navigate(`/course-player/${course._id}`, { state: { flatIdx } });
+                          if (flatIdx === -1)
+                            flatIdx = flatItems.findIndex(
+                              (item) =>
+                                item.weekIdx === activeWeekIdx &&
+                                item.modIdx === modIdx
+                            );
+                          navigate(`/course-player/${course._id}`, {
+                            state: { flatIdx },
+                          });
                         }}
                       >
                         {getModuleButtonLabel(mod)}
@@ -455,7 +516,9 @@ const LearningPath = () => {
                   ))}
                 </div>
               ) : (
-                <div className="text-gray-500 italic">No modules available for this week.</div>
+                <div className="text-gray-500 italic">
+                  No modules available for this week.
+                </div>
               )}
             </>
           )}
@@ -463,10 +526,13 @@ const LearningPath = () => {
           {activeSection === "materials" && (
             <>
               <h3 className="text-xl font-bold text-blue-700 mb-4 flex items-center">
-                <Folder className="w-6 h-6 mr-2 text-blue-700" /> Modules learning Materials
+                <Folder className="w-6 h-6 mr-2 text-blue-700" /> Modules
+                learning Materials
               </h3>
               {materialsByModule.length === 0 ? (
-                <div className="text-gray-500 italic">No materials uploaded yet.</div>
+                <div className="text-gray-500 italic">
+                  No materials uploaded yet.
+                </div>
               ) : (
                 <div className="space-y-6">
                   {materialsByModule.map((mod, idx) => (
@@ -502,7 +568,9 @@ const LearningPath = () => {
                               {pdf.pdfName}
                             </button>
                             <span className="text-xs text-gray-500 ml-2">
-                              {pdf.lessonTitle ? `(from: ${pdf.lessonTitle})` : ""}
+                              {pdf.lessonTitle
+                                ? `(from: ${pdf.lessonTitle})`
+                                : ""}
                             </span>
                           </li>
                         ))}
@@ -517,7 +585,9 @@ const LearningPath = () => {
           {activeSection === "grades" && (
             <div>
               <h3 className="text-xl font-bold text-blue-700 mb-2">Grades</h3>
-              <div className="text-gray-500 italic">Grades feature coming soon.</div>
+              <div className="text-gray-500 italic">
+                Grades feature coming soon.
+              </div>
             </div>
           )}
           {/* Notes Section */}
@@ -528,25 +598,26 @@ const LearningPath = () => {
                 <div className="text-gray-500 italic">No notes saved yet.</div>
               ) : (
                 notes.map((note) => (
-                  <div key={note._id} className="p-3 border mb-2 rounded bg-yellow-50">
+                  <div
+                    key={note._id}
+                    className="p-3 border mb-2 rounded bg-yellow-50"
+                  >
                     <a
                       href={`/course-player/${courseId}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        // Find flatIdx for this lesson
                         const flatIdx = flatItems.findIndex(
                           (item) =>
                             item.title === note.lessonTitle &&
                             item.type === "video"
                         );
-                        // Try to find transcriptIdx for highlighting
                         navigate(`/course-player/${courseId}`, {
                           state: {
                             flatIdx,
                             highlightNote: {
                               noteContent: note.noteContent,
-                              transcriptIdx: note.transcriptIdx
-                            }
+                              transcriptIdx: note.transcriptIdx,
+                            },
                           },
                         });
                       }}
@@ -554,27 +625,82 @@ const LearningPath = () => {
                     >
                       {note.lessonTitle} - {note.timestamp}
                     </a>
-                    <p className="text-gray-800 mt-1">{note.noteContent}</p>
-                    <button
-                      onClick={() => handleDeleteNote(note)}
-                      className="text-red-500 text-xs mt-1"
-                    >
-                      Delete
-                    </button>
+
+                    {editingNoteId === note._id ? (
+                      <textarea
+                        className="w-full border p-2 mt-2 rounded"
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        rows={3}
+                      />
+                    ) : (
+                      <p className="text-gray-800 mt-1">{note.noteContent}</p>
+                    )}
+
+                    <div className="flex gap-2 mt-2">
+                      {editingNoteId === note._id ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              updateNote(note._id, editedContent).then(() => {
+                                fetchNotes(userId, courseId).then((res) =>
+                                  setNotes(res.data)
+                                );
+                                setEditingNoteId(null);
+                                setEditedContent("");
+                              });
+                            }}
+                            className="px-3 py-1 border border-blue-600 text-blue-600 rounded hover:bg-blue-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingNoteId(null);
+                              setEditedContent("");
+                            }}
+                            className="px-3 py-1 border border-gray-400 text-gray-600 rounded hover:bg-gray-100"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingNoteId(note._id);
+                            setEditedContent(note.noteContent);
+                          }}
+                          className="px-3 py-1 border border-blue-600 text-blue-600 rounded hover:bg-blue-50"
+                        >
+                          Edit
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleDeleteNote(note)}
+                        className="px-3 py-1 border border-red-600 text-red-600 rounded hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
             </div>
           )}
+
           {/* Course Info Section */}
           {activeSection === "info" && (
             <div>
-              <h3 className="text-xl font-bold text-blue-700 mb-2">Course Information</h3>
+              <h3 className="text-xl font-bold text-blue-700 mb-2">
+                Course Information
+              </h3>
               <div className="mb-2">
                 <span className="font-semibold">Title:</span> {course.title}
               </div>
               <div className="mb-2">
-                <span className="font-semibold">Description:</span> {course.description}
+                <span className="font-semibold">Description:</span>{" "}
+                {course.description}
               </div>
               <div className="mb-2">
                 <span className="font-semibold">Level:</span> {course.level}
@@ -583,16 +709,26 @@ const LearningPath = () => {
                 <span className="font-semibold">Domain:</span> {course.domain}
               </div>
               <div className="mb-2">
-                <span className="font-semibold">Ideal Roles:</span> {Array.isArray(course.idealRoles) ? course.idealRoles.join(", ") : course.idealRoles}
+                <span className="font-semibold">Ideal Roles:</span>{" "}
+                {Array.isArray(course.idealRoles)
+                  ? course.idealRoles.join(", ")
+                  : course.idealRoles}
               </div>
               <div className="mb-2">
-                <span className="font-semibold">Skills Covered:</span> {Array.isArray(course.skillsCovered) ? course.skillsCovered.join(", ") : course.skillsCovered}
+                <span className="font-semibold">Skills Covered:</span>{" "}
+                {Array.isArray(course.skillsCovered)
+                  ? course.skillsCovered.join(", ")
+                  : course.skillsCovered}
               </div>
               <div className="mb-2">
-                <span className="font-semibold">Challenges Addressed:</span> {Array.isArray(course.challengesAddressed) ? course.challengesAddressed.join(", ") : course.challengesAddressed}
+                <span className="font-semibold">Challenges Addressed:</span>{" "}
+                {Array.isArray(course.challengesAddressed)
+                  ? course.challengesAddressed.join(", ")
+                  : course.challengesAddressed}
               </div>
               <div className="mb-2">
-                <span className="font-semibold">Duration (weeks):</span> {course.durationWeeks}
+                <span className="font-semibold">Duration (weeks):</span>{" "}
+                {course.durationWeeks}
               </div>
             </div>
           )}
