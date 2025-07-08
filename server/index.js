@@ -6,6 +6,7 @@ const AuthRouter = require("./routes/auth");
 const collegeRoutes = require("./routes/college");
 const path = require("path");
 const progressRoutes = require("./routes/progressRoutes");
+const notificationRoutes = require("./routes/notifications");
 
 require("./config/db");
 const hrRoutes = require("./routes/hr");
@@ -60,10 +61,10 @@ app.use("/api/chat", chatRoutes);
 const transcriptRoutes = require("./routes/transcript");
 app.use("/api/transcripts", transcriptRoutes);
 
-
 const notesRoutes = require("./routes/notes");
 app.use("/api/notes", notesRoutes);
 
 const quizRoutes = require("./routes/quizRoutes");
 app.use("/api/quiz", quizRoutes);
 
+app.use("/api/notifications", notificationRoutes);
