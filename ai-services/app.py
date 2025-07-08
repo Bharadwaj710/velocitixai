@@ -128,72 +128,77 @@ def analyze_video():
 
 @app.route("/suggest-course-metadata", methods=["POST"])
 def suggest_course_metadata():
+    import traceback
     import json
 
-    # Get title and description
-    data = request.get_json()
-    title = data.get("title", "").strip()
-    description = data.get("description", "").strip()
-
-    # Check title
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
-
-    # Configure Gemini API key
     try:
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    except Exception as e:
-        return jsonify({"error": f"Failed to configure Gemini: {str(e)}"}), 500
+        # Get input data
+        data = request.get_json()
+        title = data.get("title", "").strip()
+        description = data.get("description", "").strip()
 
-    # Define allowed domains
-    allowed_domains = [
-        "Technology and Innovation",
-        "Healthcare and Wellness",
-        "Business and Finance",
-        "Arts and Creativity",
-        "Education and Social Services"
-    ]
+        if not title:
+            return jsonify({"error": "Course title is required"}), 400
 
-    # Prepare prompt
-    prompt = f"""
-    Given the following YouTube course title{' and description' if description else ''}, suggest:
-    - The most relevant domain for this course (choose ONLY from: {', '.join(allowed_domains)})
-    - 3 to 5 ideal job roles
-    - 3 to 5 key skills
-    - 2 to 3 learning challenges
+        # Get and validate API key
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "GEMINI_API_KEY not set in environment"}), 500
 
-    Respond ONLY as JSON with keys: domain, idealRoles, skillsCovered, challengesAddressed.
+        genai.configure(api_key=api_key)
 
-    Course Title: {title}
-    {"Course Description: " + description if description else ""}
-    """
+        # Allowed domains
+        allowed_domains = [
+            "Technology and Innovation",
+            "Healthcare and Wellness",
+            "Business and Finance",
+            "Arts and Creativity",
+            "Education and Social Services"
+        ]
 
-    # Generate response from Gemini
-    try:
+        # Build prompt
+        prompt = f"""
+        Given the following YouTube course title{" and description" if description else ""}, suggest:
+        - The most relevant domain for this course (choose ONLY from: {', '.join(allowed_domains)})
+        - 3 to 5 ideal job roles
+        - 3 to 5 key skills
+        - 2 to 3 learning challenges
+
+        Respond ONLY as JSON with keys: domain, idealRoles, skillsCovered, challengesAddressed.
+
+        Course Title: {title}
+        {"Course Description: " + description if description else ""}
+        """
+
+        # Call Gemini
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
-        response_text = getattr(response, "text", "")
 
-        print("=== Gemini Raw Response ===")
+        try:
+            response_text = response.text
+        except Exception:
+            response_text = str(response)
+
+        print(">> Gemini Response Text:")
         print(response_text)
 
-        # Extract JSON block from response
-        match = re.search(r"\{.*\}", response_text, re.DOTALL)
+        # Extract JSON from text
+        match = re.search(r"\{[\s\S]*?\}", response_text)
         if not match:
-            raise ValueError("JSON not found in response.")
+            raise ValueError("No JSON found in Gemini response.")
 
         metadata = json.loads(match.group(0))
 
-        # Validate the domain
         if metadata.get("domain") not in allowed_domains:
-            raise ValueError("Domain is not one of the allowed options.")
+            raise ValueError(f"Domain {metadata.get('domain')} not allowed.")
 
         return jsonify(metadata), 200
 
     except Exception as e:
+        traceback.print_exc()
         return jsonify({
-            "error": f"AI response invalid or failed: {str(e)}",
-            "rawResponse": response_text if 'response_text' in locals() else ""
+            "error": str(e),
+            "rawResponse": response_text if 'response_text' in locals() else "none"
         }), 500
 
 @app.route("/generate-transcript", methods=["POST"])
