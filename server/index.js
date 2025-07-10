@@ -67,3 +67,4 @@ app.use("/api/notes", notesRoutes);
 const quizRoutes = require("./routes/quizRoutes");
 app.use("/api/quiz", quizRoutes);
 
+app.use("/api/progress", progressRoutes);

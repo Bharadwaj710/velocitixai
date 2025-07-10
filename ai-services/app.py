@@ -11,6 +11,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from flask_cors import CORS
 from generate_quiz import generate_quiz_from_transcript
+from score_quiz import score_quiz_with_ai
 
 # --- Init ---
 load_dotenv("../server/.env")
@@ -237,6 +238,23 @@ def generate_quiz():
     # ✅ Generate quiz using Gemini
     quiz = generate_quiz_from_transcript(transcript)
     return jsonify(quiz), 200
+
+@app.route("/score-quiz", methods=["POST"])
+def score_quiz():
+    try:
+        data = request.get_json()
+        student_answers = data.get("studentAnswers", [])
+        original_questions = data.get("originalQuestions", [])
+
+        if not student_answers or not original_questions:
+            return jsonify({"error": "Missing data"}), 400
+
+        result = score_quiz_with_ai(student_answers, original_questions)
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"[SERVER ERROR] {e}")
+        return jsonify({"error": "Failed to score quiz"}), 500
 
 
 if __name__ == "__main__":
