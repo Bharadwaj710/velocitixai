@@ -6,6 +6,7 @@ const axios = require("axios");
 
 exports.saveStudentDetails = async (req, res) => {
   try {
+    console.log("🚀 Incoming student payload:", req.body); // LOG #1
     const {
       user,
       rollNumber,
@@ -20,19 +21,27 @@ exports.saveStudentDetails = async (req, res) => {
 
 
     if (!user || !rollNumber || !collegecourse || !collegeSlug) {
-
+ console.log("⚠️ Missing required fields"); // LOG #2
       return res.status(400).json({ message: "Required fields missing" });
     }
 
     // Check if student already exists for this user
     let student = await Student.findOne({ user });
 
+    
+    if (!mongoose.Types.ObjectId.isValid(user)) {
+      console.log("❌ Invalid user ID:", user); // LOG #3
+  return res.status(400).json({ message: "Invalid user ID format" });
+}
     const User = require("../models/User");
     const userDoc = await User.findById(user);
+    console.log("👤 userDoc:", userDoc); // LOG #4
+
     const userName = userDoc ? userDoc.name : undefined;
 
-
+   
     if (student) {
+      console.log("🎓 Existing student:", student); // LOG #5
       // ⚠️ Check if another student has the same roll number
       if (student.rollNumber !== rollNumber) {
         const existingRoll = await Student.findOne({ rollNumber });
