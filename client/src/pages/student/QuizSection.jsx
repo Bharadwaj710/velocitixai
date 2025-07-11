@@ -124,7 +124,14 @@ const QuizSection = ({
         payload
       );
 
-      setResult(scoreData);
+      // Ensure result.answers and feedback are set immediately for UI
+      setResult({
+        ...scoreData,
+        answers: answers.map((a) => a.answer),
+        feedback: scoreData.feedback,
+        // fallback for correctAnswer if not present
+        questions: quiz.questions,
+      });
 
       await axios.post("/api/progress/submit-quiz", {
         studentId: userId,
@@ -260,10 +267,13 @@ const QuizSection = ({
                       {result.answers?.[idx] || <i>Blank</i>}
                     </span>
                   </div>
-                  {q.correctAnswer && (
+                  {/* Show correct answer from q.answer or q.correctAnswer for compatibility */}
+                  {(q.answer || q.correctAnswer) && (
                     <div className="text-xs text-green-700 mt-1">
                       Correct answer:{" "}
-                      <span className="font-mono">{q.correctAnswer}</span>
+                      <span className="font-mono">
+                        {q.answer || q.correctAnswer}
+                      </span>
                     </div>
                   )}
                   {q.explanation && (

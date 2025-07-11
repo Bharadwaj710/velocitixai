@@ -636,101 +636,158 @@ const CoursePlayer = () => {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            {/* Sidebar: List all lessons vertically, each with a quiz below */}
+            {/* Sidebar: Group by week, collapsible */}
             <div className="flex flex-col gap-2 px-2 py-4">
-              {flatItems
-                .filter((item) => item.type === "video")
-                .map((item, idx) => {
-                  const lesson = item.lesson;
-                  const flatIdx = flatItems.findIndex(
-                    (fi) => fi.type === "video" && fi.lesson?._id === lesson._id
-                  );
-                  const isActive = flatIdx === currentFlatIdx;
-                  const locked = isLessonLocked(flatIdx);
-                  const completed = completedLessons.includes(lesson._id);
-                  const quizResult = getQuizResult(lesson._id);
-                  const quizLocked = isQuizLocked(lesson._id);
-                  const quizPassed = quizResult && quizResult.passed;
-                  return (
-                    <div key={lesson._id} className="mb-4">
-                      {/* Lesson row */}
-                      <button
-                        className={`w-full text-left px-4 py-3 flex items-center gap-3 rounded-lg border transition-colors duration-150
-                          ${
-                            isActive
-                              ? "bg-blue-50 text-blue-700 font-bold border-blue-200"
-                              : "bg-white text-gray-800 border-transparent"
-                          }
-                          ${
-                            locked
-                              ? "opacity-60 cursor-not-allowed"
-                              : "hover:bg-blue-100"
-                          }`}
-                        disabled={locked}
-                        onClick={() => !locked && handleLessonClick(flatIdx)}
-                        title={
-                          locked
-                            ? "Locked. Complete previous quiz."
-                            : lesson.title
-                        }
-                      >
-                        <Book className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                        <span className="flex-1 truncate">{lesson.title}</span>
-                        {completed && (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        )}
-                        {locked && <Lock className="w-5 h-5 text-gray-400" />}
-                        {isActive && !quizLocked && (
-                          <span className="ml-1 w-2 h-2 rounded-full bg-blue-400 inline-block" />
-                        )}
-                      </button>
-                      {/* Quiz row */}
-                      <div className="pl-8 pr-2 pt-2">
-                        <button
-                          className={`w-full text-left px-3 py-2 flex items-center gap-2 rounded-lg border text-sm font-medium transition-colors duration-150
-                            ${
-                              quizLocked
-                                ? "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200"
-                                : "bg-yellow-50 hover:bg-yellow-100 border-yellow-200"
-                            }
-                            ${quizPassed ? "border-green-400" : ""}
-                            ${quizResult && !quizPassed ? "border-red-400" : ""}
-                            ${
-                              isActive && quizLocked === false
-                                ? "ring-2 ring-blue-300"
-                                : ""
-                            }`}
-                          disabled={quizLocked}
-                          onClick={() =>
-                            !quizLocked &&
-                            handleQuizClick(flatIdx, lesson._id, quizLocked)
-                          }
-                          title={
-                            quizLocked
-                              ? "Locked. Complete lesson first."
-                              : quizPassed
-                              ? "Quiz passed"
-                              : "Take quiz"
-                          }
-                        >
-                          <ListChecks className="w-4 h-4 text-yellow-600" />
-                          <span>Quiz</span>
-                          {quizPassed && (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          )}
-                          {quizLocked && (
-                            <Lock className="w-4 h-4 text-gray-400" />
-                          )}
-                          {quizResult && !quizPassed && (
-                            <span className="ml-2 text-red-500 font-semibold">
-                              {quizResult.score ?? 0}/100
-                            </span>
-                          )}
-                        </button>
-                      </div>
+              {courseData.weeks?.map((week, weekIdx) => (
+                <div
+                  key={weekIdx}
+                  className="mb-4 border rounded-lg overflow-hidden"
+                >
+                  <button
+                    className="w-full text-left px-4 py-2 bg-gray-100 font-semibold text-blue-800 flex items-center justify-between focus:outline-none"
+                    onClick={() =>
+                      setWeekOpen((prev) =>
+                        typeof prev === "object"
+                          ? { ...prev, [weekIdx]: !prev[weekIdx] }
+                          : { [weekIdx]: true }
+                      )
+                    }
+                  >
+                    <span>
+                      Week {weekIdx + 1}
+                      {week.title ? `: ${week.title}` : ""}
+                    </span>
+                    <span>
+                      {(
+                        typeof weekOpen === "object"
+                          ? weekOpen[weekIdx]
+                          : weekOpen
+                      )
+                        ? "▲"
+                        : "▼"}
+                    </span>
+                  </button>
+                  {(typeof weekOpen === "object"
+                    ? weekOpen[weekIdx]
+                    : weekOpen) && (
+                    <div className="py-2">
+                      {week.modules?.map((mod, modIdx) => (
+                        <div key={modIdx}>
+                          {mod.lessons?.map((lesson, lessonIdx) => {
+                            const flatIdx = flatItems.findIndex(
+                              (fi) =>
+                                fi.type === "video" &&
+                                fi.lesson?._id === lesson._id
+                            );
+                            if (flatIdx === -1) return null;
+                            const isActive = flatIdx === currentFlatIdx;
+                            const locked = isLessonLocked(flatIdx);
+                            const completed = completedLessons.includes(
+                              lesson._id
+                            );
+                            const quizResult = getQuizResult(lesson._id);
+                            const quizLocked = isQuizLocked(lesson._id);
+                            const quizPassed = quizResult && quizResult.passed;
+                            return (
+                              <div key={lesson._id} className="mb-2">
+                                {/* Lesson row */}
+                                <button
+                                  className={`w-full text-left px-4 py-3 flex items-center gap-3 rounded-lg border transition-colors duration-150
+                                    ${
+                                      isActive
+                                        ? "bg-blue-50 text-blue-700 font-bold border-blue-200"
+                                        : "bg-white text-gray-800 border-transparent"
+                                    }
+                                    ${
+                                      locked
+                                        ? "opacity-60 cursor-not-allowed"
+                                        : "hover:bg-blue-100"
+                                    }`}
+                                  disabled={locked}
+                                  onClick={() =>
+                                    !locked && handleLessonClick(flatIdx)
+                                  }
+                                  title={
+                                    locked
+                                      ? "Locked. Complete previous quiz."
+                                      : lesson.title
+                                  }
+                                >
+                                  <Book className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                  <span className="flex-1 truncate">
+                                    {lesson.title}
+                                  </span>
+                                  {completed && (
+                                    <CheckCircle className="w-5 h-5 text-green-600" />
+                                  )}
+                                  {locked && (
+                                    <Lock className="w-5 h-5 text-gray-400" />
+                                  )}
+                                  {isActive && !quizLocked && (
+                                    <span className="ml-1 w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                                  )}
+                                </button>
+                                {/* Quiz row */}
+                                <div className="pl-8 pr-2 pt-2">
+                                  <button
+                                    className={`w-full text-left px-3 py-2 flex items-center gap-2 rounded-lg border text-sm font-medium transition-colors duration-150
+                                      ${
+                                        quizLocked
+                                          ? "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200"
+                                          : "bg-yellow-50 hover:bg-yellow-100 border-yellow-200"
+                                      }
+                                      ${quizPassed ? "border-green-400" : ""}
+                                      ${
+                                        quizResult && !quizPassed
+                                          ? "border-red-400"
+                                          : ""
+                                      }
+                                      ${
+                                        isActive && quizLocked === false
+                                          ? "ring-2 ring-blue-300"
+                                          : ""
+                                      }`}
+                                    disabled={quizLocked}
+                                    onClick={() =>
+                                      !quizLocked &&
+                                      handleQuizClick(
+                                        flatIdx,
+                                        lesson._id,
+                                        quizLocked
+                                      )
+                                    }
+                                    title={
+                                      quizLocked
+                                        ? "Locked. Complete lesson first."
+                                        : quizPassed
+                                        ? "Quiz passed"
+                                        : "Take quiz"
+                                    }
+                                  >
+                                    <ListChecks className="w-4 h-4 text-yellow-600" />
+                                    <span>Quiz</span>
+                                    {quizPassed && (
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                    )}
+                                    {quizLocked && (
+                                      <Lock className="w-4 h-4 text-gray-400" />
+                                    )}
+                                    {quizResult && !quizPassed && (
+                                      <span className="ml-2 text-red-500 font-semibold">
+                                        {quizResult.score ?? 0}/100
+                                      </span>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
