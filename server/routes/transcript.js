@@ -128,4 +128,46 @@ router.get("/by-lesson/:lessonId", async (req, res) => {
   }
 });
 
+const { setProgress, clearProgress } = require("../utlis/progressTracker");
+
+router.post("/generate-transcript/:lessonId", async (req, res) => {
+  const { lessonId } = req.params;
+
+  try {
+    setProgress(lessonId, "transcript", 10); // start
+
+    // Simulate some progress steps
+    await someStep();
+    setProgress(lessonId, "transcript", 40);
+
+    await anotherStep();
+    setProgress(lessonId, "transcript", 70);
+
+    // Final step
+    await saveTranscriptToDB();
+    setProgress(lessonId, "transcript", 100);
+
+    // Optional: clean up
+    setTimeout(() => clearProgress(lessonId), 5000);
+
+    res.json({ message: "Transcript generated" });
+  } catch (err) {
+    setProgress(lessonId, "error", 0);
+    res.status(500).json({ error: "Transcript generation failed" });
+  }
+});
+
+// 🔹 DELETE /api/transcripts/by-lesson/:lessonId
+router.delete("/by-lesson/:lessonId", async (req, res) => {
+  const { lessonId } = req.params;
+
+  try {
+    await Transcript.deleteOne({ lessonId });
+    return res.status(200).json({ message: "Transcript deleted" });
+  } catch (err) {
+    console.error("❌ Failed to delete transcript:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

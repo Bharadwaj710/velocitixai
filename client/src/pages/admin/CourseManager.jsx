@@ -53,6 +53,9 @@ const CourseManager = () => {
   const fileInputRefs = useRef([]);
   const [pendingPdfs, setPendingPdfs] = useState({}); // { [modIdx-lessonIdx]: File }
 
+
+  const [aiInterviewEnabled, setAiInterviewEnabled] = useState(false);
+
   // Load courses
   const loadCourses = async () => {
     const res = await fetchCourses();
@@ -229,6 +232,7 @@ const CourseManager = () => {
         ...form,
         durationWeeks: parseInt(form.durationWeeks, 10),
         weeks,
+        aiInterviewEnabled,
       };
       delete payload.modules;
 
@@ -613,17 +617,25 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
     <div className="p-6 bg-white rounded-xl shadow">
       <h2 className="text-xl font-semibold mb-4">Manage Courses</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <input placeholder="Title" className="border p-2" value={form.title}
-          onChange={e => setForm({ ...form, title: e.target.value })} />
-        <input placeholder="Description" className="border p-2" value={form.description}
-          onChange={e => setForm({ ...form, description: e.target.value })} />
+        <input
+          placeholder="Title"
+          className="border p-2"
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+        />
+        <input
+          placeholder="Description"
+          className="border p-2"
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+        />
         <input
           placeholder="Duration (weeks)"
           className="border p-2"
           value={form.durationWeeks}
           min={1}
           type="number"
-          onChange={e => {
+          onChange={(e) => {
             const val = Math.max(1, parseInt(e.target.value) || 1);
             setForm({ ...form, durationWeeks: val });
           }}
@@ -631,10 +643,12 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
         <select
           className="border p-2"
           value={form.level}
-          onChange={e => setForm({ ...form, level: e.target.value })}
+          onChange={(e) => setForm({ ...form, level: e.target.value })}
         >
-          {LEVEL_OPTIONS.map(lvl => (
-            <option key={lvl} value={lvl}>{lvl}</option>
+          {LEVEL_OPTIONS.map((lvl) => (
+            <option key={lvl} value={lvl}>
+              {lvl}
+            </option>
           ))}
         </select>
       </div>
@@ -646,7 +660,7 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
             <input
               className="border p-2 w-full"
               value={form.domain}
-              onChange={e => setForm({ ...form, domain: e.target.value })}
+              onChange={(e) => setForm({ ...form, domain: e.target.value })}
               placeholder="e.g. Technology and Innovation"
             />
             <button
@@ -654,7 +668,9 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("domain")}
               disabled={!suggested.domain}
-              title={suggested.domain ? `Use: ${suggested.domain}` : "No suggestion"}
+              title={
+                suggested.domain ? `Use: ${suggested.domain}` : "No suggestion"
+              }
             >
               Add
             </button>
@@ -663,7 +679,9 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
             <div className="flex flex-wrap gap-2 mt-1">
               <span
                 className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs cursor-pointer"
-                onClick={() => setForm(f => ({ ...f, domain: suggested.domain }))}
+                onClick={() =>
+                  setForm((f) => ({ ...f, domain: suggested.domain }))
+                }
               >
                 {suggested.domain}
               </span>
@@ -671,17 +689,21 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Ideal Roles *</label>
+          <label className="block text-sm font-medium mb-1">
+            Ideal Roles *
+          </label>
           <div className="flex gap-2">
             <input
               className="border p-2 flex-1"
               placeholder="Add role(s), comma separated"
               value={inputFields.idealRole}
-              onChange={e => setInputFields(f => ({ ...f, idealRole: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
+              onChange={(e) =>
+                setInputFields((f) => ({ ...f, idealRole: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.preventDefault();
-                  addAllFromInput('idealRoles');
+                  addAllFromInput("idealRoles");
                 }
               }}
             />
@@ -690,48 +712,69 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("idealRoles")}
               disabled={!suggested.idealRoles.length}
-              title={suggested.idealRoles.length ? `Use: ${suggested.idealRoles.join(", ")}` : "No suggestion"}
+              title={
+                suggested.idealRoles.length
+                  ? `Use: ${suggested.idealRoles.join(", ")}`
+                  : "No suggestion"
+              }
             >
               Add
             </button>
           </div>
           {/* Show chips for values in the input field, with (X) to remove from input only */}
-          {inputFields.idealRole && inputFields.idealRole.split(",").filter(Boolean).map((role, idx) => (
-            <span
-              key={idx}
-              className="inline-flex items-center bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs mr-2 mt-1"
-            >
-              {role.trim()}
-              <button
-                type="button"
-                className="ml-1 text-red-500"
-                onClick={() => removeSuggestionFromInput('idealRoles', role.trim())}
-                title="Remove"
-              >×</button>
-            </span>
-          ))}
+          {inputFields.idealRole &&
+            inputFields.idealRole
+              .split(",")
+              .filter(Boolean)
+              .map((role, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs mr-2 mt-1"
+                >
+                  {role.trim()}
+                  <button
+                    type="button"
+                    className="ml-1 text-red-500"
+                    onClick={() =>
+                      removeSuggestionFromInput("idealRoles", role.trim())
+                    }
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
           {/* Show suggestion chips below, always, unless already in input or chips */}
           {suggested.idealRoles && suggested.idealRoles.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-1">
               {[...new Set(suggested.idealRoles)]
-                .filter(role =>
-                  !(form.idealRoles || []).includes(role) &&
-                  !(inputFields.idealRole || "").split(",").map(v => v.trim()).includes(role)
+                .filter(
+                  (role) =>
+                    !(form.idealRoles || []).includes(role) &&
+                    !(inputFields.idealRole || "")
+                      .split(",")
+                      .map((v) => v.trim())
+                      .includes(role)
                 )
                 .map((role, idx) => (
                   <span
                     key={idx}
                     className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs cursor-pointer flex items-center"
-                    onClick={() => addSuggestionToInput('idealRoles', role)}
+                    onClick={() => addSuggestionToInput("idealRoles", role)}
                     title="Click to add"
                   >
                     {role}
                     <button
                       type="button"
                       className="ml-1 text-red-500"
-                      onClick={e => { e.stopPropagation(); removeSuggested('idealRoles', role); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeSuggested("idealRoles", role);
+                      }}
                       title="Remove suggestion"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
             </div>
@@ -747,41 +790,59 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
                 <span
                   key={idx}
                   className="bg-gray-200 text-gray-500 px-2 py-1 rounded text-xs flex items-center cursor-pointer"
-                  onClick={() => restoreSuggestion('idealRoles', role)}
+                  onClick={() => restoreSuggestion("idealRoles", role)}
                   title="Restore suggestion"
                 >
                   {role}
                   <button
                     type="button"
                     className="ml-1 text-blue-500"
-                    onClick={e => { e.stopPropagation(); restoreSuggestion('idealRoles', role); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      restoreSuggestion("idealRoles", role);
+                    }}
                     title="Restore"
-                  >↩</button>
+                  >
+                    ↩
+                  </button>
                 </span>
               ))}
             </div>
           )}
           <div className="flex flex-wrap gap-2 mt-1">
             {form.idealRoles.map((role, idx) => (
-              <span key={idx} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs flex items-center">
+              <span
+                key={idx}
+                className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs flex items-center"
+              >
                 {role}
-                <button type="button" className="ml-1 text-red-500" onClick={() => removeFromArrayField('idealRoles', idx)}>×</button>
+                <button
+                  type="button"
+                  className="ml-1 text-red-500"
+                  onClick={() => removeFromArrayField("idealRoles", idx)}
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Skills Covered *</label>
+          <label className="block text-sm font-medium mb-1">
+            Skills Covered *
+          </label>
           <div className="flex gap-2">
             <input
               className="border p-2 flex-1"
               placeholder="Add skill(s), comma separated"
               value={inputFields.skill}
-              onChange={e => setInputFields(f => ({ ...f, skill: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
+              onChange={(e) =>
+                setInputFields((f) => ({ ...f, skill: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.preventDefault();
-                  addAllFromInput('skillsCovered');
+                  addAllFromInput("skillsCovered");
                 }
               }}
             />
@@ -790,46 +851,67 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("skillsCovered")}
               disabled={!suggested.skillsCovered.length}
-              title={suggested.skillsCovered.length ? `Use: ${suggested.skillsCovered.join(", ")}` : "No suggestion"}
+              title={
+                suggested.skillsCovered.length
+                  ? `Use: ${suggested.skillsCovered.join(", ")}`
+                  : "No suggestion"
+              }
             >
               Add
             </button>
           </div>
-          {inputFields.skill && inputFields.skill.split(",").filter(Boolean).map((skill, idx) => (
-            <span
-              key={idx}
-              className="inline-flex items-center bg-green-100 text-green-700 px-2 py-1 rounded text-xs mr-2 mt-1"
-            >
-              {skill.trim()}
-              <button
-                type="button"
-                className="ml-1 text-red-500"
-                onClick={() => removeSuggestionFromInput('skillsCovered', skill.trim())}
-                title="Remove"
-              >×</button>
-            </span>
-          ))}
+          {inputFields.skill &&
+            inputFields.skill
+              .split(",")
+              .filter(Boolean)
+              .map((skill, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center bg-green-100 text-green-700 px-2 py-1 rounded text-xs mr-2 mt-1"
+                >
+                  {skill.trim()}
+                  <button
+                    type="button"
+                    className="ml-1 text-red-500"
+                    onClick={() =>
+                      removeSuggestionFromInput("skillsCovered", skill.trim())
+                    }
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
           {suggested.skillsCovered && suggested.skillsCovered.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-1">
               {[...new Set(suggested.skillsCovered)]
-                .filter(skill =>
-                  !(form.skillsCovered || []).includes(skill) &&
-                  !(inputFields.skill || "").split(",").map(v => v.trim()).includes(skill)
+                .filter(
+                  (skill) =>
+                    !(form.skillsCovered || []).includes(skill) &&
+                    !(inputFields.skill || "")
+                      .split(",")
+                      .map((v) => v.trim())
+                      .includes(skill)
                 )
                 .map((skill, idx) => (
                   <span
                     key={idx}
                     className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs cursor-pointer flex items-center"
-                    onClick={() => addSuggestionToInput('skillsCovered', skill)}
+                    onClick={() => addSuggestionToInput("skillsCovered", skill)}
                     title="Click to add"
                   >
                     {skill}
                     <button
                       type="button"
                       className="ml-1 text-red-500"
-                      onClick={e => { e.stopPropagation(); removeSuggested('skillsCovered', skill); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeSuggested("skillsCovered", skill);
+                      }}
                       title="Remove suggestion"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
             </div>
@@ -845,41 +927,59 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
                 <span
                   key={idx}
                   className="bg-gray-200 text-gray-500 px-2 py-1 rounded text-xs flex items-center cursor-pointer"
-                  onClick={() => restoreSuggestion('skillsCovered', skill)}
+                  onClick={() => restoreSuggestion("skillsCovered", skill)}
                   title="Restore suggestion"
                 >
                   {skill}
                   <button
                     type="button"
                     className="ml-1 text-blue-500"
-                    onClick={e => { e.stopPropagation(); restoreSuggestion('skillsCovered', skill); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      restoreSuggestion("skillsCovered", skill);
+                    }}
                     title="Restore"
-                  >↩</button>
+                  >
+                    ↩
+                  </button>
                 </span>
               ))}
             </div>
           )}
           <div className="flex flex-wrap gap-2 mt-1">
             {form.skillsCovered.map((skill, idx) => (
-              <span key={idx} className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs flex items-center">
+              <span
+                key={idx}
+                className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs flex items-center"
+              >
                 {skill}
-                <button type="button" className="ml-1 text-red-500" onClick={() => removeFromArrayField('skillsCovered', idx)}>×</button>
+                <button
+                  type="button"
+                  className="ml-1 text-red-500"
+                  onClick={() => removeFromArrayField("skillsCovered", idx)}
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Challenges Addressed *</label>
+          <label className="block text-sm font-medium mb-1">
+            Challenges Addressed *
+          </label>
           <div className="flex gap-2">
             <input
               className="border p-2 flex-1"
               placeholder="Add challenge(s), comma separated"
               value={inputFields.challenge}
-              onChange={e => setInputFields(f => ({ ...f, challenge: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
+              onChange={(e) =>
+                setInputFields((f) => ({ ...f, challenge: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.preventDefault();
-                  addAllFromInput('challengesAddressed');
+                  addAllFromInput("challengesAddressed");
                 }
               }}
             />
@@ -888,50 +988,77 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
               className="bg-blue-500 text-white px-2 rounded"
               onClick={() => autofillField("challengesAddressed")}
               disabled={!suggested.challengesAddressed.length}
-              title={suggested.challengesAddressed.length ? `Use: ${suggested.challengesAddressed.join(", ")}` : "No suggestion"}
+              title={
+                suggested.challengesAddressed.length
+                  ? `Use: ${suggested.challengesAddressed.join(", ")}`
+                  : "No suggestion"
+              }
             >
               Add
             </button>
           </div>
-          {inputFields.challenge && inputFields.challenge.split(",").filter(Boolean).map((ch, idx) => (
-            <span
-              key={idx}
-              className="inline-flex items-center bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs mr-2 mt-1"
-            >
-              {ch.trim()}
-              <button
-                type="button"
-                className="ml-1 text-red-500"
-                onClick={() => removeSuggestionFromInput('challengesAddressed', ch.trim())}
-                title="Remove"
-              >×</button>
-            </span>
-          ))}
-          {suggested.challengesAddressed && suggested.challengesAddressed.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-1">
-              {[...new Set(suggested.challengesAddressed)]
-                .filter(ch =>
-                  !(form.challengesAddressed || []).includes(ch) &&
-                  !(inputFields.challenge || "").split(",").map(v => v.trim()).includes(ch)
-                )
-                .map((ch, idx) => (
-                  <span
-                    key={idx}
-                    className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs cursor-pointer flex items-center"
-                    onClick={() => addSuggestionToInput('challengesAddressed', ch)}
-                    title="Click to add"
+          {inputFields.challenge &&
+            inputFields.challenge
+              .split(",")
+              .filter(Boolean)
+              .map((ch, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs mr-2 mt-1"
+                >
+                  {ch.trim()}
+                  <button
+                    type="button"
+                    className="ml-1 text-red-500"
+                    onClick={() =>
+                      removeSuggestionFromInput(
+                        "challengesAddressed",
+                        ch.trim()
+                      )
+                    }
+                    title="Remove"
                   >
-                    {ch}
-                    <button
-                      type="button"
-                      className="ml-1 text-red-500"
-                      onClick={e => { e.stopPropagation(); removeSuggested('challengesAddressed', ch); }}
-                      title="Remove suggestion"
-                    >×</button>
-                  </span>
-                ))}
-            </div>
-          )}
+                    ×
+                  </button>
+                </span>
+              ))}
+          {suggested.challengesAddressed &&
+            suggested.challengesAddressed.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {[...new Set(suggested.challengesAddressed)]
+                  .filter(
+                    (ch) =>
+                      !(form.challengesAddressed || []).includes(ch) &&
+                      !(inputFields.challenge || "")
+                        .split(",")
+                        .map((v) => v.trim())
+                        .includes(ch)
+                  )
+                  .map((ch, idx) => (
+                    <span
+                      key={idx}
+                      className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs cursor-pointer flex items-center"
+                      onClick={() =>
+                        addSuggestionToInput("challengesAddressed", ch)
+                      }
+                      title="Click to add"
+                    >
+                      {ch}
+                      <button
+                        type="button"
+                        className="ml-1 text-red-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSuggested("challengesAddressed", ch);
+                        }}
+                        title="Remove suggestion"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+              </div>
+            )}
           {/* Divider if there are removed suggestions */}
           {removedSuggestions.challengesAddressed.length > 0 && (
             <hr className="my-2 border-t-2 border-dashed border-gray-300" />
@@ -943,25 +1070,41 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
                 <span
                   key={idx}
                   className="bg-gray-200 text-gray-500 px-2 py-1 rounded text-xs flex items-center cursor-pointer"
-                  onClick={() => restoreSuggestion('challengesAddressed', ch)}
+                  onClick={() => restoreSuggestion("challengesAddressed", ch)}
                   title="Restore suggestion"
                 >
                   {ch}
                   <button
                     type="button"
                     className="ml-1 text-blue-500"
-                    onClick={e => { e.stopPropagation(); restoreSuggestion('challengesAddressed', ch); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      restoreSuggestion("challengesAddressed", ch);
+                    }}
                     title="Restore"
-                  >↩</button>
+                  >
+                    ↩
+                  </button>
                 </span>
               ))}
             </div>
           )}
           <div className="flex flex-wrap gap-2 mt-1">
             {form.challengesAddressed.map((ch, idx) => (
-              <span key={idx} className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs flex items-center">
+              <span
+                key={idx}
+                className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs flex items-center"
+              >
                 {ch}
-                <button type="button" className="ml-1 text-red-500" onClick={() => removeFromArrayField('challengesAddressed', idx)}>×</button>
+                <button
+                  type="button"
+                  className="ml-1 text-red-500"
+                  onClick={() =>
+                    removeFromArrayField("challengesAddressed", idx)
+                  }
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>
@@ -987,13 +1130,28 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
             <h4 className="font-semibold mb-2">Week {modIdx + 1}</h4>
             <div className="flex gap-2">
               {modIdx > 0 && (
-                <button className="text-xs text-gray-500" onClick={() => moveModule(modIdx, modIdx - 1)}>↑</button>
+                <button
+                  className="text-xs text-gray-500"
+                  onClick={() => moveModule(modIdx, modIdx - 1)}
+                >
+                  ↑
+                </button>
               )}
               {modIdx < form.modules.length - 1 && (
-                <button className="text-xs text-gray-500" onClick={() => moveModule(modIdx, modIdx + 1)}>↓</button>
+                <button
+                  className="text-xs text-gray-500"
+                  onClick={() => moveModule(modIdx, modIdx + 1)}
+                >
+                  ↓
+                </button>
               )}
               {form.modules.length > 1 && (
-                <button onClick={() => removeModule(modIdx)} className="text-red-600 text-sm">Remove</button>
+                <button
+                  onClick={() => removeModule(modIdx)}
+                  className="text-red-600 text-sm"
+                >
+                  Remove
+                </button>
               )}
             </div>
           </div>
@@ -1001,13 +1159,17 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
             placeholder="Module Title"
             className="border p-2 mb-2 w-full"
             value={mod.title}
-            onChange={e => handleModuleChange(modIdx, 'title', e.target.value)}
+            onChange={(e) =>
+              handleModuleChange(modIdx, "title", e.target.value)
+            }
           />
           <textarea
             placeholder="Module Content"
             className="border p-2 mb-2 w-full"
             value={mod.content}
-            onChange={e => handleModuleChange(modIdx, 'content', e.target.value)}
+            onChange={(e) =>
+              handleModuleChange(modIdx, "content", e.target.value)
+            }
           />
           {/* Lessons */}
           <div className="mt-2">
@@ -1015,24 +1177,29 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
             {mod.lessons && mod.lessons.length > 0 ? (
               <ul className="space-y-2">
                 {mod.lessons.map((lesson, lessonIdx) => (
-                  <li key={lessonIdx} className="flex flex-col md:flex-row items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                  <li
+                    key={lessonIdx}
+                    className="flex flex-col md:flex-row items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2"
+                  >
                     {/* PDF select (not upload) */}
-                     <div className="flex items-center gap-2">
-                    <input
-    type="file"
-    accept="application/pdf"
-    id={`pdf-input-${modIdx}-${lessonIdx}`}
-    className="hidden" // ✅ This hides the native file input
-    onChange={e => handlePdfSelect(modIdx, lessonIdx, e.target.files[0])}
-  />
-                    {/* Custom Upload Button */}
-   <label
-      htmlFor={`pdf-input-${modIdx}-${lessonIdx}`}
-      className="bg-blue-600 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-700 whitespace-nowrap"
-    >
-      Upload PDF
-    </label>
-  </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        id={`pdf-input-${modIdx}-${lessonIdx}`}
+                        className="hidden" // ✅ This hides the native file input
+                        onChange={(e) =>
+                          handlePdfSelect(modIdx, lessonIdx, e.target.files[0])
+                        }
+                      />
+                      {/* Custom Upload Button */}
+                      <label
+                        htmlFor={`pdf-input-${modIdx}-${lessonIdx}`}
+                        className="bg-blue-600 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-700 whitespace-nowrap"
+                      >
+                        Upload PDF
+                      </label>
+                    </div>
                     {/* Show selected (pending) PDF with remove button */}
                     {pendingPdfs[`${modIdx}-${lessonIdx}`] && (
                       <div className="flex items-center gap-2 mt-1">
@@ -1041,7 +1208,9 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
                         </span>
                         <button
                           className="text-xs text-red-500"
-                          onClick={() => handleRemovePendingPdf(modIdx, lessonIdx)}
+                          onClick={() =>
+                            handleRemovePendingPdf(modIdx, lessonIdx)
+                          }
                           title="Remove PDF"
                         >
                           ×
@@ -1052,17 +1221,30 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
                     {lesson.resources && lesson.resources.length > 0 && (
                       <div className="flex flex-col gap-1 mt-1">
                         {lesson.resources.map((pdf, pdfIdx) => {
-                          const isCloudinary = pdf?.url?.includes('cloudinary.com');
+                          const isCloudinary =
+                            pdf?.url?.includes("cloudinary.com");
                           const finalURL = pdf?.url
                             ? isCloudinary
-                              ? pdf.url.replace('/upload/', '/upload/fl_attachment:pdf/')
-                              : pdf.url.startsWith('http') ? pdf.url : `http://${pdf.url}`
-                            : '#';
+                              ? pdf.url.replace(
+                                  "/upload/",
+                                  "/upload/fl_attachment:pdf/"
+                                )
+                              : pdf.url.startsWith("http")
+                              ? pdf.url
+                              : `http://${pdf.url}`
+                            : "#";
 
-                          const displayName = pdf?.name || (pdf?.url ? pdf.url.split('/').pop() : 'Unknown Resource');
+                          const displayName =
+                            pdf?.name ||
+                            (pdf?.url
+                              ? pdf.url.split("/").pop()
+                              : "Unknown Resource");
 
                           return (
-                            <div key={pdfIdx} className="flex items-center gap-2">
+                            <div
+                              key={pdfIdx}
+                              className="flex items-center gap-2"
+                            >
                               <a
                                 href={finalURL}
                                 target="_blank"
@@ -1080,81 +1262,151 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
                       className="border p-2 text-sm w-full md:w-1/2 font-semibold bg-white"
                       value={lesson.title}
                       placeholder="Lesson Title (required)"
-                      onChange={e => handleLessonChange(modIdx, lessonIdx, 'title', e.target.value)}
+                      onChange={(e) =>
+                        handleLessonChange(
+                          modIdx,
+                          lessonIdx,
+                          "title",
+                          e.target.value
+                        )
+                      }
                       style={{ borderColor: "#3b82f6" }}
                     />
                     <input
                       className="border p-2 text-sm w-full md:w-1/2 font-mono bg-white"
                       value={lesson.videoUrl}
                       placeholder="Lesson Video URL (required)"
-                      onChange={e => handleLessonChange(modIdx, lessonIdx, 'videoUrl', e.target.value)}
+                      onChange={(e) =>
+                        handleLessonChange(
+                          modIdx,
+                          lessonIdx,
+                          "videoUrl",
+                          e.target.value
+                        )
+                      }
                       style={{ borderColor: "#3b82f6" }}
                     />
                     <button
                       className="text-xs text-gray-500"
-                      onClick={() => moveLesson(modIdx, lessonIdx, lessonIdx - 1)}
+                      onClick={() =>
+                        moveLesson(modIdx, lessonIdx, lessonIdx - 1)
+                      }
                       disabled={lessonIdx === 0}
-                    >↑</button>
+                    >
+                      ↑
+                    </button>
                     <button
                       className="text-xs text-gray-500"
-                      onClick={() => moveLesson(modIdx, lessonIdx, lessonIdx + 1)}
+                      onClick={() =>
+                        moveLesson(modIdx, lessonIdx, lessonIdx + 1)
+                      }
                       disabled={lessonIdx === mod.lessons.length - 1}
-                    >↓</button>
+                    >
+                      ↓
+                    </button>
                     <button
                       className="text-red-500 text-xs"
                       onClick={() => removeLesson(modIdx, lessonIdx)}
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </li>
                 ))}
               </ul>
             ) : (
               <div className="text-xs text-gray-500">No lessons.</div>
             )}
-            <button className="text-blue-600 text-xs mt-1" onClick={() => addLesson(modIdx)}>
+            <button
+              className="text-blue-600 text-xs mt-1"
+              onClick={() => addLesson(modIdx)}
+            >
               + Add Lesson
             </button>
           </div>
         </div>
       ))}
-      <button onClick={addModule} className="text-sm text-green-600 mb-4">+ Add Module</button>
+      <button onClick={addModule} className="text-sm text-green-600 mb-4">
+        + Add Module
+      </button>
       <br />
-      <button onClick={handleCreate} className="bg-blue-600 text-white px-4 py-2 rounded">Add Course</button>
+      <div className="mb-4">
+        <label className="inline-flex items-center">
+          <input
+            type="checkbox"
+            className="form-checkbox"
+            checked={aiInterviewEnabled}
+            onChange={(e) => setAiInterviewEnabled(e.target.checked)}
+          />
+          <span className="ml-2 text-sm">Enable AI Interview</span>
+        </label>
+      </div>
+
+      <button
+        onClick={handleCreate}
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+      >
+        Add Course
+      </button>
 
       {/* Existing course display */}
       <ul className="mt-6 space-y-4">
-        {courses.map(c => (
+        {courses.map((c) => (
           <li key={c._id} className="border p-4 rounded bg-gray-50">
             <div className="flex justify-between">
               <div>
                 <h3 className="font-bold text-lg">{c.title}</h3>
                 <p className="text-sm text-gray-600">{c.description}</p>
-                <p className="text-xs text-gray-500">Duration: {c.durationWeeks} weeks</p>
+                <p className="text-xs text-gray-500">
+                  Duration: {c.durationWeeks} weeks
+                </p>
                 {/* Show course level for all courses */}
                 <p className="text-xs text-blue-700 font-semibold mt-1">
                   Level: {c.level || "Beginner"}
                 </p>
               </div>
               <div className="space-x-4">
-                <button onClick={() => handleDelete(c._id)} className="text-red-600 font-semibold">Delete</button>
-                <button onClick={() => setEditCourse(c)} className="text-blue-600 font-semibold">Edit</button>
+                <button
+                  onClick={() => handleDelete(c._id)}
+                  className="text-red-600 font-semibold"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setEditCourse(c)}
+                  className="text-blue-600 font-semibold"
+                >
+                  Edit
+                </button>
               </div>
             </div>
             <div className="mt-2">
               <h4 className="font-semibold">Modules:</h4>
               {c.modules?.map((m, i) => (
                 <div key={i} className="ml-4 mb-2">
-                  <p><strong>{m.title}</strong>: {m.content}</p>
+                  <p>
+                    <strong>{m.title}</strong>: {m.content}
+                  </p>
                   {m.resources?.length > 0 && (
                     <ul className="list-disc ml-5 text-blue-600">
                       {m.resources.map((res, idx) => {
-                        const isCloudinary = res?.url?.includes('cloudinary.com');
+                        const isCloudinary =
+                          res?.url?.includes("cloudinary.com");
                         const finalURL = res?.url
                           ? isCloudinary
-                            ? res.url.replace('/upload/', '/upload/fl_attachment:pdf/')
-                            : res.url.startsWith('http') ? res.url : `http://${res.url}`
-                          : '#';
+                            ? res.url.replace(
+                                "/upload/",
+                                "/upload/fl_attachment:pdf/"
+                              )
+                            : res.url.startsWith("http")
+                            ? res.url
+                            : `http://${res.url}`
+                          : "#";
 
-                        const displayName = res?.name || (res?.url ? res.url.split('/').pop() : 'Unknown Resource');
+                        const displayName =
+                          res?.name ||
+                          (res?.url
+                            ? res.url.split("/").pop()
+                            : "Unknown Resource");
 
                         return (
                           <li key={idx}>
@@ -1192,7 +1444,7 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
           />
         </div>
       )}
-    </div>    
+    </div>
   );
 };
 

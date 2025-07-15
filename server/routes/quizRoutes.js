@@ -142,4 +142,65 @@ router.get("/:lessonId", async (req, res) => {
   }
 });
 
+// 🔹 POST /api/quiz/generate
+router.post("/generate", async (req, res) => {
+  const { lessonId, transcript } = req.body;
+
+  if (!lessonId || !Array.isArray(transcript)) {
+    return res.status(400).json({ error: "Missing lessonId or invalid transcript" });
+  }
+
+  try {
+    // Convert transcript segments to plain text
+    const transcriptText = transcript.map((seg) => seg.text).join(" ").trim();
+
+    if (!transcriptText || transcriptText.length < 50) {
+      return res.status(400).json({ error: "Transcript too short for quiz generation" });
+    }
+
+    const flaskRes = await axios.post("http://localhost:5001/generate-quiz", {
+      transcript: transcriptText,
+    });
+
+    const quizQuestions = flaskRes.data;
+
+    if (!Array.isArray(quizQuestions) || quizQuestions.length === 0) {
+      return res.status(500).json({ error: "Empty quiz from AI service" });
+    }
+
+    await Quiz.findOneAndUpdate(
+      { lessonId },
+      {
+        $set: {
+          questions: quizQuestions,
+          generated: true,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+
+    return res.status(200).json({ message: "Quiz generated", questions: quizQuestions });
+  } catch (err) {
+    console.error("❌ Quiz generation error:", err.message);
+    return res.status(500).json({ error: "Quiz generation failed", details: err.message });
+  }
+});
+
+// 🔹 DELETE /api/quiz/by-lesson/:lessonId
+router.delete("/by-lesson/:lessonId", async (req, res) => {
+  const { lessonId } = req.params;
+
+  try {
+    await Quiz.deleteOne({ lessonId });
+    return res.status(200).json({ message: "Quiz deleted" });
+  } catch (err) {
+    console.error("❌ Failed to delete quiz:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

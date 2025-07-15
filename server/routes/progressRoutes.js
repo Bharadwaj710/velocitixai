@@ -2,6 +2,20 @@ const express = require("express");
 const router = express.Router();
 const Progress = require("../models/Progress");
 
+// In-memory progress store for demo (replace with Redis or DB in production)
+const progressMap = {}; // { lessonId: { type, progress } }
+
+// Example: update progressMap elsewhere in your generation logic
+// progressMap[lessonId] = { type: "transcript", progress: 45 };
+const { getProgress } = require("../utlis/progressTracker");
+
+// GET /api/progress/progress-status/:lessonId
+router.get("/progress-status/:lessonId", (req, res) => {
+  const { lessonId } = req.params;
+  const prog = getProgress(lessonId);
+  res.json(prog);
+});
+
 // 🔹 POST /api/progress/complete
 router.post("/complete", async (req, res) => {
   const { userId, courseId, lessonId } = req.body;
@@ -74,8 +88,8 @@ router.post("/uncomplete", async (req, res) => {
 
 // 🔹 POST /api/progress/submit-quiz
 router.post("/submit-quiz", async (req, res) => {
-  const { studentId, courseId, lessonId, score, passed, answers, feedback } =   req.body;
-
+  const { studentId, courseId, lessonId, score, passed, answers, feedback } =
+    req.body;
 
   if (
     !studentId ||

@@ -68,3 +68,5 @@ const quizRoutes = require("./routes/quizRoutes");
 app.use("/api/quiz", quizRoutes);
 
 app.use("/api/progress", progressRoutes);
+
+app.use("/api/lessons", require("./routes/lessonRoutes"));
