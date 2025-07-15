@@ -70,6 +70,10 @@ const courseSchema = new mongoose.Schema(
       ref: "user",
     },
     timeCommitmentRecommended: String,
+    aiInterviewEnabled: {
+      type: Boolean,
+      default: false,
+    },
 
     weeks: [weekSchema], // ✅ NEW STRUCTURE HERE
   },

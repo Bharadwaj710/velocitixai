@@ -64,6 +64,9 @@ const CourseManager = () => {
   const fileInputRefs = useRef([]);
   const [pendingPdfs, setPendingPdfs] = useState({}); // { [modIdx-lessonIdx]: File }
 
+
+  const [aiInterviewEnabled, setAiInterviewEnabled] = useState(false);
+
   // Load courses
   const loadCourses = async () => {
     const res = await fetchCourses();
@@ -263,6 +266,7 @@ const CourseManager = () => {
         ...submissionForm,
         durationWeeks: parseInt(submissionForm.durationWeeks, 10),
         weeks,
+        aiInterviewEnabled,
       };
       delete payload.modules;
 
@@ -1301,6 +1305,7 @@ const CourseManager = () => {
                           Upload PDF
                         </label>
                       </div>
+
                       {/* Show selected (pending) PDF with remove button */}
                       {pendingPdfs[`${modIdx}-${lessonIdx}`] && (
                         <div className="flex items-center gap-2 mt-1">
