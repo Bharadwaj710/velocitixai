@@ -5,11 +5,16 @@ const Notification = require("../models/Notification");
 // POST: Add a notification
 router.post("/", async (req, res) => {
   try {
-    const { type, message, userId, meta } = req.body;
+    const { type, message, userId, meta, forRole } = req.body;
+    const newNotification = new Notification({
+      type,
+      message,
+      userId: userId || null,
+      forRole: userId ? null : forRole, // Avoid storing both
+      meta,
+    });
 
-    const newNotification = new Notification({ type, message, userId, meta });
     await newNotification.save();
-
     res.status(201).json(newNotification);
   } catch (error) {
     res.status(500).json({ message: "Error creating notification" });
@@ -17,15 +22,38 @@ router.post("/", async (req, res) => {
 });
 
 // ✅ Get only new_course notifications for a specific student
-router.get("/:studentId", async (req, res) => {
+// GET notifications by userId (for student) or forRole (admin)
+router.get("/user/:userId", async (req, res) => {
   try {
+    const userId = req.params.userId;
+
     const notifications = await Notification.find({
-      userId: req.params.studentId,
-      type: "new_course", // Filter by type
+      $or: [
+        { userId }, // personalized
+        { userId: null, forRole: "student" }, // global for students
+      ],
     }).sort({ createdAt: -1 });
+
     res.json(notifications);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching notifications" });
+    res.status(500).json({ message: "Error fetching user notifications" });
+  }
+});
+
+router.get("/role/:role", async (req, res) => {
+  try {
+    const notifications = await Notification.find({
+      $and: [
+        { userId: null }, // 💥 Only global notifications
+        {
+          $or: [{ forRole: "admin" }, { type: "admin_new_course" }],
+        },
+      ],
+    }).sort({ createdAt: -1 });
+
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching role notifications" });
   }
 });
 

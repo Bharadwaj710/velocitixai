@@ -24,7 +24,7 @@ const getAllStudents = async (req, res) => {
     const assessmentMap = {};
     for (const a of assessments) {
       assessmentMap[a.userId.toString()] = {
-        domain: a.profile_analysis?.domain || a.domain || null,
+        domain: a.domain || null,
         skills: Array.isArray(a.profile_analysis?.skills)
           ? a.profile_analysis.skills
           : [],
@@ -68,7 +68,7 @@ const getStudentDetailsForHR = async (req, res) => {
     }).lean();
 
     const domain =
-      careerData?.profile_analysis?.domain || careerData?.domain || null;
+      careerData?.domain || careerData?.profile_analysis?.domain || null;
 
     const skills = Array.isArray(careerData?.profile_analysis?.skills)
       ? careerData.profile_analysis.skills
