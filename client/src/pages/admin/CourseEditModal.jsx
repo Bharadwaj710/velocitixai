@@ -1075,37 +1075,34 @@ const [aiInterviewEnabled, setAiInterviewEnabled] = useState(
                 </div>
               </div>
             ))}
-            <div className="flex items-center justify-between mt-4 mb-4">
-              <button
-                onClick={() => addModule(weekIdx)}
-                className="text-green-600 text-sm"
-              >
-                + Add Module
-              </button>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700 font-medium">
-                  Enable AI Interview
-                </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={aiInterviewEnabled}
-                    onChange={(e) => setAiInterviewEnabled(e.target.checked)}
-                  />
-                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:bg-blue-600 transition-colors duration-300"></div>
-                  <div className="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-300 transform peer-checked:translate-x-full"></div>
-                </label>
-              </div>
-            </div>
+            <button
+              onClick={() => addModule(weekIdx)}
+              className="text-green-600 text-sm"
+            >
+              + Add Module
+            </button>
           </div>
         ))}
 
-        <div className="text-right mt-6">
+        <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-700 font-medium">
+              Enable AI Interview
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={aiInterviewEnabled}
+                onChange={(e) => setAiInterviewEnabled(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:bg-blue-600 transition-colors duration-300"></div>
+              <div className="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-300 transform peer-checked:translate-x-full"></div>
+            </label>
+          </div>
           <button
             onClick={handleSave}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
           >
             Save Changes
           </button>

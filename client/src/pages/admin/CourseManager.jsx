@@ -1330,15 +1330,7 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
       </button>
       <br />
       <div className="flex items-center justify-between mt-4">
-        {/* Left: Add Course Button */}
-        <button
-          onClick={handleCreate}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-        >
-          Add Course
-        </button>
-
-        {/* Right: AI Interview Toggle */}
+    
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-700 font-medium">
             Enable AI Interview
@@ -1354,6 +1346,12 @@ const handlePdfUpload = async (weekIdx, modIdx, lessonIdx, file) => {
             <div className="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-300 transform peer-checked:translate-x-full"></div>
           </label>
         </div>
+        <button
+          onClick={handleCreate}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+        >
+          Add Course
+        </button>
       </div>
 
       {/* Existing course display */}
