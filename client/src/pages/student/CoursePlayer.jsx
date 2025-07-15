@@ -12,6 +12,8 @@ import {
   Book,
   ListChecks,
   ClipboardCheck,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import AuthContext from "../../context/AuthContext";
 import StudentNavbar from "../../components/StudentNavbar";
@@ -20,6 +22,7 @@ import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
 import { saveNote, fetchNotes, deleteNote, updateNote } from "../../api/notes";
 import { ChatProvider } from "../../context/ChatContext";
 import QuizSection from "./QuizSection";
+
 // Helper: flatten all lessons and PDFs for navigation and progress
 function flattenItems(weeks) {
   const flat = [];
@@ -132,6 +135,7 @@ const CoursePlayer = () => {
   const [courseData, setCourseData] = useState(null);
   const [completedLessons, setCompletedLessons] = useState([]); // Array of completed lessonIds
   const [quizResults, setQuizResults] = useState([]); // Array of { lessonId, score, passed }
+
   const [flatItems, setFlatItems] = useState([]);
   const [currentFlatIdx, setCurrentFlatIdx] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -153,6 +157,33 @@ const CoursePlayer = () => {
   const [openQuizLessonIdx, setOpenQuizLessonIdx] = useState(null); // flatIdx of quiz being taken
   const [quizModalOpen, setQuizModalOpen] = useState(false);
   // quizPassedLessons is now derived from quizResults
+
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editContent, setEditContent] = useState("");
+
+  const handleEditNote = (noteId, content) => {
+    setEditingNoteId(noteId);
+    setEditContent(content);
+  };
+
+  const handleSaveEdit = (noteId) => {
+    if (!editContent.trim()) return;
+
+    updateNote(noteId, editContent).then(() => {
+      fetchNotes(userId, courseId).then((res) => setSavedNotes(res.data));
+      fetchNotes(userId, courseId).then((res) => setNotes(res.data)); // Update notes tab
+      setEditingNoteId(null);
+    });
+  };
+
+  const handleDeleteNote = (noteId) => {
+    if (window.confirm("Are you sure you want to delete this note?")) {
+      deleteNote(noteId).then(() => {
+        fetchNotes(userId, courseId).then((res) => setSavedNotes(res.data));
+        fetchNotes(userId, courseId).then((res) => setNotes(res.data)); // Update notes tab
+      });
+    }
+  };
 
   const handleStateChange = (event) => {
     // Optional: console log player states
@@ -177,64 +208,52 @@ const CoursePlayer = () => {
 
   // --- Selection logic for transcript highlighting (no highlight before save, only highlight after save) ---
   const handleTextSelection = (seg, idx, e) => {
+
+    if (currentItemObj?.type === "pdf") return;
+
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
       setSelectedText("");
       setCurrentSelection(null);
       return;
     }
-    // Only allow if anchorNode is inside the transcript text span
-    const anchorNode = selection.anchorNode;
-    if (!anchorNode) return;
-    let parent = anchorNode.parentElement || anchorNode.parentNode;
-    let found = false;
-    while (parent) {
-      if (parent.classList && parent.classList.contains("note-selectable")) {
-        found = true;
-        break;
-      }
-      parent = parent.parentElement || parent.parentNode;
-    }
-    if (!found) {
-      setSelectedText("");
-      setCurrentSelection(null);
-      return;
-    }
     const selectedString = selection.toString();
-    if (!selectedString || !selectedString.trim()) {
+    if (!selectedString.trim()) {
       setSelectedText("");
       setCurrentSelection(null);
       return;
     }
 
-    // Multi-line selection support with char offsets
-    let startIdx = idx;
-    let endIdx = idx;
+
+    let anchorElem = selection.anchorNode?.parentElement;
+    let focusElem = selection.focusNode?.parentElement;
+
+    if (!anchorElem || !focusElem) return;
+
+    let anchorIdx = parseInt(anchorElem.getAttribute("data-index"));
+    let focusIdx = parseInt(focusElem.getAttribute("data-index"));
+
+    if (isNaN(anchorIdx) || isNaN(focusIdx)) return;
+
+    let startIdx = anchorIdx < focusIdx ? anchorIdx : focusIdx;
+    let endIdx = anchorIdx > focusIdx ? anchorIdx : focusIdx;
+
     let charStart = 0;
     let charEnd = 0;
 
-    try {
-      const anchorElem = selection.anchorNode.parentElement;
-      const focusElem = selection.focusNode.parentElement;
-      const anchorIdx = parseInt(anchorElem?.getAttribute("data-index"));
-      const focusIdx = parseInt(focusElem?.getAttribute("data-index"));
-      if (!isNaN(anchorIdx) && !isNaN(focusIdx)) {
-        startIdx = Math.min(anchorIdx, focusIdx);
-        endIdx = Math.max(anchorIdx, focusIdx);
-      }
-      if (startIdx === endIdx) {
-        charStart = Math.min(selection.anchorOffset, selection.focusOffset);
-        charEnd = Math.max(selection.anchorOffset, selection.focusOffset);
-      } else {
-        if (anchorIdx < focusIdx) {
-          charStart = selection.anchorOffset;
-          charEnd = selection.focusOffset;
-        } else {
+    if (startIdx === endIdx) {
+      charStart = Math.min(selection.anchorOffset, selection.focusOffset);
+      charEnd = Math.max(selection.anchorOffset, selection.focusOffset);
+    } else {
+      if (anchorIdx < focusIdx) {
+        charStart = selection.anchorOffset;
+        charEnd = selection.focusOffset;
+      } else {       
           charStart = selection.focusOffset;
           charEnd = selection.anchorOffset;
         }
       }
-    } catch {}
+
     setSelectedText(selectedString);
     setCurrentSelection({ startIdx, endIdx, charStart, charEnd });
   };
@@ -242,18 +261,42 @@ const CoursePlayer = () => {
   // --- Save Note logic (single API call for multi-line, with char offsets) ---
   const handleSaveNote = () => {
     if (!selectedText || !currentSelection) return;
+
     let { startIdx, endIdx, charStart, charEnd } = currentSelection;
     startIdx = Number(startIdx);
     endIdx = Number(endIdx);
     charStart = Number(charStart);
     charEnd = Number(charEnd);
+
     if (isNaN(startIdx) || isNaN(endIdx)) return;
-    if (!selectedText.trim()) return;
+
+    // --- Extract selected text without timestamp ---
+    let selectedTextWithoutTimestamp = "";
+
+    if (startIdx === endIdx) {
+      selectedTextWithoutTimestamp = transcript[startIdx].text.slice(
+        charStart,
+        charEnd
+      );
+    } else {
+      const firstLine = transcript[startIdx].text.slice(charStart);
+      const middleLines = transcript
+        .slice(startIdx + 1, endIdx)
+        .map((seg) => seg.text)
+        .join(" ");
+      const lastLine = transcript[endIdx].text.slice(0, charEnd);
+      selectedTextWithoutTimestamp = [firstLine, middleLines, lastLine]
+        .filter(Boolean)
+        .join(" ");
+    }
+
+    if (!selectedTextWithoutTimestamp.trim()) return;
+
     saveNote({
       userId,
       courseId,
       lessonTitle: currentLessonData.title,
-      noteContent: selectedText,
+      noteContent: selectedTextWithoutTimestamp, // ✅ Save clean text without timestamp
       transcriptIdx: startIdx,
       endIdx: endIdx,
       charStart,
@@ -261,6 +304,8 @@ const CoursePlayer = () => {
     }).then((res) => {
       fetchNotes(userId, courseId).then((res) => setSavedNotes(res.data));
     });
+
+
     setSelectedText("");
     setCurrentSelection(null);
     window.getSelection().removeAllRanges();
@@ -268,59 +313,50 @@ const CoursePlayer = () => {
 
   // --- Highlight logic: highlight only the exact saved word/phrase in each transcript line, never before saving ---
   function renderTranscriptWithHighlights(seg, idx) {
-    let text = seg.text;
+    const text = seg.text;
     let parts = [];
     let lastIdx = 0;
+
+    // Find all highlight ranges for this line
     let highlights = [];
 
-    // Only highlight SAVED notes, not current selection
-    savedNotes.forEach((n) => {
-      if (idx < n.transcriptIdx || idx > n.endIdx || !n.noteContent) return;
-      // Single-line highlight
-      if (n.transcriptIdx === n.endIdx) {
-        if (idx === n.transcriptIdx) {
-          if (
-            typeof n.charStart === "number" &&
-            typeof n.charEnd === "number" &&
-            n.charStart !== n.charEnd
-          ) {
-            const start = Math.max(0, Math.min(n.charStart, text.length));
-            const end = Math.max(0, Math.min(n.charEnd, text.length));
-            if (start !== end) highlights.push({ start, end });
-          } else {
-            const start = text.indexOf(n.noteContent);
-            if (start !== -1) {
-              highlights.push({ start, end: start + n.noteContent.length });
-            }
-          }
-        }
-      } else {
-        // Multi-line highlight
-        if (idx === n.transcriptIdx) {
-          const start =
-            typeof n.charStart === "number"
-              ? Math.max(0, Math.min(n.charStart, text.length))
-              : 0;
-          highlights.push({ start, end: text.length });
-        } else if (idx === n.endIdx) {
-          const end =
-            typeof n.charEnd === "number"
-              ? Math.max(0, Math.min(n.charEnd, text.length))
-              : text.length;
-          highlights.push({ start: 0, end });
-        } else if (idx > n.transcriptIdx && idx < n.endIdx) {
-          highlights.push({ start: 0, end: text.length });
-        }
+
+    savedNotes.forEach((note) => {
+      if (idx < note.transcriptIdx || idx > note.endIdx) return;
+
+      if (note.transcriptIdx === note.endIdx && idx === note.transcriptIdx) {
+        // Single-line highlight (word or sentence)
+        highlights.push({
+          start: Math.max(0, Math.min(note.charStart, text.length)),
+          end: Math.max(0, Math.min(note.charEnd, text.length)),
+        });
+      } else if (idx === note.transcriptIdx) {
+        // First line in multi-line selection
+        highlights.push({
+          start: Math.max(0, Math.min(note.charStart, text.length)),
+          end: text.length,
+        });
+      } else if (idx === note.endIdx) {
+        // Last line in multi-line selection
+        highlights.push({
+          start: 0,
+          end: Math.max(0, Math.min(note.charEnd, text.length)),
+        });
+      } else if (idx > note.transcriptIdx && idx < note.endIdx) {
+        // Middle lines in multi-line selection
+        highlights.push({
+          start: 0,
+          end: text.length,
+        });
       }
     });
 
-    if (!highlights.length) return text;
+    if (highlights.length === 0) return text;
 
-    highlights = highlights
-      .filter((h) => h.start < h.end)
-      .sort((a, b) => a.start - b.start);
-
+    // Sort and merge overlapping highlights
+    highlights.sort((a, b) => a.start - b.start);
     let merged = [];
+
     highlights.forEach((h) => {
       if (!merged.length || h.start > merged[merged.length - 1].end) {
         merged.push(h);
@@ -332,6 +368,7 @@ const CoursePlayer = () => {
       }
     });
 
+    // Build the text with highlights
     merged.forEach((h, i) => {
       if (h.start > lastIdx) {
         parts.push(text.slice(lastIdx, h.start));
@@ -440,11 +477,11 @@ const CoursePlayer = () => {
   // Fix: Use flatItems everywhere, not flatLessons, and define currentItemObj at the top of render
   const currentItemObj = flatItems[currentFlatIdx] || {};
   const currentLessonData = currentItemObj.lesson || {};
-  // Is current lesson completed?
+
   const isCompleted =
-    currentItemObj.type === "video" && currentLessonData._id
-      ? completedLessons.includes(currentLessonData._id)
-      : false;
+    currentItemObj.type === "pdf"
+      ? completedLessons.has(currentItemObj.title)
+      : completedLessons.has(currentLessonData.title);
 
   const getYouTubeId = (url) => {
     if (!url) return "";
@@ -872,73 +909,81 @@ const CoursePlayer = () => {
                 {/* Tab Content */}
                 <div className="mt-4">
                   {activeTab === "transcript" && (
-                    <div
-                      className="border rounded-lg bg-white shadow-inner max-h-[360px] overflow-y-auto relative"
-                      ref={transcriptContainerRef}
-                    >
-                      {/* Sticky Save Note button */}
-                      {activeTab === "transcript" &&
-                        selectedText &&
-                        currentSelection && (
-                          <button
-                            className="sticky top-0 right-0 float-right m-2 bg-blue-600 text-white px-3 py-1 rounded shadow hover:bg-blue-700 transition"
-                            style={{ zIndex: 50 }}
-                            onClick={handleSaveNote}
-                          >
-                            Save Note
-                          </button>
-                        )}
-                      {transcriptLoading ? (
+                    <>
+                      {currentItemObj.type === "pdf" ? (
                         <div className="p-4 text-gray-400 text-center">
-                          Loading transcript...
-                        </div>
-                      ) : !Array.isArray(transcript) ||
-                        transcript.length === 0 ? (
-                        <div className="p-4 text-gray-400 text-center">
-                          No transcript available.
+                          Transcript is not available for PDF resources.
                         </div>
                       ) : (
-                        <ul className="divide-y divide-gray-100">
-                          {transcript.map((seg, idx) => (
-                            <li
-                              key={idx}
-                              ref={(el) => (transcriptRefs.current[idx] = el)}
-                              onClick={() => {
-                                if (player) {
-                                  player.seekTo(seg.start, true);
-                                }
-                              }}
-                              className={`px-3 py-2 cursor-pointer transition-all duration-200 relative ${
-                                idx === activeTranscriptIdx
-                                  ? "text-blue-500 font-semibold bg-blue-50"
-                                  : ""
-                              }`}
+                        <div
+                          className="border rounded-lg bg-white shadow-inner max-h-[360px] overflow-y-auto relative"
+                          ref={transcriptContainerRef}
+                        >
+                          {selectedText && currentSelection && (
+                            <button
+                              className="sticky top-0 right-0 float-right m-2 bg-blue-600 text-white px-3 py-1 rounded shadow hover:bg-blue-700 transition"
+                              style={{ zIndex: 50 }}
+                              onClick={handleSaveNote}
                             >
-                              <span className="inline-block w-14 text-xs text-gray-500 mr-2 select-none">
-                                {Math.floor(seg.start / 60)
-                                  .toString()
-                                  .padStart(2, "0")}
-                                :
-                                {Math.floor(seg.start % 60)
-                                  .toString()
-                                  .padStart(2, "0")}
-                              </span>
-                              <span
-                                className="note-selectable"
-                                data-index={idx}
-                                style={{ userSelect: "text" }}
-                                onMouseUp={(e) =>
-                                  handleTextSelection(seg, idx, e)
-                                }
-                              >
-                                {renderTranscriptWithHighlights(seg, idx)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                              Save Note
+                            </button>
+                          )}
+                          {transcriptLoading ? (
+                            <div className="p-4 text-gray-400 text-center">
+                              Loading transcript...
+                            </div>
+                          ) : !Array.isArray(transcript) ||
+                            transcript.length === 0 ? (
+                            <div className="p-4 text-gray-400 text-center">
+                              No transcript available.
+                            </div>
+                          ) : (
+                            <ul className="divide-y divide-gray-100">
+                              {transcript.map((seg, idx) => (
+                                <li
+                                  key={idx}
+                                  ref={(el) =>
+                                    (transcriptRefs.current[idx] = el)
+                                  }
+                                  onClick={() => {
+                                    if (player) {
+                                      player.seekTo(seg.start, true);
+                                    }
+                                  }}
+                                  className={`px-3 py-2 cursor-pointer transition-all duration-200 relative ${
+                                    idx === activeTranscriptIdx
+                                      ? "text-blue-500 font-semibold bg-blue-50"
+                                      : ""
+                                  }`}
+                                >
+                                  <span className="inline-block w-14 text-xs text-gray-500 mr-2 select-none">
+                                    {Math.floor(seg.start / 60)
+                                      .toString()
+                                      .padStart(2, "0")}
+                                    :
+                                    {Math.floor(seg.start % 60)
+                                      .toString()
+                                      .padStart(2, "0")}
+                                  </span>
+                                  <span
+                                    className="note-selectable"
+                                    data-index={idx}
+                                    style={{ userSelect: "text" }}
+                                    onMouseUp={(e) =>
+                                      handleTextSelection(seg, idx, e)
+                                    }
+                                  >
+                                    {renderTranscriptWithHighlights(seg, idx)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
+
                   {activeTab === "notes" && (
                     <div className="border rounded-lg bg-white shadow-inner max-h-[360px] overflow-y-auto p-4">
                       <h3 className="text-lg font-semibold text-blue-700 mb-2">
@@ -954,11 +999,60 @@ const CoursePlayer = () => {
                             key={note._id}
                             className="p-3 border mb-2 rounded bg-yellow-50"
                           >
-                            <div className="font-semibold text-blue-700">
-                              {note.lessonTitle}
-                            </div>
-                            <div className="text-gray-800 mt-1">
-                              {note.noteContent}
+
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="font-semibold text-blue-700">
+                                  {note.lessonTitle}
+                                </div>
+                                {editingNoteId === note._id ? (
+                                  <>
+                                    <textarea
+                                      className="w-full mt-1 p-2 border rounded"
+                                      value={editContent}
+                                      onChange={(e) =>
+                                        setEditContent(e.target.value)
+                                      }
+                                      rows={3}
+                                    />
+                                    <div className="flex gap-2 mt-2">
+                                      <button
+                                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                                        onClick={() => handleSaveEdit(note._id)}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        className="bg-gray-300 px-3 py-1 rounded hover:bg-gray-400"
+                                        onClick={() => setEditingNoteId(null)}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-gray-800 mt-1">
+                                    {note.noteContent}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex flex-col items-center gap-2 ml-4">
+                                <button
+                                  className="text-blue-600 hover:text-blue-800"
+                                  onClick={() =>
+                                    handleEditNote(note._id, note.noteContent)
+                                  }
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  className="text-red-600 hover:text-red-800"
+                                  onClick={() => handleDeleteNote(note._id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))

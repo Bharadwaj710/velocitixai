@@ -1,19 +1,30 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
-const Note = require('../models/Note');
-
+const Note = require("../models/Note");
 
 // Create a note
 router.post("/", async (req, res) => {
   try {
-    let { userId, courseId, lessonTitle, noteContent, transcriptIdx, timestamp } = req.body;
-    // Convert userId and courseId to ObjectId if needed
+    let {
+      userId,
+      courseId,
+      lessonTitle,
+      noteContent,
+      transcriptIdx,
+      endIdx,
+      charStart,
+      charEnd,
+      timestamp,
+    } = req.body;
+
     if (!userId || !courseId || !lessonTitle || !noteContent) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    if (typeof userId === "string" && userId.length === 24) userId = new mongoose.Types.ObjectId(userId);
-    if (typeof courseId === "string" && courseId.length === 24) courseId = new mongoose.Types.ObjectId(courseId);
+    if (typeof userId === "string" && userId.length === 24)
+      userId = new mongoose.Types.ObjectId(userId);
+    if (typeof courseId === "string" && courseId.length === 24)
+      courseId = new mongoose.Types.ObjectId(courseId);
 
     const note = await Note.create({
       userId,
@@ -21,8 +32,12 @@ router.post("/", async (req, res) => {
       lessonTitle,
       noteContent,
       transcriptIdx,
+      endIdx, // ✅ Save the end index
+      charStart, // ✅ Save the starting character index
+      charEnd, // ✅ Save the ending character index
       timestamp,
     });
+
     res.status(201).json(note);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -30,9 +45,13 @@ router.post("/", async (req, res) => {
 });
 
 // Update Note
-router.put('/:noteId', async (req, res) => {
+router.put("/:noteId", async (req, res) => {
   try {
-    const updatedNote = await Note.findByIdAndUpdate(req.params.noteId, req.body, { new: true });
+    const updatedNote = await Note.findByIdAndUpdate(
+      req.params.noteId,
+      req.body,
+      { new: true }
+    );
     res.json(updatedNote);
   } catch (err) {
     res.status(500).json({ error: err.message });

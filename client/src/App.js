@@ -6,6 +6,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { Toaster } from "react-hot-toast";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
@@ -31,7 +32,7 @@ import HRProfile from "./pages/hr/Profile";
 import CollegeOnboarding from "./pages/college/CollegeOnboarding";
 import { ChatProvider } from "./context/ChatContext";
 import ChatAssistant from "./components/ChatAssistant/ChatAssistant";
-import CoursePlayer from './pages/student/CoursePlayer'; // Adjust path if needed
+import CoursePlayer from "./pages/student/CoursePlayer"; // Adjust path if needed
 import MyLearning from "./pages/student/MyLearning";
 import LearningPath from "./pages/student/LearningPath";
 
@@ -49,9 +50,7 @@ const AppContent = () => {
   const shouldHideNavbar = hideNavbarRoutes.some((path) =>
     location.pathname.startsWith(path)
   );
-  const showChatbot = ["/student/CoursePlayer"].includes(
-    location.pathname
-  );
+  const showChatbot = ["/student/CoursePlayer"].includes(location.pathname);
   return (
     <>
       {!shouldHideNavbar && <Navbar />}
@@ -146,9 +145,11 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <Router>
         <AuthProvider>
+          <NotificationProvider>
             <AppContent />
-          <Toaster position="top-right" />
-          <ToastContainer position="top-right" autoClose={3000} />
+            <Toaster position="top-right" />
+            <ToastContainer position="top-right" autoClose={3000} />
+          </NotificationProvider>
         </AuthProvider>
       </Router>
     </div>

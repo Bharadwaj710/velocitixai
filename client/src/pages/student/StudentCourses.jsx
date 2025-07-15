@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
+import { useNotification } from "../../context/NotificationContext";
 
 const StudentCourses = () => {
   const user = JSON.parse(localStorage.getItem("user")) || {};
@@ -10,10 +11,15 @@ const StudentCourses = () => {
   const [error, setError] = useState("");
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [recommendedCourses, setRecommendedCourses] = useState([]);
+  // previousCourses will store the IDs of courses from the last successful fetch
+  // This is crucial for detecting *newly added* recommendations.
+  const [previousCourses, setPreviousCourses] = useState([]);
   const [profile, setProfile] = useState(null);
   const [studentDoc, setStudentDoc] = useState(null); // For checking if details are incomplete
   const [enrollLoading, setEnrollLoading] = useState("");
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const { addNotification, notifications, removeNotification } =
+    useNotification();
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const loadingMessages = [
     "Analyzing your responses with our AI engine... 🧠",
@@ -30,6 +36,9 @@ const StudentCourses = () => {
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
+  const courseRefs = useRef({});
+  const location = useLocation();
+
   const fieldLabels = {
     domain: "Domain",
     level: "Proficiency Level",
@@ -39,50 +48,96 @@ const StudentCourses = () => {
     challenges: "Challenges",
   };
 
+  const removeNotificationByCourseId = async (courseId) => {
+    try {
+      await axios.delete(`/api/notifications/remove/${studentId}/${courseId}`);
+      // No need to update context as your navbar fetches directly from backend on mount
+    } catch (err) {
+      console.error("Error removing notification", err);
+    }
+  };
+
   useEffect(() => {
     if (showDetailsModal) {
       const timeout = setTimeout(() => {
         navigate("/student/details");
       }, 5000); // 5 seconds
-  
+
       return () => clearTimeout(timeout); // Cleanup if component unmounts or modal closes
     }
-  }, [showDetailsModal]);
+  }, [showDetailsModal, navigate]); // Added navigate to dependency array
 
   // Fetch enrolled and recommended courses
-  const fetchCourses = async (forceRefresh = false) => {
+  // The `triggerNotifications` flag determines if new course notifications should be sent.
+  // It's true for manual refresh, but false for initial load.
+  const fetchCourses = async (triggerNotifications = false) => {
     setLoading(true);
     setError("");
     try {
-      // Fetch recommended courses and profile analysis
+      // Fetch current recommendations
       const recRes = await axios.get(
-        `/api/recommendations/${studentId}${forceRefresh ? "?refresh=1" : ""}`
+        `/api/recommendations/${studentId}${
+          triggerNotifications ? "?refresh=1" : ""
+        }`
       );
       setProfile(recRes.data.profile_analysis || null);
 
-      // Always fetch enrolled courses and merge with recommendations
+      // Fetch currently enrolled courses
       const enrollRes = await axios.get(
         `/api/students/enrollments/${studentId}`
       );
       const enrolled = enrollRes.data || [];
       setEnrolledCourses(enrolled);
 
-      // Merge: show all recommended + all enrolled (no duplicates)
-      const recommended = recRes.data.recommended_courses || [];
-      // Add enrolled courses not present in recommended
-      const recommendedIds = new Set(recommended.map(c => (c._id || c)));
+      const currentRecommended = recRes.data.recommended_courses || [];
+
+      // --- New Course Detection Logic ---
+      // Only send notifications if `triggerNotifications` is true AND
+      // if `previousCourses` is not empty (meaning it's not the very first load)
+      if (triggerNotifications && previousCourses.length > 0) {
+        const previousCourseIds = new Set(
+          previousCourses.map((c) => c._id || c)
+        );
+
+        // Filter for courses that are in the current recommended list but NOT in the previous list
+        const newCourses = currentRecommended.filter(
+          (course) => !previousCourseIds.has(course._id || course)
+        );
+
+        if (newCourses.length > 0) {
+          newCourses.forEach(async (course) => {
+            try {
+              // Send notification for each genuinely new course
+              await axios.post("/api/notifications", {
+                type: "new_course",
+                message: `New course added: ${course.title}`,
+                userId: studentId,
+                meta: { courseId: course._id, link: "/student/courses" },
+              });
+            } catch (err) {
+              console.error("Error adding notification for new course:", err);
+            }
+          });
+        }
+      }
+      // --- End New Course Detection Logic ---
+
+      // Merge enrolled and recommended courses for display
+      const recommendedIds = new Set(currentRecommended.map((c) => c._id || c));
       const mergedCourses = [
-        ...recommended,
-        ...enrolled.filter(c => !recommendedIds.has(c._id || c))
+        ...currentRecommended,
+        ...enrolled.filter((c) => !recommendedIds.has(c._id || c)),
       ];
+
       setRecommendedCourses(mergedCourses);
+
+      // ALWAYS update previousCourses with the current recommended list
+      // This sets the baseline for the next comparison.
+      setPreviousCourses(currentRecommended);
 
       setIsProcessed(recRes.data.isProcessed !== false);
 
-      // Fetch student doc to check if details are incomplete
-      const studentRes = await axios.get(
-        `/api/students/details/${studentId}`
-      );
+      const studentRes = await axios.get(`/api/students/details/${studentId}`);
       setStudentDoc(studentRes.data || null);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to fetch courses.");
@@ -92,10 +147,15 @@ const StudentCourses = () => {
     }
   };
 
+  // Initial fetch on component mount or studentId change (e.g., re-login)
   useEffect(() => {
-    if (studentId) fetchCourses();
-    // eslint-disable-next-line
-  }, [studentId]);
+    if (studentId) {
+      // On initial load/re-login, we fetch courses but DO NOT trigger notifications.
+      // The `previousCourses` state will be populated for future comparisons.
+      fetchCourses(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId]); // Only re-run if studentId changes
 
   useEffect(() => {
     if (!loading) return; // only rotate messages while loading
@@ -104,7 +164,7 @@ const StudentCourses = () => {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [loading]);
+  }, [loading, loadingMessages.length]); // Added loadingMessages.length to dependencies
 
   // Helper: is course enrolled?
   const isEnrolled = (courseId) =>
@@ -127,6 +187,37 @@ const StudentCourses = () => {
     return requiredFields.every((f) => !studentDoc[f]);
   };
 
+  useEffect(() => {
+    if (location.state && location.state.courseId) {
+      const courseElement = courseRefs.current[location.state.courseId];
+
+      if (courseElement) {
+        setTimeout(() => {
+          courseElement.scrollIntoView({ behavior: "smooth", block: "center" });
+          // ✅ Add Tailwind highlight class
+          courseElement.classList.add(
+            "ring-4",
+            "ring-blue-400",
+            "transition",
+            "duration-300"
+          );
+
+          // ✅ Remove highlight after 2 seconds
+          setTimeout(() => {
+            courseElement.classList.remove(
+              "ring-4",
+              "ring-blue-400",
+              "transition",
+              "duration-300"
+            );
+          }, 2000);
+        }, 200);
+
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, recommendedCourses]);
+
   // Helper: does student details exist (for modal logic)
   const studentExists = !!(
     studentDoc &&
@@ -145,6 +236,7 @@ const StudentCourses = () => {
   );
 
   // ENROLL
+
   const handleEnroll = async (course) => {
     setEnrollLoading(course._id);
     try {
@@ -158,6 +250,10 @@ const StudentCourses = () => {
         const exists = prev.some((c) => (c._id || c) === course._id);
         return exists ? prev : [...prev, course];
       });
+
+      // ✅ Automatically remove the related notification
+      removeNotificationByCourseId(course._id);
+
       // ✅ Show modal if student details are not filled
       if (!studentExists) {
         setShowDetailsModal(true);
@@ -200,6 +296,7 @@ const StudentCourses = () => {
   // Refresh recommendations handler
   const handleRefreshRecommendations = async () => {
     setRefreshing(true);
+    // Manual refresh always triggers new course detection and notifications
     await fetchCourses(true);
   };
 
@@ -231,7 +328,7 @@ const StudentCourses = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-pink-50 py-10 px-2 sm:px-4 md:px-8">
-    {/* Modal for student details completion */}
+      {/* Modal for student details completion */}
       {showDetailsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full flex flex-col items-center">
@@ -287,7 +384,7 @@ const StudentCourses = () => {
                 <RefreshCw
                   className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`}
                 />
-                Refresh
+                Click here to fetch latest courses
               </button>
             </div>
             {recommendedCourses.length === 0 ? (
@@ -301,6 +398,7 @@ const StudentCourses = () => {
                   return (
                     <div
                       key={course._id || idx}
+                      ref={(el) => (courseRefs.current[course._id] = el)}
                       className={`flex items-center bg-white rounded-2xl shadow-md p-6 transition-all duration-300 hover:shadow-xl border gap-6 ${
                         enrolled ? "border-green-200" : "border-blue-100"
                       }`}

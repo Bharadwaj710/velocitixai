@@ -14,4 +14,6 @@ const careerAssessmentSchema = new mongoose.Schema({
   submittedAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model("CareerAssessment", careerAssessmentSchema);
+module.exports =
+  mongoose.models.CareerAssessment ||
+  mongoose.model("CareerAssessment", careerAssessmentSchema);
