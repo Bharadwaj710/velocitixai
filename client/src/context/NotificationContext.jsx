@@ -19,7 +19,7 @@ export const NotificationProvider = ({ children }) => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get(`/api/notifications/${studentId}`);
+      const res = await axios.get(`/api/notifications/user/${studentId}`); // ✅ FIXED PATH
       const formatted = res.data.map((n) => ({
         ...n,
         link: n.meta?.link || "/student/courses",

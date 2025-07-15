@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 
-// HR Navbar Component
+// HR Navbar Component (No changes needed here)
 const HRNavbar = ({ hrInfo }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
@@ -31,7 +31,7 @@ const HRNavbar = ({ hrInfo }) => {
             className="flex items-center space-x-3 focus:outline-none"
             onClick={() => setShowProfileMenu((v) => !v)}
           >
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 text-lg">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-white font-bold text-lg">
               {hrInfo?.company ? hrInfo.company.charAt(0).toUpperCase() : "H"}
             </div>
             <div className="text-left hidden sm:block">
@@ -81,8 +81,10 @@ const Dashboard = () => {
   const [hrInfo, setHrInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardDomain, setLeaderboardDomain] = useState("");
+  const [leaderboardSkills, setLeaderboardSkills] = useState("");
+
   const [filteredStudents, setFilteredStudents] = useState([]);
-  const [filterCourse, setFilterCourse] = useState("");
   const [studentDetails, setStudentDetails] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [filterDomain, setFilterDomain] = useState("");
@@ -90,12 +92,77 @@ const Dashboard = () => {
 
   const user = JSON.parse(localStorage.getItem("user"));
 
+  // Helper function to calculate average progress based on courseProgressMap
+  const calculateAverageProgress = (courseProgressMap, courses) => {
+    if (!courses || courses.length === 0) {
+      return 0;
+    }
+    let totalProgress = 0;
+    let coursesWithProgress = 0;
+
+    courses.forEach((course) => {
+      const progress = courseProgressMap[course._id];
+      if (typeof progress === "number") {
+        totalProgress += progress;
+        coursesWithProgress++;
+      }
+    });
+
+    if (coursesWithProgress === 0) {
+      return 0;
+    }
+    return Math.round(totalProgress / coursesWithProgress);
+  };
+
   const fetchStudents = async () => {
     try {
       const res = await axios.get("/api/hr/students");
-      setStudents(res.data.students);
+      const studentsData = res.data.students;
+
+      // --- START OF WORKAROUND FOR N+1 PROBLEM ---
+      // Fetch detailed progress for each student
+      const studentsWithDetailedProgress = await Promise.all(
+        studentsData.map(async (student) => {
+          try {
+            const detailRes = await axios.get(
+              `/api/hr/student-details/${student._id}`
+            );
+            const { student: detailedStudent, courseProgressMap } =
+              detailRes.data;
+
+            // Calculate average progress using the detailed data
+            const calculatedProgress = calculateAverageProgress(
+              courseProgressMap,
+              detailedStudent.course // Use the courses from detailed student data
+            );
+
+            return {
+              ...student, // Keep original student data
+              calculatedProgress, // Add the calculated average progress
+              courseProgressMap: courseProgressMap, // Also store the map for modal
+              detailedCourses: detailedStudent.course, // Store detailed courses for modal
+            };
+          } catch (detailErr) {
+            console.warn(
+              `Could not fetch details for student ${student._id}:`,
+              detailErr
+            );
+            // Return student with 0 progress if details fetch fails
+            return {
+              ...student,
+              calculatedProgress: 0,
+              courseProgressMap: {},
+              detailedCourses: [],
+            };
+          }
+        })
+      );
+      // --- END OF WORKAROUND ---
+
+      setStudents(studentsWithDetailedProgress);
     } catch (err) {
       console.error("Error fetching students:", err);
+      toast.error("Failed to fetch student data.");
     }
   };
 
@@ -105,6 +172,7 @@ const Dashboard = () => {
       setInvitedStudents(res.data.students);
     } catch (err) {
       console.error("Error fetching invited students:", err);
+      toast.error("Failed to fetch invited students list.");
     }
   };
 
@@ -114,25 +182,37 @@ const Dashboard = () => {
       setHrInfo(res.data.hr);
     } catch (err) {
       console.error("Error fetching HR details:", err);
+      toast.error("Failed to fetch HR profile details.");
     }
   };
 
   useEffect(() => {
-    fetchStudents();
-    fetchInvitedStudents();
-    fetchHRDetails();
-    setLoading(false);
+    const initializeDashboard = async () => {
+      setLoading(true);
+      // Use Promise.allSettled to allow all fetches to attempt, even if one fails
+      const [studentsRes, invitedRes, hrRes] = await Promise.allSettled([
+        fetchStudents(),
+        fetchInvitedStudents(),
+        fetchHRDetails(),
+      ]);
+
+      // You can add more granular error handling here if needed,
+      // but the individual fetch functions already show toasts.
+      setLoading(false);
+    };
+    initializeDashboard();
   }, []);
+
+  // Filter students based on domain and skills
   useEffect(() => {
     let filtered = [...students];
 
     if (filterDomain.trim()) {
-      filtered = filtered.filter((s) =>
-        s.domain?.toLowerCase().includes(filterDomain.toLowerCase())
+      filtered = filtered.filter(
+        (s) => s.domain?.toLowerCase() === filterDomain.toLowerCase()
       );
     }
 
-    // Filter by skills
     if (filterSkills.trim()) {
       filtered = filtered.filter((s) =>
         s.skills?.some((skill) =>
@@ -140,9 +220,7 @@ const Dashboard = () => {
         )
       );
     }
-    if (!filterDomain.trim() && !filterSkills.trim()) {
-      filtered = [...students];
-    }
+
     setFilteredStudents(filtered);
   }, [filterDomain, filterSkills, students]);
 
@@ -163,13 +241,21 @@ const Dashboard = () => {
         toast.success("Invitation sent successfully!");
         fetchInvitedStudents(); // refresh list
       } else {
-        toast.error("Failed to send invitation");
+        toast.error(res.data.message || "Failed to send invitation.");
       }
     } catch (err) {
       console.error("Error sending hire invitation:", err);
-      toast.error("Error sending invite. Try again later.");
+      toast.error("Error sending invite. Please try again later.");
     }
   };
+
+  // Leaderboard logic (top 3 by calculated average progress)
+  const leaderboard = useMemo(() => {
+    return [...students]
+      .filter((s) => s.calculatedProgress !== undefined)
+      .sort((a, b) => (b.calculatedProgress || 0) - (a.calculatedProgress || 0))
+      .slice(0, 3);
+  }, [students]);
 
   if (loading)
     return (
@@ -177,12 +263,6 @@ const Dashboard = () => {
         Loading...
       </div>
     );
-
-  // Leaderboard logic (top 3 by progress)
-  const leaderboard = [...students]
-    .filter((s) => s.progress !== undefined)
-    .sort((a, b) => (b.progress || 0) - (a.progress || 0))
-    .slice(0, 3);
 
   // Stat cards data
   const statCards = [
@@ -207,7 +287,7 @@ const Dashboard = () => {
               key={s._id}
               className="text-xs font-semibold text-gray-900 whitespace-normal break-words max-w-xs"
             >
-              {i + 1}. {s.user?.name || "N/A"} ({s.progress || 0}%)
+              {i + 1}. {s.user?.name || "N/A"} ({s.calculatedProgress || 0}%)
             </span>
           ))}
         </div>
@@ -241,9 +321,31 @@ const Dashboard = () => {
   const getAvatar = (name) => (name ? name.charAt(0).toUpperCase() : "S");
 
   const handleStudentClick = async (studentId) => {
-    const res = await axios.get(`/api/hr/student-details/${studentId}`);
-    setStudentDetails(res.data);
-    setShowModal(true);
+    try {
+      // When clicking "View Details", we already have the detailed data if the N+1 workaround is active.
+      // Find the student from the `students` state to avoid another API call.
+      const studentData = students.find((s) => s._id === studentId);
+
+      if (studentData) {
+        // If we already fetched detailed data, use it
+        setStudentDetails({
+          student: {
+            ...studentData,
+            course: studentData.detailedCourses, // Use the detailed courses
+          },
+          courseProgressMap: studentData.courseProgressMap,
+        });
+        setShowModal(true);
+      } else {
+        // Fallback: if for some reason data isn't in state, fetch it
+        const res = await axios.get(`/api/hr/student-details/${studentId}`);
+        setStudentDetails(res.data);
+        setShowModal(true);
+      }
+    } catch (err) {
+      console.error("Error fetching student details:", err);
+      toast.error("Failed to fetch student details.");
+    }
   };
 
   return (
@@ -271,52 +373,119 @@ const Dashboard = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="Filter by domain"
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Domain Dropdown */}
+          <select
             value={filterDomain}
             onChange={(e) => setFilterDomain(e.target.value)}
-            className="border p-2 rounded w-full sm:w-1/2"
-          />
+            className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Domains</option>
+            <option value="Technology and Innovation">
+              Technology and Innovation
+            </option>
+            <option value="Healthcare and Wellness">
+              Healthcare and Wellness
+            </option>
+            <option value="Business and Finance">Business and Finance</option>
+            <option value="Arts and Creativity">Arts and Creativity</option>
+            <option value="Education and Social Services">
+              Education and Social Services
+            </option>
+          </select>
+
+          {/* Skills Text Input */}
           <input
             type="text"
-            placeholder="Filter by skills"
+            placeholder="Filter by skills (e.g., React, Python)"
             value={filterSkills}
             onChange={(e) => setFilterSkills(e.target.value)}
-            className="border p-2 rounded w-full sm:w-1/2"
+            className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
         {/* Leaderboard Modal */}
         {showLeaderboard && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full relative">
               <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl"
+                className="absolute top-3 right-4 text-gray-400 hover:text-gray-800 text-xl"
                 onClick={() => setShowLeaderboard(false)}
-                aria-label="Close"
               >
                 &times;
               </button>
-              <h2 className="text-2xl font-bold mb-4 flex items-center">
+              <h2 className="text-2xl font-bold mb-4 flex items-center text-gray-800">
                 <span role="img" aria-label="trophy" className="mr-2">
                   🏆
                 </span>
                 Leaderboard
               </h2>
-              <ol className="space-y-3">
+
+              {/* Filters inside leaderboard */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <select
+                  value={leaderboardDomain}
+                  onChange={(e) => setLeaderboardDomain(e.target.value)}
+                  className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Domains</option>
+                  <option value="Technology and Innovation">
+                    Technology and Innovation
+                  </option>
+                  <option value="Healthcare and Wellness">
+                    Healthcare and Wellness
+                  </option>
+                  <option value="Business and Finance">
+                    Business and Finance
+                  </option>
+                  <option value="Arts and Creativity">
+                    Arts and Creativity
+                  </option>
+                  <option value="Education and Social Services">
+                    Education and Social Services
+                  </option>
+                </select>
+
+                <input
+                  type="text"
+                  placeholder="Filter by skills"
+                  value={leaderboardSkills}
+                  onChange={(e) => setLeaderboardSkills(e.target.value)}
+                  className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <ol className="space-y-3 max-h-96 overflow-y-auto pr-2">
                 {[...students]
-                  .filter((s) => s.progress !== undefined)
-                  .sort((a, b) => (b.progress || 0) - (a.progress || 0))
+                  .filter((s) => s.calculatedProgress !== undefined)
+                  .filter((s) =>
+                    leaderboardDomain
+                      ? s.domain?.toLowerCase() ===
+                        leaderboardDomain.toLowerCase()
+                      : true
+                  )
+                  .filter((s) =>
+                    leaderboardSkills
+                      ? s.skills?.some((skill) =>
+                          skill
+                            .toLowerCase()
+                            .includes(leaderboardSkills.toLowerCase())
+                        )
+                      : true
+                  )
+                  .sort(
+                    (a, b) =>
+                      (b.calculatedProgress || 0) - (a.calculatedProgress || 0)
+                  )
                   .map((s, idx) => (
                     <li
                       key={s._id || idx}
-                      className="flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50"
+                      onClick={() => handleStudentClick(s._id)}
+                      className="flex items-center justify-between px-2 py-2 rounded hover:bg-gray-100 cursor-pointer transition duration-150 ease-in-out"
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3">
                         <span
-                          className={`font-bold ${
+                          className={`font-bold text-lg ${
                             idx === 0
                               ? "text-yellow-600"
                               : idx === 1
@@ -328,12 +497,17 @@ const Dashboard = () => {
                         >
                           #{idx + 1}
                         </span>
-                        <span className="font-semibold">
-                          {s.user?.name || "N/A"}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900">
+                            {s.user?.name || "N/A"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {s.college || "N/A"}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {s.progress || 0}%
+                      <span className="text-sm font-medium text-gray-700">
+                        {s.calculatedProgress || 0}%
                       </span>
                     </li>
                   ))}
@@ -348,7 +522,7 @@ const Dashboard = () => {
         </h2>
         {filteredStudents.length === 0 ? (
           <div className="bg-white rounded-xl shadow p-6 text-gray-500 text-center">
-            No students found.
+            No students found matching your criteria.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -366,19 +540,27 @@ const Dashboard = () => {
                 <div className="text-gray-600 text-sm text-center mb-2">
                   {student.user?.email || "N/A"}
                 </div>
-                <div className="text-xs text-gray-500 mb-2">
-                  {Array.isArray(student.course)
-                    ? student.course.map((c) => c.title).join(", ") || "N/A"
-                    : student.course?.title || "N/A"}
+                {/* Display College, Roll No, College Course */}
+                <div className="text-xs text-gray-500 text-center mb-1">
+                  <strong>College:</strong> {student.college || "N/A"}
                 </div>
+                <div className="text-xs text-gray-500 text-center mb-1">
+                  <strong>Roll No:</strong> {student.rollNumber || "N/A"}
+                </div>
+                <div className="text-xs text-gray-500 text-center mb-2">
+                  <strong>College Course:</strong>{" "}
+                  {student.collegecourse || "N/A"}
+                </div>
+
+                {/* Progress Bar based on calculatedAverageProgress */}
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                   <div
                     className="h-2 rounded-full bg-gradient-to-r from-green-400 to-blue-500"
-                    style={{ width: `${student.progress || 0}%` }}
+                    style={{ width: `${student.calculatedProgress || 0}%` }}
                   ></div>
                 </div>
                 <div className="text-xs text-gray-500 mb-2">
-                  Progress: {student.progress || 0}%
+                  Progress: {student.calculatedProgress || 0}%
                 </div>
                 <div className="flex flex-col gap-2 w-full">
                   <button
@@ -447,33 +629,38 @@ const Dashboard = () => {
                   Course Progress
                 </h3>
                 <div className="space-y-4">
-                  {studentDetails.student.course.map((course) => (
-                    <div
-                      key={course._id}
-                      className="bg-gray-50 p-4 rounded-lg border"
-                    >
-                      <div className="font-semibold text-blue-600 text-md mb-1">
-                        {course.title}
+                  {studentDetails.student.course.length > 0 ? (
+                    studentDetails.student.course.map((course) => (
+                      <div
+                        key={course._id}
+                        className="bg-gray-50 p-4 rounded-lg border"
+                      >
+                        <div className="font-semibold text-blue-600 text-md mb-1">
+                          {course.title}
+                        </div>
+                        <div className="text-sm text-gray-600 mb-1">
+                          {course.description}
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-500 h-2 rounded-full"
+                            style={{
+                              width: `${
+                                studentDetails.courseProgressMap[course._id] ||
+                                0
+                              }%`,
+                            }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-right text-gray-500 mt-1">
+                          {studentDetails.courseProgressMap[course._id] || 0}%
+                          completed
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-600 mb-1">
-                        {course.description}
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-500 h-2 rounded-full"
-                          style={{
-                            width: `${
-                              studentDetails.courseProgressMap[course._id] || 0
-                            }%`,
-                          }}
-                        ></div>
-                      </div>
-                      <div className="text-xs text-right text-gray-500 mt-1">
-                        {studentDetails.courseProgressMap[course._id] || 0}%
-                        completed
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-gray-500">No courses enrolled.</p>
+                  )}
                 </div>
               </div>
             </div>

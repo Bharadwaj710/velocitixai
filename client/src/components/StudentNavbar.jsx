@@ -100,7 +100,7 @@ const StudentNavbar = () => {
           console.warn("Student ID not found for fetching notifications.");
           return;
         }
-        const res = await fetch(`/api/notifications/${studentId}`);
+        const res = await fetch(`/api/notifications/user/${studentId}`);
         if (res.ok) {
           const data = await res.json();
           const filteredNotifications = data.filter(

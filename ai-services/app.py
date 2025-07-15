@@ -11,6 +11,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from flask_cors import CORS
 from generate_quiz import generate_quiz_from_transcript
+from score_quiz import score_quiz_with_ai
 
 # --- Init ---
 load_dotenv("../server/.env")
@@ -128,100 +129,115 @@ def analyze_video():
 
 @app.route("/suggest-course-metadata", methods=["POST"])
 def suggest_course_metadata():
-    import traceback
     import json
 
+    # Get title and description
+    data = request.get_json()
+    title = data.get("title", "").strip()
+    description = data.get("description", "").strip()
+
+    # Check title
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    # Configure Gemini API key
     try:
-        # Get input data
-        data = request.get_json()
-        title = data.get("title", "").strip()
-        description = data.get("description", "").strip()
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    except Exception as e:
+        return jsonify({"error": f"Failed to configure Gemini: {str(e)}"}), 500
 
-        if not title:
-            return jsonify({"error": "Course title is required"}), 400
+    # Define allowed domains
+    allowed_domains = [
+        "Technology and Innovation",
+        "Healthcare and Wellness",
+        "Business and Finance",
+        "Arts and Creativity",
+        "Education and Social Services"
+    ]
 
-        # Get and validate API key
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            return jsonify({"error": "GEMINI_API_KEY not set in environment"}), 500
+    # Prepare prompt
+    prompt = f"""
+    Given the following YouTube course title{' and description' if description else ''}, suggest:
+    - The most relevant domain for this course (choose ONLY from: {', '.join(allowed_domains)})
+    - 3 to 5 ideal job roles
+    - 3 to 5 key skills
+    - 2 to 3 learning challenges
 
-        genai.configure(api_key=api_key)
+    Respond ONLY as JSON with keys: domain, idealRoles, skillsCovered, challengesAddressed.
 
-        # Allowed domains
-        allowed_domains = [
-            "Technology and Innovation",
-            "Healthcare and Wellness",
-            "Business and Finance",
-            "Arts and Creativity",
-            "Education and Social Services"
-        ]
+    Course Title: {title}
+    {"Course Description: " + description if description else ""}
+    """
 
-        # Build prompt
-        prompt = f"""
-        Given the following YouTube course title{" and description" if description else ""}, suggest:
-        - The most relevant domain for this course (choose ONLY from: {', '.join(allowed_domains)})
-        - 3 to 5 ideal job roles
-        - 3 to 5 key skills
-        - 2 to 3 learning challenges
-
-        Respond ONLY as JSON with keys: domain, idealRoles, skillsCovered, challengesAddressed.
-
-        Course Title: {title}
-        {"Course Description: " + description if description else ""}
-        """
-
-        # Call Gemini
+    # Generate response from Gemini
+    try:
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
+        response_text = getattr(response, "text", "")
 
-        try:
-            response_text = response.text
-        except Exception:
-            response_text = str(response)
-
-        print(">> Gemini Response Text:")
+        print("=== Gemini Raw Response ===")
         print(response_text)
 
-        # Extract JSON from text
-        match = re.search(r"\{[\s\S]*?\}", response_text)
+        # Extract JSON block from response
+        match = re.search(r"\{.*\}", response_text, re.DOTALL)
         if not match:
-            raise ValueError("No JSON found in Gemini response.")
+            raise ValueError("JSON not found in response.")
 
         metadata = json.loads(match.group(0))
 
+        # Validate the domain
         if metadata.get("domain") not in allowed_domains:
-            raise ValueError(f"Domain {metadata.get('domain')} not allowed.")
+            raise ValueError("Domain is not one of the allowed options.")
 
         return jsonify(metadata), 200
 
     except Exception as e:
-        traceback.print_exc()
         return jsonify({
-            "error": str(e),
-            "rawResponse": response_text if 'response_text' in locals() else "none"
+            "error": f"AI response invalid or failed: {str(e)}",
+            "rawResponse": response_text if 'response_text' in locals() else ""
         }), 500
+
+from utils.progress_tracker import set_progress
 
 @app.route("/generate-transcript", methods=["POST"])
 def generate_transcript():
     data = request.get_json()
     video_url = data.get("videoUrl")
+
     if not video_url:
         return jsonify({"error": "Missing videoUrl"}), 400
+
     try:
         video_id = extract_youtube_id(video_url).strip()
+        set_progress(video_id, 5)  # ✅ Start progress
+
         audio_path = download_audio(video_url)
         if not audio_path:
+            set_progress(video_id, 0)
             return jsonify({"error": "Audio download failed"}), 500
+
+        set_progress(video_id, 25)  # ✅ Audio downloaded
+
         transcript = run_whisper(audio_path)
         if not transcript:
+            set_progress(video_id, 0)
             return jsonify({"error": "Whisper failed"}), 500
+
+        set_progress(video_id, 80)  # ✅ Transcription done
+
         course, lesson = find_lesson(video_id)
         if not course or not lesson:
             return jsonify({"error": "Lesson not found"}), 404
+
         save_transcript(course["_id"], lesson["_id"], video_id, transcript)
+        set_progress(video_id, 100)  # ✅ Done
+
         return jsonify({"message": "Transcript saved", "videoId": video_id}), 200
+
     except Exception as e:
+        set_progress(video_id, 0)
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/generate-quiz", methods=["POST"])
 def generate_quiz():
@@ -242,6 +258,29 @@ def generate_quiz():
     # ✅ Generate quiz using Gemini
     quiz = generate_quiz_from_transcript(transcript)
     return jsonify(quiz), 200
+
+@app.route("/score-quiz", methods=["POST"])
+def score_quiz():
+    try:
+        data = request.get_json()
+        student_answers = data.get("studentAnswers", [])
+        original_questions = data.get("originalQuestions", [])
+
+        if not student_answers or not original_questions:
+            return jsonify({"error": "Missing data"}), 400
+
+        result = score_quiz_with_ai(student_answers, original_questions)
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"[SERVER ERROR] {e}")
+        return jsonify({"error": "Failed to score quiz"}), 500
+
+@app.route("/progress/<lesson_id>", methods=["GET"])
+def get_progress_for_lesson(lesson_id):
+    from utils.progress_tracker import get_progress
+    print(f"[PROGRESS CHECK] Fetching progress for {lesson_id}")
+    return jsonify({ "progress": get_progress(lesson_id) })
 
 
 if __name__ == "__main__":
