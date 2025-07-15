@@ -99,6 +99,24 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   // --- Status state for progress and per-lesson status ---
   const [transcriptStatus, setTranscriptStatus] = useState({});
   const [quizStatus, setQuizStatus] = useState({});
+  // For fast lookup by videoId
+  const [transcriptMap, setTranscriptMap] = useState({});
+  const [quizMap, setQuizMap] = useState({});
+
+const [aiInterviewEnabled, setAiInterviewEnabled] = useState(
+  course.aiInterviewEnabled || false
+);
+
+  (editedCourse.weeks || []).forEach((week) => {
+    (week.modules || []).forEach((mod) => {
+      (mod.lessons || []).forEach((lesson) => {
+        if (lesson.videoId && transcriptStatus[lesson._id])
+          transcriptMap[lesson.videoId] = true;
+        if (lesson.videoId && quizStatus[lesson._id])
+          quizMap[lesson.videoId] = true;
+      });
+    });
+  });
   const [progress, setProgress] = useState({
     transcripts: { completed: 0, total: 0 },
     quizzes: { completed: 0, total: 0 },
@@ -350,6 +368,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
       ...editedCourse,
       durationWeeks: parseInt(editedCourse.durationWeeks, 10),
       weeks,
+      aiInterviewEnabled,
     };
     delete payload.modules;
 
@@ -578,58 +597,54 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   };
 
   // --- Poll progress for all in-progress lessons every 2s ---
-useEffect(() => {
-  const interval = setInterval(() => {
-    Object.keys(progressMap).forEach(async (videoId) => {
-      const current = progressMap[videoId];
-      if (!current?.inProgress) return;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      Object.keys(progressMap).forEach(async (videoId) => {
+        const current = progressMap[videoId];
+        if (!current?.inProgress) return;
 
-      try {
-        const res = await axios.get(
-          `http://localhost:5001/progress/${videoId}`
-        );
-        const newBackendPercent = res.data.progress;
+        try {
+          const res = await axios.get(
+            `http://localhost:5001/progress/${videoId}`
+          );
+          const newBackendPercent = res.data.progress;
 
-        setProgressMap((prev) => ({
-          ...prev,
-          [videoId]: {
-            ...prev[videoId],
-            percent: Math.max(prev[videoId].percent, newBackendPercent),
-            lastBackendPercent: newBackendPercent,
-            inProgress: true,
-          },
-        }));
+          setProgressMap((prev) => ({
+            ...prev,
+            [videoId]: {
+              ...prev[videoId],
+              percent: Math.max(prev[videoId].percent, newBackendPercent),
+              lastBackendPercent: newBackendPercent,
+              inProgress: true,
+            },
+          }));
 
-
-        if (newBackendPercent >= 100) {
-          setTimeout(() => {
-            setProgressMap((prev) => ({
-              ...prev,
-              [videoId]: {
-                ...prev[videoId],
-                inProgress: false,
-              },
-            }));
-          }, 1000); // Show 100% for 1s
+          if (newBackendPercent >= 100) {
+            setTimeout(() => {
+              setProgressMap((prev) => ({
+                ...prev,
+                [videoId]: {
+                  ...prev[videoId],
+                  inProgress: false,
+                },
+              }));
+            }, 1000); // Show 100% for 1s
+          }
+        } catch (err) {
+          setProgressMap((prev) => ({
+            ...prev,
+            [videoId]: {
+              ...prev[videoId],
+              inProgress: false,
+              error: "Error fetching progress",
+            },
+          }));
         }
-      } catch (err) {
-        setProgressMap((prev) => ({
-          ...prev,
-          [videoId]: {
-            ...prev[videoId],
-            inProgress: false,
-            error: "Error fetching progress",
-          },
-        }));
-      }
-    });
-  }, 2000);
+      });
+    }, 2000);
 
-  return () => clearInterval(interval);
-}, [progressMap]);
-
-
-
+    return () => clearInterval(interval);
+  }, [progressMap]);
 
   const handleGenerateTranscriptForLesson = async (lesson) => {
     const { videoUrl, videoId, _id: lessonId, courseId } = lesson;
@@ -637,20 +652,15 @@ useEffect(() => {
       toast.error("Lesson video info missing.");
       return;
     }
-
-    // 🔁 Use videoId as key
-  setProgressMap((prev) => ({
-    ...prev,
-    [videoId]: {
-      percent: 5,
-      lastBackendPercent: 5,
-      inProgress: true,
-      type: "transcript",
-    },
-  }));
-
-
-
+    setProgressMap((prev) => ({
+      ...prev,
+      [videoId]: {
+        percent: 5,
+        lastBackendPercent: 5,
+        inProgress: true,
+        type: "transcript",
+      },
+    }));
     try {
       await axios.post("http://localhost:5001/generate-transcript", {
         videoUrl,
@@ -658,7 +668,15 @@ useEffect(() => {
         lessonId,
         courseId,
       });
+      setTranscriptMap((prev) => ({ ...prev, [videoId]: true })); // <-- update immediately
       toast.success("Transcript generation complete");
+      setProgressMap((prev) => ({
+        ...prev,
+        [videoId]: {
+          ...prev[videoId],
+          inProgress: false,
+        },
+      }));
     } catch (err) {
       toast.error("Failed to generate transcript");
       setProgressMap((prev) => ({
@@ -677,7 +695,15 @@ useEffect(() => {
       toast.error("Lesson missing.");
       return;
     }
-    setLoadingLesson((prev) => ({ ...prev, [lesson._id + "_quiz"]: true }));
+    const videoId = lesson.videoId;
+    setProgressMap((prev) => ({
+      ...prev,
+      [videoId]: {
+        percent: 5,
+        inProgress: true,
+        type: "quiz",
+      },
+    }));
     try {
       // Fetch transcript if not present
       let transcript = lesson.transcript;
@@ -686,6 +712,13 @@ useEffect(() => {
         transcript = res.data?.transcript;
       }
       if (!transcript || !transcript.length) {
+        setProgressMap((prev) => ({
+          ...prev,
+          [videoId]: {
+            ...prev[videoId],
+            inProgress: false,
+          },
+        }));
         toast.error("Transcript required before generating quiz.");
         return;
       }
@@ -694,18 +727,34 @@ useEffect(() => {
         transcript,
       });
       if (res.status === 200) {
-        setQuizStatus((prev) => ({
-          ...prev,
-          [lesson._id]: true,
-        }));
+        setQuizMap((prev) => ({ ...prev, [videoId]: true }));
         toast.success("Quiz generated!");
+        setProgressMap((prev) => ({
+          ...prev,
+          [videoId]: {
+            ...prev[videoId],
+            inProgress: false,
+          },
+        }));
       } else {
+        setProgressMap((prev) => ({
+          ...prev,
+          [videoId]: {
+            ...prev[videoId],
+            inProgress: false,
+          },
+        }));
         toast.error("Quiz generation failed.");
       }
     } catch (err) {
+      setProgressMap((prev) => ({
+        ...prev,
+        [videoId]: {
+          ...prev[videoId],
+          inProgress: false,
+        },
+      }));
       toast.error("Quiz generation failed.");
-    } finally {
-      setLoadingLesson((prev) => ({ ...prev, [lesson._id + "_quiz"]: false }));
     }
   };
 
@@ -809,65 +858,92 @@ useEffect(() => {
                             )
                           }
                         />
-                        {/* Status badges */}
-                        <span
-                          className={`text-xs px-2 py-1 rounded font-semibold ${
-                            transcriptStatus[lesson._id]
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                          title={
-                            transcriptStatus[lesson._id]
-                              ? "Transcript generated"
-                              : "Transcript not generated"
-                          }
-                        >
-                          {transcriptStatus[lesson._id]
-                            ? "Transcript ✅"
-                            : "Transcript ❌"}
-                        </span>
-                        <span
-                          className={`text-xs px-2 py-1 rounded font-semibold ${
-                            quizStatus[lesson._id]
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                          title={
-                            quizStatus[lesson._id]
-                              ? "Quiz generated"
-                              : "Quiz not generated"
-                          }
-                        >
-                          {quizStatus[lesson._id] ? "Quiz ✅" : "Quiz ❌"}
-                        </span>
-                        {/* Dropdown menu */}
-                        <DropdownMenu
-                          options={[
-                            {
-                              label: transcriptStatus[lesson._id]
-                                ? "Regenerate Transcript"
-                                : "Generate Transcript",
-                              icon: transcriptStatus[lesson._id] ? "🔁" : "✅",
-                              onClick: () =>
-                                handleGenerateTranscriptForLesson(lesson),
-                              disabled:
-                                loadingLesson[lesson._id + "_transcript"],
-                            },
-                            {
-                              label: quizStatus[lesson._id]
-                                ? "Regenerate Quiz"
-                                : loadingLesson[lesson._id + "_quiz"]
-                                ? "Generating…"
-                                : "Generate Quiz",
-                              icon: quizStatus[lesson._id] ? "🔁" : "✅",
-                              onClick: () =>
-                                handleGenerateQuizForLesson(lesson),
-                              disabled:
-                                loadingLesson[lesson._id + "_quiz"] ||
-                                !transcriptStatus[lesson._id],
-                            },
-                          ]}
-                        />
+                        {/* Inline transcript/quiz buttons */}
+                        <div className="flex gap-2 mt-2">
+                          {/* Transcript Button */}
+                          {(() => {
+                            const hasTranscript =
+                              lesson.videoId && transcriptMap[lesson.videoId];
+                            const isLoading =
+                              progressMap[lesson.videoId]?.inProgress &&
+                              progressMap[lesson.videoId]?.type ===
+                                "transcript";
+                            const canGenerate =
+                              !!lesson.videoId && !!lesson._id;
+                            let btnColor = hasTranscript
+                              ? "bg-green-500 hover:bg-green-600"
+                              : "bg-orange-500 hover:bg-orange-600";
+                            let btnText = hasTranscript
+                              ? "Regenerate\nTranscript"
+                              : "Generate\nTranscript";
+                            let disabled = isLoading || !canGenerate;
+                            let tooltip = !lesson._id
+                              ? "Save lesson before generating transcript"
+                              : !lesson.videoId
+                              ? "Add a valid videoId"
+                              : "";
+                            if (isLoading) btnText = "...";
+                            return (
+                              <button
+                                className={`px-3 py-2 text-xs font-medium rounded-md whitespace-pre-line text-center text-white ${btnColor} ${
+                                  disabled
+                                    ? "opacity-60 cursor-not-allowed"
+                                    : ""
+                                }`}
+                                disabled={disabled}
+                                title={
+                                  disabled && tooltip ? tooltip : undefined
+                                }
+                                onClick={() =>
+                                  !disabled &&
+                                  handleGenerateTranscriptForLesson(lesson)
+                                }
+                              >
+                                {btnText}
+                              </button>
+                            );
+                          })()}
+                          {/* Quiz Button */}
+                          {(() => {
+                            const hasQuiz =
+                              lesson.videoId && quizMap[lesson.videoId];
+                            const hasTranscript =
+                              lesson.videoId && transcriptMap[lesson.videoId];
+                            const isLoading =
+                              progressMap[lesson.videoId]?.inProgress &&
+                              progressMap[lesson.videoId]?.type === "quiz";
+                            let btnColor = hasQuiz
+                              ? "bg-green-500 hover:bg-green-600"
+                              : "bg-orange-500 hover:bg-orange-600";
+                            let btnText = hasQuiz
+                              ? "Regenerate\nQuiz"
+                              : "Generate\nQuiz";
+                            let disabled = isLoading || !hasTranscript;
+                            let tooltip = !hasTranscript
+                              ? "Transcript required before generating quiz"
+                              : "";
+                            if (isLoading) btnText = "...";
+                            return (
+                              <button
+                                className={`px-3 py-2 text-xs font-medium rounded-md whitespace-pre-line text-center text-white ${btnColor} ${
+                                  disabled
+                                    ? "opacity-60 cursor-not-allowed"
+                                    : ""
+                                }`}
+                                disabled={disabled}
+                                title={
+                                  disabled && tooltip ? tooltip : undefined
+                                }
+                                onClick={() =>
+                                  !disabled &&
+                                  handleGenerateQuizForLesson(lesson)
+                                }
+                              >
+                                {btnText}
+                              </button>
+                            );
+                          })()}
+                        </div>
                         {/* PDF select */}
                         <div className="flex items-center gap-2">
                           <input
@@ -999,15 +1075,33 @@ useEffect(() => {
                 </div>
               </div>
             ))}
-            <button
-              onClick={() => addModule(weekIdx)}
-              className="text-green-600 text-sm"
-            >
-              + Add Module
-            </button>
+            <div className="flex items-center justify-between mt-4 mb-4">
+              <button
+                onClick={() => addModule(weekIdx)}
+                className="text-green-600 text-sm"
+              >
+                + Add Module
+              </button>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-700 font-medium">
+                  Enable AI Interview
+                </span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={aiInterviewEnabled}
+                    onChange={(e) => setAiInterviewEnabled(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:bg-blue-600 transition-colors duration-300"></div>
+                  <div className="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-300 transform peer-checked:translate-x-full"></div>
+                </label>
+              </div>
+            </div>
           </div>
         ))}
-        
+
         <div className="text-right mt-6">
           <button
             onClick={handleSave}
