@@ -109,7 +109,9 @@ function getAllMaterialsByModule(weeks) {
         materials.push({
           weekIdx,
           modIdx,
-          moduleTitle: mod.title || `Module ${modIdx + 1}`,
+          moduleTitle: `${mod.title || `Module ${modIdx + 1}`} (Week ${
+            week.weekNumber
+          })`,
           pdfs,
         });
       }
@@ -1073,72 +1075,80 @@ const allLessonsCompleted = useMemo(() => {
                       <h3 className="text-lg font-semibold text-blue-700 mb-2">
                         Notes
                       </h3>
-                      {notes.length === 0 ? (
+                      {notes.filter(
+                        (n) => n.lessonTitle === currentLessonData.title
+                      ).length === 0 ? (
                         <div className="text-gray-500 italic">
-                          No notes saved yet.
+                          No notes saved for this lesson.
                         </div>
                       ) : (
-                        notes.map((note) => (
-                          <div
-                            key={note._id}
-                            className="p-3 border mb-2 rounded bg-yellow-50"
-                          >
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="font-semibold text-blue-700">
-                                  {note.lessonTitle}
-                                </div>
-                                {editingNoteId === note._id ? (
-                                  <>
-                                    <textarea
-                                      className="w-full mt-1 p-2 border rounded"
-                                      value={editContent}
-                                      onChange={(e) =>
-                                        setEditContent(e.target.value)
-                                      }
-                                      rows={3}
-                                    />
-                                    <div className="flex gap-2 mt-2">
-                                      <button
-                                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-                                        onClick={() => handleSaveEdit(note._id)}
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        className="bg-gray-300 px-3 py-1 rounded hover:bg-gray-400"
-                                        onClick={() => setEditingNoteId(null)}
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="text-gray-800 mt-1">
-                                    {note.noteContent}
+                        notes
+                          .filter(
+                            (n) => n.lessonTitle === currentLessonData.title
+                          )
+                          .map((note) => (
+                            <div
+                              key={note._id}
+                              className="p-3 border mb-2 rounded bg-yellow-50"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="font-semibold text-blue-700">
+                                    {note.lessonTitle}
                                   </div>
-                                )}
-                              </div>
+                                  {editingNoteId === note._id ? (
+                                    <>
+                                      <textarea
+                                        className="w-full mt-1 p-2 border rounded"
+                                        value={editContent}
+                                        onChange={(e) =>
+                                          setEditContent(e.target.value)
+                                        }
+                                        rows={3}
+                                      />
+                                      <div className="flex gap-2 mt-2">
+                                        <button
+                                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                                          onClick={() =>
+                                            handleSaveEdit(note._id)
+                                          }
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          className="bg-gray-300 px-3 py-1 rounded hover:bg-gray-400"
+                                          onClick={() => setEditingNoteId(null)}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-gray-800 mt-1">
+                                      {note.noteContent}
+                                    </div>
+                                  )}
+                                </div>
 
-                              <div className="flex flex-col items-center gap-2 ml-4">
-                                <button
-                                  className="text-blue-600 hover:text-blue-800"
-                                  onClick={() =>
-                                    handleEditNote(note._id, note.noteContent)
-                                  }
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                  className="text-red-600 hover:text-red-800"
-                                  onClick={() => handleDeleteNote(note._id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                <div className="flex flex-col items-center gap-2 ml-4">
+                                  <button
+                                    className="text-blue-600 hover:text-blue-800"
+                                    onClick={() =>
+                                      handleEditNote(note._id, note.noteContent)
+                                    }
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    className="text-red-600 hover:text-red-800"
+                                    onClick={() => handleDeleteNote(note._id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))
+                          ))
                       )}
                     </div>
                   )}
