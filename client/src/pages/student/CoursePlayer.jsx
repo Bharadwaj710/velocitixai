@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
@@ -133,6 +133,9 @@ const CoursePlayer = () => {
   const [selectedText, setSelectedText] = useState("");
   const [currentSelection, setCurrentSelection] = useState(null);
   const [courseData, setCourseData] = useState(null);
+  const aiInterviewEnabled = courseData?.aiInterviewEnabled === true;
+
+  // Always initialize as array
   const [completedLessons, setCompletedLessons] = useState([]); // Array of completed lessonIds
   const [quizResults, setQuizResults] = useState([]); // Array of { lessonId, score, passed }
 
@@ -208,7 +211,6 @@ const CoursePlayer = () => {
 
   // --- Selection logic for transcript highlighting (no highlight before save, only highlight after save) ---
   const handleTextSelection = (seg, idx, e) => {
-
     if (currentItemObj?.type === "pdf") return;
 
     const selection = window.getSelection();
@@ -223,7 +225,6 @@ const CoursePlayer = () => {
       setCurrentSelection(null);
       return;
     }
-
 
     let anchorElem = selection.anchorNode?.parentElement;
     let focusElem = selection.focusNode?.parentElement;
@@ -248,11 +249,11 @@ const CoursePlayer = () => {
       if (anchorIdx < focusIdx) {
         charStart = selection.anchorOffset;
         charEnd = selection.focusOffset;
-      } else {       
-          charStart = selection.focusOffset;
-          charEnd = selection.anchorOffset;
-        }
+      } else {
+        charStart = selection.focusOffset;
+        charEnd = selection.anchorOffset;
       }
+    }
 
     setSelectedText(selectedString);
     setCurrentSelection({ startIdx, endIdx, charStart, charEnd });
@@ -305,7 +306,6 @@ const CoursePlayer = () => {
       fetchNotes(userId, courseId).then((res) => setSavedNotes(res.data));
     });
 
-
     setSelectedText("");
     setCurrentSelection(null);
     window.getSelection().removeAllRanges();
@@ -319,7 +319,6 @@ const CoursePlayer = () => {
 
     // Find all highlight ranges for this line
     let highlights = [];
-
 
     savedNotes.forEach((note) => {
       if (idx < note.transcriptIdx || idx > note.endIdx) return;
@@ -447,7 +446,22 @@ const CoursePlayer = () => {
           axios.get(`/api/progress/${userId}/${courseId}`),
         ]);
         setCourseData(courseRes.data);
-        setCompletedLessons(progressRes.data.completedLessons || []);
+        console.log(
+          "Completed lessons type:",
+          typeof completedLessons,
+          completedLessons
+        );
+
+        // Sanitize completedLessons from API
+        const apiCompleted = progressRes.data.completedLessons;
+        setCompletedLessons(Array.isArray(apiCompleted) ? apiCompleted : []);
+        console.log(
+          "completedLessons:",
+          apiCompleted,
+          "IsArray:",
+          Array.isArray(apiCompleted)
+        );
+
         setQuizResults(progressRes.data.quizResults || []);
         // Flatten lessons for easier navigation
         const flat = flattenItems(courseRes.data.weeks || []);
@@ -478,10 +492,19 @@ const CoursePlayer = () => {
   const currentItemObj = flatItems[currentFlatIdx] || {};
   const currentLessonData = currentItemObj.lesson || {};
 
+  // Defensive .includes usage and debugging
+  console.log(
+    "completedLessons (for isCompleted):",
+    completedLessons,
+    "IsArray:",
+    Array.isArray(completedLessons)
+  );
   const isCompleted =
     currentItemObj.type === "pdf"
-      ? completedLessons.has(currentItemObj.title)
-      : completedLessons.has(currentLessonData.title);
+      ? Array.isArray(completedLessons) &&
+        completedLessons.includes(currentItemObj.title)
+      : Array.isArray(completedLessons) &&
+        completedLessons.includes(currentLessonData._id);
 
   const getYouTubeId = (url) => {
     if (!url) return "";
@@ -502,7 +525,15 @@ const CoursePlayer = () => {
         courseId,
         lessonId: lessonObj._id,
       });
-      setCompletedLessons((prev) => [...prev, lessonObj._id]);
+      setCompletedLessons((prev) =>
+        Array.isArray(prev) ? [...prev, lessonObj._id] : [lessonObj._id]
+      );
+      console.log(
+        "completedLessons after mark complete:",
+        completedLessons,
+        "IsArray:",
+        Array.isArray(completedLessons)
+      );
     } catch (err) {
       // Optionally show error
     }
@@ -634,8 +665,33 @@ const CoursePlayer = () => {
   // Helper: is quiz locked
   const isQuizLocked = (lessonId) => {
     // Quiz is locked if lesson is not completed
-    return !completedLessons.includes(lessonId);
+    console.log(
+      "completedLessons (for quiz lock):",
+      completedLessons,
+      "IsArray:",
+      Array.isArray(completedLessons)
+    );
+    return !(
+      Array.isArray(completedLessons) && completedLessons.includes(lessonId)
+    );
   };
+
+const allLessonsCompleted = useMemo(() => {
+  if (!courseData || !completedLessons || !quizResults) return false;
+
+  const allLessonIds = courseData.weeks
+    ?.flatMap((week) => week.modules)
+    ?.flatMap((mod) => mod.lessons)
+    ?.map((lesson) => lesson._id);
+
+  return (
+    Array.isArray(completedLessons) &&
+    allLessonIds.every((id) => completedLessons.includes(id))
+  );
+}, [courseData, completedLessons, quizResults]);
+
+
+
 
   if (!courseData || !courseData.weeks)
     return <div className="p-6 text-gray-600">Loading course...</div>;
@@ -719,12 +775,19 @@ const CoursePlayer = () => {
                             if (flatIdx === -1) return null;
                             const isActive = flatIdx === currentFlatIdx;
                             const locked = isLessonLocked(flatIdx);
-                            const completed = completedLessons.includes(
-                              lesson._id
+                            const completed =
+                              Array.isArray(completedLessons) &&
+                              completedLessons.includes(lesson._id);
+                            console.log(
+                              "completedLessons (sidebar):",
+                              completedLessons,
+                              "IsArray:",
+                              Array.isArray(completedLessons)
                             );
                             const quizResult = getQuizResult(lesson._id);
                             const quizLocked = isQuizLocked(lesson._id);
                             const quizPassed = quizResult && quizResult.passed;
+
                             return (
                               <div key={lesson._id} className="mb-2">
                                 {/* Lesson row */}
@@ -826,6 +889,27 @@ const CoursePlayer = () => {
                 </div>
               ))}
             </div>
+            {aiInterviewEnabled && (
+              <div className="mt-8 w-full px-2">
+                <button
+                  disabled={!allLessonsCompleted}
+                  className={`w-full text-sm px-4 py-2 rounded font-semibold transition-all duration-300 border
+        ${
+          allLessonsCompleted
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+        }
+      `}
+                >
+                  AI Interview
+                </button>
+                {!allLessonsCompleted && (
+                  <div className="mt-1 text-[11px] text-gray-400 text-center">
+                    Complete all lessons to unlock
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -999,7 +1083,6 @@ const CoursePlayer = () => {
                             key={note._id}
                             className="p-3 border mb-2 rounded bg-yellow-50"
                           >
-
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="font-semibold text-blue-700">
