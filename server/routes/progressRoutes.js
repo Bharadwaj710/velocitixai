@@ -67,7 +67,10 @@ router.post('/uncomplete', async (req, res) => {
 router.get('/:userId/:courseId', async (req, res) => {
   const { userId, courseId } = req.params;
 
-  // Validate courseId
+  // Validate userId and courseId
+  if (!userId || userId === 'null' || userId === 'undefined' || userId.length !== 24) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
   if (!courseId || courseId === 'undefined' || courseId.length !== 24) {
     return res.status(400).json({ error: 'Invalid courseId' });
   }

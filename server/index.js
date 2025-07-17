@@ -46,6 +46,9 @@ app.use("/college", collegeRoutes);
 const assessmentRoutes = require("./routes/careerAssessment");
 app.use("/api/assessments", assessmentRoutes);
 
+const assessmentFilters = require("./routes/assessmentFilters");
+app.use("/api/assessments", assessmentFilters);
+
 app.use("/api/hr", hrRoutes);
 app.use("/api/college", require("./routes/college"));
 
@@ -66,4 +69,7 @@ app.use("/api/notes", notesRoutes);
 
 const quizRoutes = require("./routes/quizRoutes");
 app.use("/api/quiz", quizRoutes);
+
+const careerAssessmentRoutes = require('./routes/careerAssessment');
+app.use('/api/career-assessment', careerAssessmentRoutes);
 

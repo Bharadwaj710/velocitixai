@@ -10,17 +10,25 @@ import axios from 'axios';
 const CollegeDashboard = () => {
   const { slug } = useParams();
   const [selectedDomain, setSelectedDomain] = useState('all');
-  const [selectedLevel, setSelectedLevel] = useState('all');
+  const [selectedSkill, setSelectedSkill] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [studentsData, setStudentsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [hiredOpen, setHiredOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentDetailsModalOpen, setStudentDetailsModalOpen] = useState(false);
+  const [studentProgressModalOpen, setStudentProgressModalOpen] = useState(false);
+  const [studentModalOpen, setStudentModalOpen] = useState(false);
+  const [studentProgress, setStudentProgress] = useState([]);
+  const [allCoursesProgress, setAllCoursesProgress] = useState({});
   const profileRef = useRef(null);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
   const collegeSlug = user?.collegeSlug;
+  const [availableDomains, setAvailableDomains] = useState([]);
+  const [availableSkills, setAvailableSkills] = useState([]);
 
   // Fetch students from backend
   useEffect(() => {
@@ -43,6 +51,49 @@ const CollegeDashboard = () => {
     if (collegeSlug) fetchStudents();
   }, [collegeSlug]);
 
+  // Fetch all students' progress for progress bars
+  useEffect(() => {
+    const fetchAllStudentsProgress = async () => {
+      const progressMap = {};
+      await Promise.all(studentsData.map(async (student) => {
+        const studentKey = student._id || student.id;
+        if (student.course && student.course.length > 0) {
+          const progresses = await Promise.all(
+            student.course.map(async (c) => {
+              try {
+                const res = await axios.get(`/api/progress/${student.user?._id || student.user}/${c._id}`);
+                const totalLessons = c.weeks?.reduce((acc, w) => acc + (w.modules?.reduce((a, m) => a + (m.lessons?.length || 0), 0) || 0), 0) || 0;
+                const completed = res.data.completedLessons?.length || 0;
+                return totalLessons ? (completed / totalLessons) * 100 : 0;
+              } catch {
+                return 0;
+              }
+            })
+          );
+          const avg = progresses.length > 0 ? progresses.reduce((a, b) => a + b, 0) / progresses.length : 0;
+          progressMap[studentKey] = Math.round(avg);
+        } else {
+          progressMap[studentKey] = 0;
+        }
+      }));
+      setAllCoursesProgress(progressMap);
+    };
+    if (studentsData.length > 0) fetchAllStudentsProgress();
+  }, [studentsData]);
+
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const res = await axios.get('http://localhost:8080/api/career-assessment/filters');
+        setAvailableDomains(res.data.domains || []);
+        setAvailableSkills(res.data.skills || []);
+      } catch (err) {
+        console.error('Error fetching domain/skill filters:', err);
+      }
+    };
+    fetchFilterOptions();
+  }, []);
+
   // Leaderboard logic
   const [selectedCourse, setSelectedCourse] = useState('all');
   const allCourses = useMemo(() => {
@@ -64,19 +115,22 @@ const CollegeDashboard = () => {
   // Hired students logic
   const hiredStudents = studentsData.filter(student => student.hired && student.company);
 
+  // Get unique domains and skills from studentsData
+  const allDomains = Array.from(new Set(studentsData.map(s => s.domain).filter(Boolean)));
+  const allSkills = Array.from(new Set(studentsData.flatMap(s => s.skills || []).filter(Boolean)));
+
   // Filter students based on selected filters
   const filteredStudents = useMemo(() => {
     return studentsData.filter(student => {
       const matchesDomain = selectedDomain === 'all' || student.domain === selectedDomain;
-      const matchesLevel = selectedLevel === 'all' || student.level === selectedLevel;
+      const matchesSkill = selectedSkill === 'all' || (student.skills && student.skills.includes(selectedSkill));
       const matchesSearch =
         (student.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
         (student.email?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
         (student.coursePath?.toLowerCase() || "").includes(searchTerm.toLowerCase());
-      
-      return matchesDomain && matchesLevel && matchesSearch;
+      return matchesDomain && matchesSkill && matchesSearch;
     });
-  }, [selectedDomain, selectedLevel, searchTerm, studentsData]);
+  }, [selectedDomain, selectedSkill, searchTerm, studentsData]);
 
   // Export to CSV function
   const exportToCSV = () => {
@@ -145,8 +199,11 @@ const CollegeDashboard = () => {
             <h1 className="text-2xl font-bold text-purple-700">velocitiXai</h1>
           </div>
           <div className="flex-1 flex items-center justify-center">
-            <span className="font-extrabold text-lg text-gray-900 capitalize tracking-wide">{slug} College Dashboard</span>
+            <span className="text-2xl md:text-3xl font-bold text-black tracking-tight capitalize text-center">
+              {slug.replace(/-/g, ' ')} College Dashboard
+            </span>
           </div>
+          {/* College Profile Dropdown */}
           <div className="flex items-center space-x-4">
             <button
               onClick={exportToCSV}
@@ -155,10 +212,37 @@ const CollegeDashboard = () => {
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </button>
-            <button className="inline-flex items-center px-4 py-2 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </button>
+            {/* Profile Avatar */}
+            <div className="relative" ref={profileRef}>
+              <button
+                className="flex items-center space-x-3 focus:outline-none"
+                onClick={() => setProfileMenuOpen((v) => !v)}
+              >
+                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center font-bold text-purple-700 text-lg">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : "C"}
+                </div>
+                <div className="text-left hidden sm:block">
+                  <div className="font-semibold text-gray-800 text-sm">{user?.name || "College"}</div>
+                  <div className="text-xs text-gray-500">{user?.email || "Email"}</div>
+                </div>
+              </button>
+              {profileMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border rounded-lg shadow-lg py-2 z-50">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="font-bold text-purple-700 text-base mb-1">{user?.name || "College"}</div>
+                    <div className="text-xs text-gray-600 mb-1">{user?.email || "Email"}</div>
+                    <div className="flex items-center text-xs text-gray-500 mb-1">{user?.phoneNumber && <span className="mr-1">📞</span>}{user?.phoneNumber || "No phone"}</div>
+                    <div className="flex items-center text-xs text-gray-500">{user?.address && <span className="mr-1">📍</span>}{user?.address || "No address"}</div>
+                  </div>
+                  <button
+                    onClick={() => { localStorage.clear(); window.location.href = "/"; }}
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
+                    <span className="mr-2"></span> Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -238,26 +322,27 @@ const CollegeDashboard = () => {
                   </div>
                   
                   <select
-                    value={selectedDomain}
-                    onChange={(e) => setSelectedDomain(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     value={selectedDomain}
+                     onChange={(e) => setSelectedDomain(e.target.value)}
+                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="all">All Domains</option>
-                    <option value="Tech">Tech</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Business">Business</option>
+                                  {availableDomains.map(domain => (
+                               <option key={domain} value={domain}>{domain}</option>
+                            ))}
                   </select>
-                  
+
                   <select
-                    value={selectedLevel}
-                    onChange={(e) => setSelectedLevel(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="all">All Levels</option>
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Proficient">Proficient</option>
-                  </select>
+                   value={selectedSkill}
+                   onChange={(e) => setSelectedSkill(e.target.value)}
+                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+              <option value="all">All Skills</option>
+                         {availableSkills.map(skill => (
+                     <option key={skill} value={skill}>{skill}</option>
+                       ))}
+              </select>
+
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -271,51 +356,58 @@ const CollegeDashboard = () => {
             
             {/* Student cards/table */}
             <div className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {filteredStudents.map((student) => (
-                  <div key={student.id} className="bg-gray-50 rounded-lg p-6 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                          {student.avatar}
-                        </div>
-                        <div>
-                         <h3 className="font-semibold text-lg">{student.name || "N/A"}</h3>
-                          <div className="flex items-center text-sm text-gray-600 mt-1">
-                            <Mail className="h-3 w-3 mr-1" />
-                            {student.email || "N/A"}
-                          </div>
-                        </div>
-                      </div>
+                  <div key={student._id || student.id} className="bg-white rounded-xl p-6 shadow hover:shadow-lg transition flex flex-col items-center border border-gray-100 min-w-0" style={{ minHeight: '260px' }}>
+                    <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl mb-3">
+                      {(student.name || student.user?.name || 'N/A')[0].toUpperCase()}
                     </div>
-                    
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-900 mb-2">{student.coursePath}</p>
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                        <span>Progress</span>
-                        <span className="font-medium">{student.progress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full ${getProgressColor(student.progress)}`}
-                          style={{ width: `${student.progress}%` }}
-                        />
-                      </div>
+                    <h3 className="font-semibold text-lg text-gray-900 text-center mb-1">{student.name || student.user?.name || "N/A"}</h3>
+                    <div className="text-gray-600 text-sm text-center mb-2">{student.user?.email || student.email || "N/A"}</div>
+                    <div className="text-xs text-gray-500 mb-2">N/A</div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                      <div className={`h-2 rounded-full ${allCoursesProgress[student._id || student.id] > 0 ? 'bg-green-400' : 'bg-gray-300'}`} style={{ width: `${allCoursesProgress[student._id || student.id] || 0}%` }}></div>
                     </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex space-x-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDomainColor(student.domain)}`}>
-                          {student.domain}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelColor(student.level)}`}>
-                          {student.level}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {student.completedCourses}/{student.totalCourses} courses
-                      </div>
-                    </div>
+                    <div className="text-xs text-gray-500 mb-2">Progress: {allCoursesProgress[student._id || student.id] || 0}%</div>
+                    <button
+                      className="mt-1 w-full py-1.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition text-xs"
+                      onClick={() => { setSelectedStudent(student); setStudentDetailsModalOpen(true); }}
+                    >
+                      View Details
+                    </button>
+                    <button
+                      className="mt-1 w-full py-1.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition text-xs"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setSelectedStudent(student);
+                        setStudentProgressModalOpen(true);
+                        // Fetch progress for all courses
+                        if (student.course && student.course.length > 0) {
+                          const progressArr = await Promise.all(
+                            student.course.map(async (c) => {
+                              try {
+                                const res = await axios.get(`/api/progress/${student.user?._id || student.user}/${c._id}`);
+                                const totalLessons = c.weeks?.reduce((acc, w) => acc + (w.modules?.reduce((a, m) => a + (m.lessons?.length || 0), 0) || 0), 0) || 0;
+                                const completed = res.data.completedLessons?.length || 0;
+                                return {
+                                  courseName: c.title || c.name || c._id,
+                                  percent: totalLessons ? Math.round((completed / totalLessons) * 100) : 0,
+                                  completed,
+                                  totalLessons,
+                                };
+                              } catch {
+                                return { courseName: c.title || c.name || c._id, percent: 0, completed: 0, totalLessons: 0 };
+                              }
+                            })
+                          );
+                          setStudentProgress(progressArr);
+                        } else {
+                          setStudentProgress([]);
+                        }
+                      }}
+                    >
+                      View Progress
+                    </button>
                   </div>
                 ))}
               </div>
@@ -404,6 +496,89 @@ const CollegeDashboard = () => {
               </ul>
             ) : (
               <div className="text-gray-600">No students have been hired yet.</div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* Student Details Modal */}
+      {studentDetailsModalOpen && selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl"
+              onClick={() => setStudentDetailsModalOpen(false)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4 flex items-center">
+              <User className="h-6 w-6 text-blue-600 mr-2" />
+              Student Details
+            </h2>
+            <div className="space-y-2">
+              <div><span className="font-semibold">Name:</span> {selectedStudent.user?.name || selectedStudent.name || 'N/A'}</div>
+              <div><span className="font-semibold">Email:</span> {selectedStudent.user?.email || 'N/A'}</div>
+              <div><span className="font-semibold">Roll Number:</span> {selectedStudent.rollNumber || 'N/A'}</div>
+              <div><span className="font-semibold">College Course:</span> {selectedStudent.collegecourse || 'N/A'}</div>
+              <div><span className="font-semibold">Branch:</span> {selectedStudent.branch || 'N/A'}</div>
+              <div><span className="font-semibold">Year of Study:</span> {selectedStudent.yearOfStudy || 'N/A'}</div>
+              <div><span className="font-semibold">College:</span> {selectedStudent.college || 'N/A'}</div>
+              <div><span className="font-semibold">Phone Number:</span> {selectedStudent.phoneNumber || 'N/A'}</div>
+              <div><span className="font-semibold">Address:</span> {selectedStudent.address || 'N/A'}</div>
+              <div><span className="font-semibold">Skills:</span> {Array.isArray(selectedStudent.skills) && selectedStudent.skills.length > 0 ? selectedStudent.skills.join(', ') : 'N/A'}</div>
+              <div><span className="font-semibold">Scorecard:</span> {selectedStudent.scorecard || 'N/A'}</div>
+              <div><span className="font-semibold">Courses:</span> {Array.isArray(selectedStudent.course) && selectedStudent.course.length > 0 ? (
+                <ul className="list-disc ml-6">
+                  {selectedStudent.course.map((c, idx) => (
+                    <li key={idx}>{c?.title || c?.name || c?._id || 'Unknown Course'}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span>{selectedStudent.coursePath || 'N/A'}</span>
+              )}</div>
+              <div><span className="font-semibold">Hired:</span> {selectedStudent.hired?.isHired ? 'Yes' : 'No'}</div>
+              {selectedStudent.hired?.isHired && (
+                <>
+                  <div><span className="font-semibold">Company Name:</span> {selectedStudent.hired.companyName || 'N/A'}</div>
+                  <div><span className="font-semibold">Hired Date:</span> {selectedStudent.hired.hiredDate ? new Date(selectedStudent.hired.hiredDate).toLocaleDateString() : 'N/A'}</div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Student Progress Modal */}
+      {studentProgressModalOpen && selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl"
+              onClick={() => { setStudentProgressModalOpen(false); setStudentProgress([]); }}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4 flex items-center">
+              <User className="h-6 w-6 text-blue-600 mr-2" />
+              {selectedStudent.name}'s Course Progress
+            </h2>
+            {studentProgress.length > 0 ? (
+              <ul className="space-y-4">
+                {studentProgress.map((p, idx) => (
+                  <li key={idx}>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-semibold">{p.courseName}</span>
+                      <span className="text-sm text-gray-500">{p.percent}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="h-2 rounded-full bg-blue-600" style={{ width: `${p.percent}%` }} />
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{p.completed} of {p.totalLessons} lessons completed</div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-gray-600">No course progress found.</div>
             )}
           </div>
         </div>
