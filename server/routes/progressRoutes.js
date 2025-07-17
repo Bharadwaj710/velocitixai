@@ -161,8 +161,17 @@ router.post("/submit-quiz", async (req, res) => {
 router.get("/:userId/:courseId", async (req, res) => {
   const { userId, courseId } = req.params;
 
+
+  // Validate userId and courseId
+  if (!userId || userId === 'null' || userId === 'undefined' || userId.length !== 24) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
+  if (!courseId || courseId === 'undefined' || courseId.length !== 24) {
+    return res.status(400).json({ error: 'Invalid courseId' });
+
   if (!userId || !courseId || courseId.length !== 24) {
     return res.status(400).json({ error: "Invalid request parameters" });
+
   }
 
   try {

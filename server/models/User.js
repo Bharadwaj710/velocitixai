@@ -26,9 +26,8 @@ const UserSchema = new Schema({
   },
   collegeSlug: {
     type: String,
-    required: function () {
-      return this.role === "college";
-    }
+    required: false,
+    default: null
   },
   imageUrl: { type: String }
 });

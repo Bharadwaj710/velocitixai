@@ -35,6 +35,8 @@ import ChatAssistant from "./components/ChatAssistant/ChatAssistant";
 import CoursePlayer from "./pages/student/CoursePlayer"; // Adjust path if needed
 import MyLearning from "./pages/student/MyLearning";
 import LearningPath from "./pages/student/LearningPath";
+import AIInterview from "./pages/ai-interview/AIInterview";
+import AIInterviewInstructions from "./pages/ai-interview/AIInterviewInstructions";
 
 const AppContent = () => {
   const location = useLocation();
@@ -45,12 +47,19 @@ const AppContent = () => {
     "/college-dashboard",
     "/student",
     "/course-player",
+    "/ai-interview" // ✅ Hides navbar on AI interview page
   ];
 
   const shouldHideNavbar = hideNavbarRoutes.some((path) =>
     location.pathname.startsWith(path)
   );
-  const showChatbot = ["/student/CoursePlayer"].includes(location.pathname);
+
+
+  const showChatbot = ["/student/CoursePlayer"].includes(
+    location.pathname
+  ) && location.pathname !== "/ai-interview"; // ✅ Prevent chatbot on AI Interview page
+
+
   return (
     <>
       {!shouldHideNavbar && <Navbar />}
@@ -62,6 +71,8 @@ const AppContent = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/ai-interview" element={<AIInterview />} />
+          <Route path="/ai-interview-instructions" element={<AIInterviewInstructions />} />
 
           {/* Admin routes */}
           <Route
@@ -102,7 +113,7 @@ const AppContent = () => {
           />
           <Route path="/college/onboarding" element={<CollegeOnboarding />} />
 
-          {/* ✅ Global course player route (moved here!) */}
+          {/* ✅ Global course player route */}
           <Route path="/course-player/:id" element={<CoursePlayer />} />
 
           {/* Student routes */}
@@ -122,12 +133,10 @@ const AppContent = () => {
                   />
                   <Route path="details" element={<StudentDetails />} />
                   <Route path="courses" element={<StudentCourses />} />
-
                   <Route path="student/courses" element={<StudentCourses />} />
                   <Route path="CoursePlayer" element={<CoursePlayer />} />
                   <Route path="my-learning" element={<MyLearning />} />
                   <Route path="learning-path" element={<LearningPath />} />
-
                   <Route path="*" element={<StudentDashboard />} />
                 </Routes>
               </ProtectedRoute>
@@ -145,11 +154,13 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <Router>
         <AuthProvider>
+
           <NotificationProvider>
             <AppContent />
             <Toaster position="top-right" />
             <ToastContainer position="top-right" autoClose={3000} />
           </NotificationProvider>
+
         </AuthProvider>
       </Router>
     </div>

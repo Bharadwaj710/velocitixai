@@ -88,6 +88,10 @@ const StudentDetails = () => {
         .filter(Boolean),
       collegeSlug: slug,
     };
+    console.log("📤 Final Payload:", payload);
+console.log("🎓 College:", form.college);
+console.log("🧠 Slug Generated:", slug);
+console.log("👤 User ID Used:", user?.id || user?._id);
 
     await axios.post("/api/students/details", payload, {
       headers: {

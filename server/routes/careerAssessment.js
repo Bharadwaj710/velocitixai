@@ -88,4 +88,31 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
+router.get('/filters', async (req, res) => {
+  try {
+    const assessments = await CareerAssessment.find({}, 'profile_analysis.skills profile_analysis.domain skills');
+    
+    const domains = new Set();
+    const skills = new Set();
+
+    assessments.forEach(assessment => {
+      if (assessment.profile_analysis?.domain) {
+        domains.add(assessment.profile_analysis.domain);
+      }
+
+      if (Array.isArray(assessment.skills)) {
+        assessment.skills.forEach(skill => skills.add(skill));
+      }
+    });
+
+    res.json({
+      domains: Array.from(domains),
+      skills: Array.from(skills)
+    });
+  } catch (error) {
+    console.error('Error fetching filters:', error);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 module.exports = router;
