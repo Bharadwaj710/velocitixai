@@ -3,14 +3,114 @@ const HR = require("../models/HR");
 const User = require("../models/User");
 const Invitation = require("../models/Invitation");
 const nodemailer = require("nodemailer");
+const Course = require("../models/Course");
+const Progress = require("../models/Progress");
+const CareerAssessment = require("../models/CareerAssessment");
 
 // ✅ Get all students (used in HR Dashboard)
 const getAllStudents = async (req, res) => {
   try {
-    const students = await Student.find().populate("user", "name email");
-    res.json({ success: true, students });
+    const students = await Student.find()
+      .populate("user", "name email")
+      .populate("course");
+
+    const userIds = students.map((s) => s.user?._id).filter(Boolean);
+
+    const assessments = await CareerAssessment.find({
+      userId: { $in: userIds },
+    }).lean();
+
+    // Map userId => skills/domain
+    const assessmentMap = {};
+    for (const a of assessments) {
+      assessmentMap[a.userId.toString()] = {
+        domain: a.domain || null,
+        skills: Array.isArray(a.profile_analysis?.skills)
+          ? a.profile_analysis.skills
+          : [],
+      };
+    }
+
+    const enrichedStudents = students.map((s) => {
+      const assessment = assessmentMap[s.user?._id?.toString()] || {};
+      return {
+        ...s.toObject(),
+        domain: assessment.domain || null,
+        skills: assessment.skills || [],
+      };
+    });
+
+    res.json({ success: true, students: enrichedStudents });
   } catch (error) {
     console.error("Error fetching students:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+const getStudentDetailsForHR = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const student = await Student.findById(studentId)
+      .populate("user", "name email")
+      .populate("course");
+
+    if (!student || !student.user) {
+      return res.status(404).json({
+        success: false,
+        message: "Student or linked user not found",
+      });
+    }
+
+    // 👇 Use .lean() to get raw object with profile_analysis
+    const careerData = await CareerAssessment.findOne({
+      userId: student.user._id,
+    }).lean();
+
+    const domain =
+      careerData?.domain || careerData?.profile_analysis?.domain || null;
+
+    const skills = Array.isArray(careerData?.profile_analysis?.skills)
+      ? careerData.profile_analysis.skills
+      : [];
+
+    // 📊 Progress calculation
+    const progressRecords = await Progress.find({ userId: student.user._id });
+    const courseProgressMap = {};
+
+    for (const course of student.course || []) {
+      const progress = progressRecords.find(
+        (p) => p.courseId.toString() === course._id.toString()
+      );
+      const completedLessons = progress?.completedLessons || [];
+      let totalLessons = 0;
+
+      for (const week of course.weeks || []) {
+        for (const module of week.modules || []) {
+          totalLessons += (module.lessons || []).length;
+        }
+      }
+
+      const percent =
+        totalLessons > 0
+          ? Math.round((completedLessons.length / totalLessons) * 100)
+          : 0;
+
+      courseProgressMap[course._id] = percent;
+    }
+
+    // ✅ Return enriched student data
+    return res.json({
+      success: true,
+      student: {
+        ...student.toObject(),
+        domain,
+        skills,
+      },
+      courseProgressMap,
+    });
+  } catch (err) {
+    console.error("Error fetching student full details:", err);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
@@ -19,7 +119,10 @@ const getAllStudents = async (req, res) => {
 const getHRDetailsByUser = async (req, res) => {
   try {
     const userId = req.params.userId;
-    const hrDetails = await HR.findOne({ user: userId }).populate("user", "name email");
+    const hrDetails = await HR.findOne({ user: userId }).populate(
+      "user",
+      "name email"
+    );
 
     if (!hrDetails) {
       return res.status(404).json({ success: false, message: "HR not found" });
@@ -37,9 +140,14 @@ const sendInvite = async (req, res) => {
   try {
     const { studentId, companyName, hrId } = req.body;
 
-    const student = await Student.findById(studentId).populate("user", "email name");
+    const student = await Student.findById(studentId).populate(
+      "user",
+      "email name"
+    );
     if (!student || !student.user?.email) {
-      return res.status(404).json({ success: false, message: "Student not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
     }
 
     // Send email using nodemailer
@@ -71,10 +179,16 @@ const sendInvite = async (req, res) => {
     });
     await invitation.save();
 
-    res.status(200).json({ success: true, message: "Invitation sent and saved!" });
+    res
+      .status(200)
+      .json({ success: true, message: "Invitation sent and saved!" });
   } catch (error) {
     console.error("Failed to send invitation:", error);
-    res.status(500).json({ success: false, message: "Failed to send invitation email", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to send invitation email",
+      error: error.message,
+    });
   }
 };
 
@@ -86,15 +200,15 @@ const getInvitedStudents = async (req, res) => {
         path: "student",
         populate: {
           path: "user",
-          select: "name email"
-        }
+          select: "name email",
+        },
       })
       .populate({
         path: "hr",
         populate: {
           path: "user",
-          select: "name email"
-        }
+          select: "name email",
+        },
       });
 
     const students = invitations.map((inv) => ({
@@ -116,4 +230,5 @@ module.exports = {
   getHRDetailsByUser,
   sendInvite,
   getInvitedStudents,
+  getStudentDetailsForHR,
 };

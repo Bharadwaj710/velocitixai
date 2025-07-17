@@ -11,6 +11,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from flask_cors import CORS
 from generate_quiz import generate_quiz_from_transcript
+from score_quiz import score_quiz_with_ai
 
 # --- Init ---
 load_dotenv("../server/.env")
@@ -196,27 +197,47 @@ def suggest_course_metadata():
             "rawResponse": response_text if 'response_text' in locals() else ""
         }), 500
 
+from utils.progress_tracker import set_progress
+
 @app.route("/generate-transcript", methods=["POST"])
 def generate_transcript():
     data = request.get_json()
     video_url = data.get("videoUrl")
+
     if not video_url:
         return jsonify({"error": "Missing videoUrl"}), 400
+
     try:
         video_id = extract_youtube_id(video_url).strip()
+        set_progress(video_id, 5)  # ✅ Start progress
+
         audio_path = download_audio(video_url)
         if not audio_path:
+            set_progress(video_id, 0)
             return jsonify({"error": "Audio download failed"}), 500
+
+        set_progress(video_id, 25)  # ✅ Audio downloaded
+
         transcript = run_whisper(audio_path)
         if not transcript:
+            set_progress(video_id, 0)
             return jsonify({"error": "Whisper failed"}), 500
+
+        set_progress(video_id, 80)  # ✅ Transcription done
+
         course, lesson = find_lesson(video_id)
         if not course or not lesson:
             return jsonify({"error": "Lesson not found"}), 404
+
         save_transcript(course["_id"], lesson["_id"], video_id, transcript)
+        set_progress(video_id, 100)  # ✅ Done
+
         return jsonify({"message": "Transcript saved", "videoId": video_id}), 200
+
     except Exception as e:
+        set_progress(video_id, 0)
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/generate-quiz", methods=["POST"])
 def generate_quiz():
@@ -237,6 +258,29 @@ def generate_quiz():
     # ✅ Generate quiz using Gemini
     quiz = generate_quiz_from_transcript(transcript)
     return jsonify(quiz), 200
+
+@app.route("/score-quiz", methods=["POST"])
+def score_quiz():
+    try:
+        data = request.get_json()
+        student_answers = data.get("studentAnswers", [])
+        original_questions = data.get("originalQuestions", [])
+
+        if not student_answers or not original_questions:
+            return jsonify({"error": "Missing data"}), 400
+
+        result = score_quiz_with_ai(student_answers, original_questions)
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"[SERVER ERROR] {e}")
+        return jsonify({"error": "Failed to score quiz"}), 500
+
+@app.route("/progress/<lesson_id>", methods=["GET"])
+def get_progress_for_lesson(lesson_id):
+    from utils.progress_tracker import get_progress
+    print(f"[PROGRESS CHECK] Fetching progress for {lesson_id}")
+    return jsonify({ "progress": get_progress(lesson_id) })
 
 
 if __name__ == "__main__":

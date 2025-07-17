@@ -1,13 +1,28 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import axios from "axios";
-import { Play, CheckCircle, Menu, X, FileText, Video } from "lucide-react";
+import {
+  Play,
+  CheckCircle,
+  Menu,
+  X,
+  FileText,
+  Video,
+  Lock,
+  Book,
+  ListChecks,
+  ClipboardCheck,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import AuthContext from "../../context/AuthContext";
 import StudentNavbar from "../../components/StudentNavbar";
 import YouTube from "react-youtube";
 import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
-import { saveNote, fetchNotes, deleteNote, updateNote } from '../../api/notes';
+import { saveNote, fetchNotes, deleteNote, updateNote } from "../../api/notes";
 import { ChatProvider } from "../../context/ChatContext";
+import QuizSection from "./QuizSection";
+
 // Helper: flatten all lessons and PDFs for navigation and progress
 function flattenItems(weeks) {
   const flat = [];
@@ -55,11 +70,15 @@ function getIframePdfUrl(url) {
   // If Cloudinary, force inline display for iframe (use Google Docs Viewer as fallback)
   if (url.includes("cloudinary.com")) {
     // Use Google Docs Viewer for best compatibility
-    return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+    return `https://docs.google.com/gview?url=${encodeURIComponent(
+      url
+    )}&embedded=true`;
   }
   // If already a direct .pdf link, use Google Docs Viewer as fallback
   if (url.endsWith(".pdf")) {
-    return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+    return `https://docs.google.com/gview?url=${encodeURIComponent(
+      url
+    )}&embedded=true`;
   }
   // If relative, prefix with http://localhost:8080 (for local dev)
   if (url.startsWith("/")) return `http://localhost:8080${url}`;
@@ -90,7 +109,9 @@ function getAllMaterialsByModule(weeks) {
         materials.push({
           weekIdx,
           modIdx,
-          moduleTitle: mod.title || `Module ${modIdx + 1}`,
+          moduleTitle: `${mod.title || `Module ${modIdx + 1}`} (Week ${
+            week.weekNumber
+          })`,
           pdfs,
         });
       }
@@ -102,7 +123,7 @@ function getAllMaterialsByModule(weeks) {
 const TABS = [
   { key: "transcript", label: "Transcript" },
   { key: "notes", label: "Notes" },
-  { key: "materials", label: "Materials" }
+  { key: "materials", label: "Materials" },
 ];
 
 const CoursePlayer = () => {
@@ -111,11 +132,16 @@ const CoursePlayer = () => {
   const { user } = useContext(AuthContext);
   const userId = user?._id;
   const [savedNotes, setSavedNotes] = useState([]);
-  const [selectedText, setSelectedText] = useState('');
+  const [selectedText, setSelectedText] = useState("");
   const [currentSelection, setCurrentSelection] = useState(null);
   const [courseData, setCourseData] = useState(null);
-  const [completedLessons, setCompletedLessons] = useState(new Set());
-  const [flatItems, setFlatItems] = useState([]); 
+  const aiInterviewEnabled = courseData?.aiInterviewEnabled === true;
+
+  // Always initialize as array
+  const [completedLessons, setCompletedLessons] = useState([]); // Array of completed lessonIds
+  const [quizResults, setQuizResults] = useState([]); // Array of { lessonId, score, passed }
+
+  const [flatItems, setFlatItems] = useState([]);
   const [currentFlatIdx, setCurrentFlatIdx] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [transcript, setTranscript] = useState([]);
@@ -133,7 +159,36 @@ const CoursePlayer = () => {
   const [materialsByModule, setMaterialsByModule] = useState([]);
   const [notes, setNotes] = useState([]);
   const [selectionCoords, setSelectionCoords] = useState({ x: 0, y: 0 });
+  const [openQuizLessonIdx, setOpenQuizLessonIdx] = useState(null); // flatIdx of quiz being taken
+  const [quizModalOpen, setQuizModalOpen] = useState(false);
+  // quizPassedLessons is now derived from quizResults
 
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editContent, setEditContent] = useState("");
+
+  const handleEditNote = (noteId, content) => {
+    setEditingNoteId(noteId);
+    setEditContent(content);
+  };
+
+  const handleSaveEdit = (noteId) => {
+    if (!editContent.trim()) return;
+
+    updateNote(noteId, editContent).then(() => {
+      fetchNotes(userId, courseId).then((res) => setSavedNotes(res.data));
+      fetchNotes(userId, courseId).then((res) => setNotes(res.data)); // Update notes tab
+      setEditingNoteId(null);
+    });
+  };
+
+  const handleDeleteNote = (noteId) => {
+    if (window.confirm("Are you sure you want to delete this note?")) {
+      deleteNote(noteId).then(() => {
+        fetchNotes(userId, courseId).then((res) => setSavedNotes(res.data));
+        fetchNotes(userId, courseId).then((res) => setNotes(res.data)); // Update notes tab
+      });
+    }
+  };
 
   const handleStateChange = (event) => {
     // Optional: console log player states
@@ -158,51 +213,37 @@ const CoursePlayer = () => {
 
   // --- Selection logic for transcript highlighting (no highlight before save, only highlight after save) ---
   const handleTextSelection = (seg, idx, e) => {
-  const selection = window.getSelection();
-  if (!selection || selection.isCollapsed) {
-    setSelectedText('');
-    setCurrentSelection(null);
-    return;
-  }
-  // Only allow if anchorNode is inside the transcript text span
-  const anchorNode = selection.anchorNode;
-  if (!anchorNode) return;
-  let parent = anchorNode.parentElement || anchorNode.parentNode;
-  let found = false;
-  while (parent) {
-    if (parent.classList && parent.classList.contains('note-selectable')) {
-      found = true;
-      break;
-    }
-    parent = parent.parentElement || parent.parentNode;
-  }
-  if (!found) {
-    setSelectedText('');
-    setCurrentSelection(null);
-    return;
-  }
-  const selectedString = selection.toString();
-  if (!selectedString || !selectedString.trim()) {
-    setSelectedText('');
-    setCurrentSelection(null);
-    return;
-  }
+    if (currentItemObj?.type === "pdf") return;
 
-  // Multi-line selection support with char offsets
-  let startIdx = idx;
-  let endIdx = idx;
-  let charStart = 0;
-  let charEnd = 0;
-
-  try {
-    const anchorElem = selection.anchorNode.parentElement;
-    const focusElem = selection.focusNode.parentElement;
-    const anchorIdx = parseInt(anchorElem?.getAttribute('data-index'));
-    const focusIdx = parseInt(focusElem?.getAttribute('data-index'));
-    if (!isNaN(anchorIdx) && !isNaN(focusIdx)) {
-      startIdx = Math.min(anchorIdx, focusIdx);
-      endIdx = Math.max(anchorIdx, focusIdx);
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      setSelectedText("");
+      setCurrentSelection(null);
+      return;
     }
+    const selectedString = selection.toString();
+    if (!selectedString.trim()) {
+      setSelectedText("");
+      setCurrentSelection(null);
+      return;
+    }
+
+    let anchorElem = selection.anchorNode?.parentElement;
+    let focusElem = selection.focusNode?.parentElement;
+
+    if (!anchorElem || !focusElem) return;
+
+    let anchorIdx = parseInt(anchorElem.getAttribute("data-index"));
+    let focusIdx = parseInt(focusElem.getAttribute("data-index"));
+
+    if (isNaN(anchorIdx) || isNaN(focusIdx)) return;
+
+    let startIdx = anchorIdx < focusIdx ? anchorIdx : focusIdx;
+    let endIdx = anchorIdx > focusIdx ? anchorIdx : focusIdx;
+
+    let charStart = 0;
+    let charEnd = 0;
+
     if (startIdx === endIdx) {
       charStart = Math.min(selection.anchorOffset, selection.focusOffset);
       charEnd = Math.max(selection.anchorOffset, selection.focusOffset);
@@ -215,26 +256,50 @@ const CoursePlayer = () => {
         charEnd = selection.anchorOffset;
       }
     }
-  } catch {}
-  setSelectedText(selectedString);
-  setCurrentSelection({ startIdx, endIdx, charStart, charEnd });
-};
+
+    setSelectedText(selectedString);
+    setCurrentSelection({ startIdx, endIdx, charStart, charEnd });
+  };
 
   // --- Save Note logic (single API call for multi-line, with char offsets) ---
   const handleSaveNote = () => {
     if (!selectedText || !currentSelection) return;
+
     let { startIdx, endIdx, charStart, charEnd } = currentSelection;
     startIdx = Number(startIdx);
     endIdx = Number(endIdx);
     charStart = Number(charStart);
     charEnd = Number(charEnd);
+
     if (isNaN(startIdx) || isNaN(endIdx)) return;
-    if (!selectedText.trim()) return;
+
+    // --- Extract selected text without timestamp ---
+    let selectedTextWithoutTimestamp = "";
+
+    if (startIdx === endIdx) {
+      selectedTextWithoutTimestamp = transcript[startIdx].text.slice(
+        charStart,
+        charEnd
+      );
+    } else {
+      const firstLine = transcript[startIdx].text.slice(charStart);
+      const middleLines = transcript
+        .slice(startIdx + 1, endIdx)
+        .map((seg) => seg.text)
+        .join(" ");
+      const lastLine = transcript[endIdx].text.slice(0, charEnd);
+      selectedTextWithoutTimestamp = [firstLine, middleLines, lastLine]
+        .filter(Boolean)
+        .join(" ");
+    }
+
+    if (!selectedTextWithoutTimestamp.trim()) return;
+
     saveNote({
       userId,
       courseId,
       lessonTitle: currentLessonData.title,
-      noteContent: selectedText,
+      noteContent: selectedTextWithoutTimestamp, // ✅ Save clean text without timestamp
       transcriptIdx: startIdx,
       endIdx: endIdx,
       charStart,
@@ -242,60 +307,57 @@ const CoursePlayer = () => {
     }).then((res) => {
       fetchNotes(userId, courseId).then((res) => setSavedNotes(res.data));
     });
-    setSelectedText('');
+
+    setSelectedText("");
     setCurrentSelection(null);
     window.getSelection().removeAllRanges();
   };
 
   // --- Highlight logic: highlight only the exact saved word/phrase in each transcript line, never before saving ---
   function renderTranscriptWithHighlights(seg, idx) {
-    let text = seg.text;
+    const text = seg.text;
     let parts = [];
     let lastIdx = 0;
+
+    // Find all highlight ranges for this line
     let highlights = [];
 
-    // Only highlight SAVED notes, not current selection
-    savedNotes.forEach((n) => {
-      if (idx < n.transcriptIdx || idx > n.endIdx || !n.noteContent) return;
-      // Single-line highlight
-      if (n.transcriptIdx === n.endIdx) {
-        if (idx === n.transcriptIdx) {
-          if (
-            typeof n.charStart === "number" &&
-            typeof n.charEnd === "number" &&
-            n.charStart !== n.charEnd
-          ) {
-            const start = Math.max(0, Math.min(n.charStart, text.length));
-            const end = Math.max(0, Math.min(n.charEnd, text.length));
-            if (start !== end) highlights.push({ start, end });
-          } else {
-            const start = text.indexOf(n.noteContent);
-            if (start !== -1) {
-              highlights.push({ start, end: start + n.noteContent.length });
-            }
-          }
-        }
-      } else {
-        // Multi-line highlight
-        if (idx === n.transcriptIdx) {
-          const start = typeof n.charStart === "number" ? Math.max(0, Math.min(n.charStart, text.length)) : 0;
-          highlights.push({ start, end: text.length });
-        } else if (idx === n.endIdx) {
-          const end = typeof n.charEnd === "number" ? Math.max(0, Math.min(n.charEnd, text.length)) : text.length;
-          highlights.push({ start: 0, end });
-        } else if (idx > n.transcriptIdx && idx < n.endIdx) {
-          highlights.push({ start: 0, end: text.length });
-        }
+    savedNotes.forEach((note) => {
+      if (idx < note.transcriptIdx || idx > note.endIdx) return;
+
+      if (note.transcriptIdx === note.endIdx && idx === note.transcriptIdx) {
+        // Single-line highlight (word or sentence)
+        highlights.push({
+          start: Math.max(0, Math.min(note.charStart, text.length)),
+          end: Math.max(0, Math.min(note.charEnd, text.length)),
+        });
+      } else if (idx === note.transcriptIdx) {
+        // First line in multi-line selection
+        highlights.push({
+          start: Math.max(0, Math.min(note.charStart, text.length)),
+          end: text.length,
+        });
+      } else if (idx === note.endIdx) {
+        // Last line in multi-line selection
+        highlights.push({
+          start: 0,
+          end: Math.max(0, Math.min(note.charEnd, text.length)),
+        });
+      } else if (idx > note.transcriptIdx && idx < note.endIdx) {
+        // Middle lines in multi-line selection
+        highlights.push({
+          start: 0,
+          end: text.length,
+        });
       }
     });
 
-    if (!highlights.length) return text;
+    if (highlights.length === 0) return text;
 
-    highlights = highlights
-      .filter((h) => h.start < h.end)
-      .sort((a, b) => a.start - b.start);
-
+    // Sort and merge overlapping highlights
+    highlights.sort((a, b) => a.start - b.start);
     let merged = [];
+
     highlights.forEach((h) => {
       if (!merged.length || h.start > merged[merged.length - 1].end) {
         merged.push(h);
@@ -307,6 +369,7 @@ const CoursePlayer = () => {
       }
     });
 
+    // Build the text with highlights
     merged.forEach((h, i) => {
       if (h.start > lastIdx) {
         parts.push(text.slice(lastIdx, h.start));
@@ -376,24 +439,42 @@ const CoursePlayer = () => {
     }
   }, [activeTranscriptIdx]);
 
+  // Fetch course and progress (completed lessons and quiz results) on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [courseRes, progressRes] = await Promise.all([
           axios.get(`http://localhost:8080/api/courses/${courseId}`),
-          axios.get(`http://localhost:8080/api/progress/${userId}/${courseId}`),
+          axios.get(`/api/progress/${userId}/${courseId}`),
         ]);
         setCourseData(courseRes.data);
-        setCompletedLessons(new Set(progressRes.data.completedLessons || []));
+        console.log(
+          "Completed lessons type:",
+          typeof completedLessons,
+          completedLessons
+        );
+
+        // Sanitize completedLessons from API
+        const apiCompleted = progressRes.data.completedLessons;
+        setCompletedLessons(Array.isArray(apiCompleted) ? apiCompleted : []);
+        console.log(
+          "completedLessons:",
+          apiCompleted,
+          "IsArray:",
+          Array.isArray(apiCompleted)
+        );
+
+        setQuizResults(progressRes.data.quizResults || []);
         // Flatten lessons for easier navigation
         const flat = flattenItems(courseRes.data.weeks || []);
         setFlatItems(flat);
         setCurrentFlatIdx(0);
       } catch (err) {
+        setCompletedLessons([]);
+        setQuizResults([]);
         console.error("Error loading course or progress:", err);
       }
     };
-
     if (userId) fetchData();
   }, [courseId, userId]);
 
@@ -412,9 +493,20 @@ const CoursePlayer = () => {
   // Fix: Use flatItems everywhere, not flatLessons, and define currentItemObj at the top of render
   const currentItemObj = flatItems[currentFlatIdx] || {};
   const currentLessonData = currentItemObj.lesson || {};
-  const isCompleted = currentItemObj.type === "pdf"
-    ? completedLessons.has(currentItemObj.title)
-    : completedLessons.has(currentLessonData.title);
+
+  // Defensive .includes usage and debugging
+  console.log(
+    "completedLessons (for isCompleted):",
+    completedLessons,
+    "IsArray:",
+    Array.isArray(completedLessons)
+  );
+  const isCompleted =
+    currentItemObj.type === "pdf"
+      ? Array.isArray(completedLessons) &&
+        completedLessons.includes(currentItemObj.title)
+      : Array.isArray(completedLessons) &&
+        completedLessons.includes(currentLessonData._id);
 
   const getYouTubeId = (url) => {
     if (!url) return "";
@@ -425,33 +517,27 @@ const CoursePlayer = () => {
     return match ? match[1] : "";
   };
 
+  // Mark lesson as completed (no video tracking)
   const handleMarkAsCompleted = async () => {
+    const lessonObj = flatItems[currentFlatIdx]?.lesson;
+    if (!lessonObj?._id) return;
     try {
-      if (!currentLessonData.title) return;
-      if (!isCompleted) {
-        await axios.post(`http://localhost:8080/api/progress/complete`, {
-          userId,
-          courseId,
-          lessonTitle: currentLessonData.title,
-        });
-        setCompletedLessons((prev) =>
-          new Set(prev).add(currentLessonData.title)
-        );
-      } else {
-        // Remove lesson from completedLessons in DB and UI
-        await axios.post(`http://localhost:8080/api/progress/uncomplete`, {
-          userId,
-          courseId,
-          lessonTitle: currentLessonData.title,
-        });
-        setCompletedLessons((prev) => {
-          const updated = new Set(prev);
-          updated.delete(currentLessonData.title);
-          return updated;
-        });
-      }
+      await axios.post(`/api/progress/complete`, {
+        userId,
+        courseId,
+        lessonId: lessonObj._id,
+      });
+      setCompletedLessons((prev) =>
+        Array.isArray(prev) ? [...prev, lessonObj._id] : [lessonObj._id]
+      );
+      console.log(
+        "completedLessons after mark complete:",
+        completedLessons,
+        "IsArray:",
+        Array.isArray(completedLessons)
+      );
     } catch (err) {
-      console.error("Error updating progress:", err);
+      // Optionally show error
     }
   };
 
@@ -507,7 +593,7 @@ const CoursePlayer = () => {
   }, [currentTime, transcript]);
 
   // Highlight all saved note substrings in transcript (multi-line highlight)
-  
+
   // Fetch notes for notes tab
   useEffect(() => {
     if (userId && courseId) {
@@ -538,6 +624,77 @@ const CoursePlayer = () => {
     );
   };
 
+  // Quiz progress is now derived from quizResults
+
+  // Handler for opening quiz modal
+  const handleQuizClick = (flatIdx, lessonId, locked) => {
+    if (locked) return;
+    setOpenQuizLessonIdx(flatIdx);
+    setQuizModalOpen(true);
+  };
+
+  // Handler after quiz is completed
+  const handleQuizComplete = (result) => {
+    setQuizModalOpen(false);
+    setOpenQuizLessonIdx(null);
+    // Optionally, refresh progress/quizPassedLessons here
+  };
+
+  // --- Sidebar: Render lessons and quizzes with lock logic ---
+  // Helper: get quiz pass status for a lessonId
+  const getQuizResult = (lessonId) =>
+    quizResults.find((q) => q.lessonId === lessonId);
+
+  // Helper: is quiz passed for lessonId
+  const isQuizPassed = (lessonId) => {
+    const qr = getQuizResult(lessonId);
+    return qr && qr.passed;
+  };
+
+  // Helper: is lesson locked
+  const isLessonLocked = (flatIdx) => {
+    if (flatIdx === 0) return false; // First lesson always unlocked
+    // Find previous lesson's quiz
+    const prevLessonIdx = flatItems
+      .slice(0, flatIdx)
+      .reverse()
+      .find((item) => item.type === "video");
+    if (!prevLessonIdx) return false;
+    const prevLessonId = prevLessonIdx.lesson?._id;
+    return !isQuizPassed(prevLessonId);
+  };
+
+  // Helper: is quiz locked
+  const isQuizLocked = (lessonId) => {
+    // Quiz is locked if lesson is not completed
+    console.log(
+      "completedLessons (for quiz lock):",
+      completedLessons,
+      "IsArray:",
+      Array.isArray(completedLessons)
+    );
+    return !(
+      Array.isArray(completedLessons) && completedLessons.includes(lessonId)
+    );
+  };
+
+const allLessonsCompleted = useMemo(() => {
+  if (!courseData || !completedLessons || !quizResults) return false;
+
+  const allLessonIds = courseData.weeks
+    ?.flatMap((week) => week.modules)
+    ?.flatMap((mod) => mod.lessons)
+    ?.map((lesson) => lesson._id);
+
+  return (
+    Array.isArray(completedLessons) &&
+    allLessonIds.every((id) => completedLessons.includes(id))
+  );
+}, [courseData, completedLessons, quizResults]);
+
+
+
+
   if (!courseData || !courseData.weeks)
     return <div className="p-6 text-gray-600">Loading course...</div>;
 
@@ -560,9 +717,9 @@ const CoursePlayer = () => {
                 ? "translate-x-0"
                 : "-translate-x-full lg:translate-x-0"
             }`}
-          style={{ height: "160vh" }}
+          style={{ height: "100vh" }}
         >
-          <div className="flex flex-col h-full overflow-y-auto">
+          <div className="flex flex-col h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-gray-50">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 break-words max-w-xs">
                 {courseData.title}
@@ -574,64 +731,187 @@ const CoursePlayer = () => {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            {/* Sidebar: List all lessons grouped by week/module (NO PDFs here) */}
-            {courseData.weeks.map((week, weekIdx) => (
-              <div
-                key={weekIdx}
-                className="border-b border-gray-100 flex flex-col"
-              >
-                <button
-                  onClick={() => setWeekOpen(!weekOpen)}
-                  className="p-3 bg-gray-50 font-semibold text-blue-700 text-left w-full flex items-center justify-between"
+            {/* Sidebar: Group by week, collapsible */}
+            <div className="flex flex-col gap-2 px-2 py-4">
+              {courseData.weeks?.map((week, weekIdx) => (
+                <div
+                  key={weekIdx}
+                  className="mb-4 border rounded-lg overflow-hidden"
                 >
-                  <span>Week {week.weekNumber}</span>
-                  <span className="text-xs">{weekOpen ? "▲" : "▼"}</span>
-                </button>
-                {weekOpen &&
-                  week.modules.map((mod, modIdx) => (
-                    <div key={modIdx} className="px-2">
-                      <div className="p-2 text-gray-800 font-medium text-sm border-b">
-                        {mod.title || `Module ${modIdx + 1}`}
-                      </div>
-                      {mod.lessons.map((lesson, lessonIdx) => {
-                        // Find flatIdx for this lesson
-                        const flatIdx = flatItems.findIndex(
-                          (item) =>
-                            item.type === "video" &&
-                            item.weekIdx === weekIdx &&
-                            item.modIdx === modIdx &&
-                            item.lessonIdx === lessonIdx
-                        );
-                        const isActive =
-                          flatIdx === currentFlatIdx;
-                        const isLessonCompleted = completedLessons.has(
-                          lesson.title
-                        );
-                        return (
-                          <button
-                            key={lessonIdx}
-                            onClick={() => handleLessonClick(flatIdx)}
-                            className={`w-full text-left px-4 py-2 text-sm transition-colors duration-150 flex items-center gap-2 ${
-                              isActive
-                                ? "bg-blue-100 border-r-4 border-blue-500"
-                                : "hover:bg-blue-50"
-                            }`}
-                          >
-                            {isLessonCompleted ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <Video className="w-4 h-4 text-blue-400" />
-                            )}
-                            <span className="text-gray-800 break-words">
-                              {lesson.title || `Lesson ${lessonIdx + 1}`}
-                            </span>
-                          </button>
-                        );
-                      })}
+                  <button
+                    className="w-full text-left px-4 py-2 bg-gray-100 font-semibold text-blue-800 flex items-center justify-between focus:outline-none"
+                    onClick={() =>
+                      setWeekOpen((prev) =>
+                        typeof prev === "object"
+                          ? { ...prev, [weekIdx]: !prev[weekIdx] }
+                          : { [weekIdx]: true }
+                      )
+                    }
+                  >
+                    <span>
+                      Week {weekIdx + 1}
+                      {week.title ? `: ${week.title}` : ""}
+                    </span>
+                    <span>
+                      {(
+                        typeof weekOpen === "object"
+                          ? weekOpen[weekIdx]
+                          : weekOpen
+                      )
+                        ? "▲"
+                        : "▼"}
+                    </span>
+                  </button>
+                  {(typeof weekOpen === "object"
+                    ? weekOpen[weekIdx]
+                    : weekOpen) && (
+                    <div className="py-2">
+                      {week.modules?.map((mod, modIdx) => (
+                        <div key={modIdx}>
+                          {mod.lessons?.map((lesson, lessonIdx) => {
+                            const flatIdx = flatItems.findIndex(
+                              (fi) =>
+                                fi.type === "video" &&
+                                fi.lesson?._id === lesson._id
+                            );
+                            if (flatIdx === -1) return null;
+                            const isActive = flatIdx === currentFlatIdx;
+                            const locked = isLessonLocked(flatIdx);
+                            const completed =
+                              Array.isArray(completedLessons) &&
+                              completedLessons.includes(lesson._id);
+                            console.log(
+                              "completedLessons (sidebar):",
+                              completedLessons,
+                              "IsArray:",
+                              Array.isArray(completedLessons)
+                            );
+                            const quizResult = getQuizResult(lesson._id);
+                            const quizLocked = isQuizLocked(lesson._id);
+                            const quizPassed = quizResult && quizResult.passed;
+
+                            return (
+                              <div key={lesson._id} className="mb-2">
+                                {/* Lesson row */}
+                                <button
+                                  className={`w-full text-left px-4 py-3 flex items-center gap-3 rounded-lg border transition-colors duration-150
+                                    ${
+                                      isActive
+                                        ? "bg-blue-50 text-blue-700 font-bold border-blue-200"
+                                        : "bg-white text-gray-800 border-transparent"
+                                    }
+                                    ${
+                                      locked
+                                        ? "opacity-60 cursor-not-allowed"
+                                        : "hover:bg-blue-100"
+                                    }`}
+                                  disabled={locked}
+                                  onClick={() =>
+                                    !locked && handleLessonClick(flatIdx)
+                                  }
+                                  title={
+                                    locked
+                                      ? "Locked. Complete previous quiz."
+                                      : lesson.title
+                                  }
+                                >
+                                  <Book className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                  <span className="flex-1 truncate">
+                                    {lesson.title}
+                                  </span>
+                                  {completed && (
+                                    <CheckCircle className="w-5 h-5 text-green-600" />
+                                  )}
+                                  {locked && (
+                                    <Lock className="w-5 h-5 text-gray-400" />
+                                  )}
+                                  {isActive && !quizLocked && (
+                                    <span className="ml-1 w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                                  )}
+                                </button>
+                                {/* Quiz row */}
+                                <div className="pl-8 pr-2 pt-2">
+                                  <button
+                                    className={`w-full text-left px-3 py-2 flex items-center gap-2 rounded-lg border text-sm font-medium transition-colors duration-150
+                                      ${
+                                        quizLocked
+                                          ? "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200"
+                                          : "bg-yellow-50 hover:bg-yellow-100 border-yellow-200"
+                                      }
+                                      ${quizPassed ? "border-green-400" : ""}
+                                      ${
+                                        quizResult && !quizPassed
+                                          ? "border-red-400"
+                                          : ""
+                                      }
+                                      ${
+                                        isActive && quizLocked === false
+                                          ? "ring-2 ring-blue-300"
+                                          : ""
+                                      }`}
+                                    disabled={quizLocked}
+                                    onClick={() =>
+                                      !quizLocked &&
+                                      handleQuizClick(
+                                        flatIdx,
+                                        lesson._id,
+                                        quizLocked
+                                      )
+                                    }
+                                    title={
+                                      quizLocked
+                                        ? "Locked. Complete lesson first."
+                                        : quizPassed
+                                        ? "Quiz passed"
+                                        : "Take quiz"
+                                    }
+                                  >
+                                    <ListChecks className="w-4 h-4 text-yellow-600" />
+                                    <span>Quiz</span>
+                                    {quizPassed && (
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                    )}
+                                    {quizLocked && (
+                                      <Lock className="w-4 h-4 text-gray-400" />
+                                    )}
+                                    {quizResult && !quizPassed && (
+                                      <span className="ml-2 text-red-500 font-semibold">
+                                        {quizResult.score ?? 0}/100
+                                      </span>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+                </div>
+              ))}
+            </div>
+            {aiInterviewEnabled && (
+              <div className="mt-8 w-full px-2">
+                <button
+                  disabled={!allLessonsCompleted}
+                  className={`w-full text-sm px-4 py-2 rounded font-semibold transition-all duration-300 border
+        ${
+          allLessonsCompleted
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+        }
+      `}
+                >
+                  AI Interview
+                </button>
+                {!allLessonsCompleted && (
+                  <div className="mt-1 text-[11px] text-gray-400 text-center">
+                    Complete all lessons to unlock
+                  </div>
+                )}
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -651,9 +931,7 @@ const CoursePlayer = () => {
               <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">
                 {currentItemObj.title}
               </h1>
-              <p className="text-sm text-gray-600">
-                {currentItemObj.duration}
-              </p>
+              <p className="text-sm text-gray-600">{currentItemObj.duration}</p>
               {/* --- Video or PDF Player --- */}
               <div
                 className="relative w-full mt-4 overflow-hidden rounded-lg bg-white"
@@ -662,7 +940,11 @@ const CoursePlayer = () => {
                 {currentItemObj.type === "pdf" ? (
                   <iframe
                     src={getIframePdfUrl(currentItemObj.pdfUrl)}
-                    title={currentItemObj.resourceName || currentItemObj.title || "PDF Viewer"}
+                    title={
+                      currentItemObj.resourceName ||
+                      currentItemObj.title ||
+                      "PDF Viewer"
+                    }
                     className="w-full h-full bg-white"
                     frameBorder="0"
                     allowFullScreen
@@ -713,88 +995,172 @@ const CoursePlayer = () => {
                 {/* Tab Content */}
                 <div className="mt-4">
                   {activeTab === "transcript" && (
-                    <div
-                      className="border rounded-lg bg-white shadow-inner max-h-[360px] overflow-y-auto relative"
-                      ref={transcriptContainerRef}
-                    >
-                      {/* Sticky Save Note button */}
-                      {activeTab === "transcript" && selectedText && currentSelection && (
-                        <button
-                          className="sticky top-0 right-0 float-right m-2 bg-blue-600 text-white px-3 py-1 rounded shadow hover:bg-blue-700 transition"
-                          style={{ zIndex: 50 }}
-                          onClick={handleSaveNote}
-                        >
-                          Save Note
-                        </button>
-                      )}
-                      {transcriptLoading ? (
+                    <>
+                      {currentItemObj.type === "pdf" ? (
                         <div className="p-4 text-gray-400 text-center">
-                          Loading transcript...
-                        </div>
-                      ) : !Array.isArray(transcript) || transcript.length === 0 ? (
-                        <div className="p-4 text-gray-400 text-center">
-                          No transcript available.
+                          Transcript is not available for PDF resources.
                         </div>
                       ) : (
-                        <ul className="divide-y divide-gray-100">
-                          {transcript.map((seg, idx) => (
-                            <li
-                              key={idx}
-                              ref={(el) => (transcriptRefs.current[idx] = el)}
-                              onClick={() => {
-                                if (player) {
-                                  player.seekTo(seg.start, true);
-                                }
-                              }}
-                              className={`px-3 py-2 cursor-pointer transition-all duration-200 relative ${
-                                idx === activeTranscriptIdx
-                                  ? "text-blue-500 font-semibold bg-blue-50"
-                                  : ""
-                              }`}
+                        <div
+                          className="border rounded-lg bg-white shadow-inner max-h-[360px] overflow-y-auto relative"
+                          ref={transcriptContainerRef}
+                        >
+                          {selectedText && currentSelection && (
+                            <button
+                              className="sticky top-0 right-0 float-right m-2 bg-blue-600 text-white px-3 py-1 rounded shadow hover:bg-blue-700 transition"
+                              style={{ zIndex: 50 }}
+                              onClick={handleSaveNote}
                             >
-                              <span className="inline-block w-14 text-xs text-gray-500 mr-2 select-none">
-                                {Math.floor(seg.start / 60)
-                                  .toString()
-                                  .padStart(2, "0")}
-                                :
-                                {Math.floor(seg.start % 60)
-                                  .toString()
-                                  .padStart(2, "0")}
-                              </span>
-                              <span
-                                className="note-selectable"
-                                data-index={idx}
-                                style={{ userSelect: "text" }}
-                                onMouseUp={(e) => handleTextSelection(seg, idx, e)}
-                              >
-                                {renderTranscriptWithHighlights(seg, idx)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                              Save Note
+                            </button>
+                          )}
+                          {transcriptLoading ? (
+                            <div className="p-4 text-gray-400 text-center">
+                              Loading transcript...
+                            </div>
+                          ) : !Array.isArray(transcript) ||
+                            transcript.length === 0 ? (
+                            <div className="p-4 text-gray-400 text-center">
+                              No transcript available.
+                            </div>
+                          ) : (
+                            <ul className="divide-y divide-gray-100">
+                              {transcript.map((seg, idx) => (
+                                <li
+                                  key={idx}
+                                  ref={(el) =>
+                                    (transcriptRefs.current[idx] = el)
+                                  }
+                                  onClick={() => {
+                                    if (player) {
+                                      player.seekTo(seg.start, true);
+                                    }
+                                  }}
+                                  className={`px-3 py-2 cursor-pointer transition-all duration-200 relative ${
+                                    idx === activeTranscriptIdx
+                                      ? "text-blue-500 font-semibold bg-blue-50"
+                                      : ""
+                                  }`}
+                                >
+                                  <span className="inline-block w-14 text-xs text-gray-500 mr-2 select-none">
+                                    {Math.floor(seg.start / 60)
+                                      .toString()
+                                      .padStart(2, "0")}
+                                    :
+                                    {Math.floor(seg.start % 60)
+                                      .toString()
+                                      .padStart(2, "0")}
+                                  </span>
+                                  <span
+                                    className="note-selectable"
+                                    data-index={idx}
+                                    style={{ userSelect: "text" }}
+                                    onMouseUp={(e) =>
+                                      handleTextSelection(seg, idx, e)
+                                    }
+                                  >
+                                    {renderTranscriptWithHighlights(seg, idx)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
+
                   {activeTab === "notes" && (
                     <div className="border rounded-lg bg-white shadow-inner max-h-[360px] overflow-y-auto p-4">
-                      <h3 className="text-lg font-semibold text-blue-700 mb-2">Notes</h3>
-                      {notes.length === 0 ? (
-                        <div className="text-gray-500 italic">No notes saved yet.</div>
+                      <h3 className="text-lg font-semibold text-blue-700 mb-2">
+                        Notes
+                      </h3>
+                      {notes.filter(
+                        (n) => n.lessonTitle === currentLessonData.title
+                      ).length === 0 ? (
+                        <div className="text-gray-500 italic">
+                          No notes saved for this lesson.
+                        </div>
                       ) : (
-                        notes.map((note) => (
-                          <div key={note._id} className="p-3 border mb-2 rounded bg-yellow-50">
-                            <div className="font-semibold text-blue-700">{note.lessonTitle}</div>
-                            <div className="text-gray-800 mt-1">{note.noteContent}</div>
-                          </div>
-                        ))
+                        notes
+                          .filter(
+                            (n) => n.lessonTitle === currentLessonData.title
+                          )
+                          .map((note) => (
+                            <div
+                              key={note._id}
+                              className="p-3 border mb-2 rounded bg-yellow-50"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="font-semibold text-blue-700">
+                                    {note.lessonTitle}
+                                  </div>
+                                  {editingNoteId === note._id ? (
+                                    <>
+                                      <textarea
+                                        className="w-full mt-1 p-2 border rounded"
+                                        value={editContent}
+                                        onChange={(e) =>
+                                          setEditContent(e.target.value)
+                                        }
+                                        rows={3}
+                                      />
+                                      <div className="flex gap-2 mt-2">
+                                        <button
+                                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                                          onClick={() =>
+                                            handleSaveEdit(note._id)
+                                          }
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          className="bg-gray-300 px-3 py-1 rounded hover:bg-gray-400"
+                                          onClick={() => setEditingNoteId(null)}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-gray-800 mt-1">
+                                      {note.noteContent}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col items-center gap-2 ml-4">
+                                  <button
+                                    className="text-blue-600 hover:text-blue-800"
+                                    onClick={() =>
+                                      handleEditNote(note._id, note.noteContent)
+                                    }
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    className="text-red-600 hover:text-red-800"
+                                    onClick={() => handleDeleteNote(note._id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))
                       )}
                     </div>
                   )}
                   {activeTab === "materials" && (
                     <div className="border rounded-lg bg-white shadow-inner max-h-[360px] overflow-y-auto p-4">
-                      <h3 className="text-lg font-semibold text-blue-700 mb-2">Materials</h3>
+                      <h3 className="text-lg font-semibold text-blue-700 mb-2">
+                        Materials
+                      </h3>
                       {materialsByModule.length === 0 ? (
-                        <div className="text-gray-500 italic">No materials uploaded yet.</div>
+                        <div className="text-gray-500 italic">
+                          No materials uploaded yet.
+                        </div>
                       ) : (
                         <div className="space-y-6">
                           {materialsByModule.map((mod, idx) => (
@@ -804,26 +1170,33 @@ const CoursePlayer = () => {
                               </div>
                               <ul className="space-y-2">
                                 {mod.pdfs.map((pdf, pdfIdx) => (
-                                  <li key={pdfIdx} className="flex items-center gap-2">
+                                  <li
+                                    key={pdfIdx}
+                                    className="flex items-center gap-2"
+                                  >
                                     <FileText className="w-5 h-5 text-yellow-600" />
                                     <button
                                       className="font-medium text-left hover:underline text-blue-700"
-                                      onClick={() => handleOpenPdf(
-                                        flatItems.findIndex(
-                                          (item) =>
-                                            item.type === "pdf" &&
-                                            item.weekIdx === pdf.weekIdx &&
-                                            item.modIdx === pdf.modIdx &&
-                                            item.pdfUrl === pdf.pdfUrl
-                                        ),
-                                        pdf.pdfUrl,
-                                        pdf.pdfName
-                                      )}
+                                      onClick={() =>
+                                        handleOpenPdf(
+                                          flatItems.findIndex(
+                                            (item) =>
+                                              item.type === "pdf" &&
+                                              item.weekIdx === pdf.weekIdx &&
+                                              item.modIdx === pdf.modIdx &&
+                                              item.pdfUrl === pdf.pdfUrl
+                                          ),
+                                          pdf.pdfUrl,
+                                          pdf.pdfName
+                                        )
+                                      }
                                     >
                                       {pdf.pdfName}
                                     </button>
                                     <span className="text-xs text-gray-500 ml-2">
-                                      {pdf.lessonTitle ? `(from: ${pdf.lessonTitle})` : ""}
+                                      {pdf.lessonTitle
+                                        ? `(from: ${pdf.lessonTitle})`
+                                        : ""}
                                     </span>
                                   </li>
                                 ))}
@@ -842,16 +1215,13 @@ const CoursePlayer = () => {
                   onClick={handleMarkAsCompleted}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
                     isCompleted
-                      ? "bg-green-100 text-green-800 hover:bg-green-200"
+                      ? "bg-green-100 text-green-800 hover:bg-green-200 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
                   }`}
+                  disabled={isCompleted}
                 >
                   <CheckCircle className="w-5 h-5" />
-                  <span>
-                    {isCompleted
-                      ? "Completed (Click to Undo)"
-                      : "Mark as Completed"}
-                  </span>
+                  <span>{isCompleted ? "Completed" : "Mark as Completed"}</span>
                 </button>
                 <div className="flex gap-2">
                   <button
@@ -890,6 +1260,38 @@ const CoursePlayer = () => {
       <ChatProvider courseId={courseId}>
         <ChatAssistant courseId={courseId} />
       </ChatProvider>
+
+      {/* ✅ Quiz Modal */}
+      {quizModalOpen && openQuizLessonIdx !== null && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
+          <QuizSection
+            lessonId={flatItems[openQuizLessonIdx]?.lesson?._id}
+            courseId={courseId}
+            userId={userId}
+            onClose={() => {
+              setQuizModalOpen(false);
+              setOpenQuizLessonIdx(null);
+            }}
+            onComplete={async () => {
+              try {
+                const res = await axios.get(
+                  `/api/progress/${userId}/${courseId}`
+                );
+                setCompletedLessons(res.data.completedLessons || []);
+                setQuizResults(res.data.quizResults || []);
+              } catch (err) {
+                console.error("❌ Failed to refresh progress:", err);
+              }
+            }}
+            goToNextLesson={() =>
+              setCurrentFlatIdx((idx) =>
+                Math.min(flatItems.length - 1, idx + 1)
+              )
+            }
+            goToCurrentLesson={() => setCurrentFlatIdx((idx) => idx)}
+          />
+        </div>
+      )}
     </div>
   );
 };

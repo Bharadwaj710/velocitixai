@@ -14,41 +14,49 @@ def generate_quiz_from_transcript(transcript):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not found in environment variables.")
-    
+
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel("gemini-1.5-flash")
 
-    # 🧠 FIX: Convert transcript list to string if needed
+    # Convert transcript to plain text if it's a list or dict
     if isinstance(transcript, list):
         transcript = " ".join(seg.get("text", "") for seg in transcript)
     elif isinstance(transcript, dict) and "transcript" in transcript:
-        # fallback if JSON structure is wrapped under key
         transcript = " ".join(seg.get("text", "") for seg in transcript["transcript"])
-
-    # ✅ Only call .strip() once it's definitely a string
-    if not isinstance(transcript, str):
+    elif not isinstance(transcript, str):
         transcript = str(transcript)
 
     transcript = transcript.strip()
 
-    # Truncate
+    # Truncate if too long
     if len(transcript) > 12000:
         transcript = transcript[:12000] + "..."
-    
+
     prompt = f"""
-You are an educational AI assistant. Given a lesson transcript, generate 2 to 10 quiz questions based on its core concepts.
+You are an intelligent educational assistant.
 
-Each question must be of one of these types:
-1. "mcq" — Multiple choice (provide 4 options)
-2. "text" — Short answer
-3. "fill" — Fill in the blank
+Given the transcript of a video lesson, generate a high-quality quiz with 2 to 10 questions that test understanding of its key concepts.
 
-Output format (JSON array):
+Each question must follow this structure:
+
+- **"type"** (one of): 
+  - "mcq": Multiple Choice Question (4 options)
+  - "fill": Fill in the Blank
+  - "text": Short Answer (user must type the correct word/phrase)
+
+- **"question"**: Clear and concise
+- **"options"**: Only if "type" is "mcq", provide exactly 4 options
+- **"correctAnswer"**: Exact answer string
+- **"explanation"**: Explain why this answer is correct, even if it is simple or obvious.
+
+Always include an explanation for each question. Avoid vague or empty explanations.
+
+### Output format (JSON array only):
 [
   {{
-    "type": "mcq" | "text" | "fill",
+    "type": "mcq" | "fill" | "text",
     "question": "string",
-    "options": ["A", "B", "C", "D"],    // Only for "mcq"
+    "options": ["A", "B", "C", "D"],     // only if type is "mcq"
     "correctAnswer": "string",
     "explanation": "string"
   }},
@@ -56,23 +64,59 @@ Output format (JSON array):
 ]
 
 Transcript:
-\"\"\" 
+\"\"\"
 {transcript}
 \"\"\"
 
-Respond ONLY with the JSON array. Do not include any explanation or extra text.
+Return only the JSON array as output.
 """
 
     try:
         response = model.generate_content(prompt)
         raw_output = response.text.strip()
-        json_match = re.search(r"\[.*\]", raw_output, re.DOTALL)
+
+        # Extract valid JSON array
+        json_match = re.search(r"\[\s*{.*}\s*\]", raw_output, re.DOTALL)
         if not json_match:
-            raise ValueError("No JSON array found in model output.")
+            raise ValueError("No valid JSON array found in model output.")
+
         quiz_data = json.loads(json_match.group(0))
-        return quiz_data
+
+        # Clean and validate quiz items
+        cleaned_quiz = []
+        for q in quiz_data:
+            q_type = q.get("type", "").strip().lower()
+            question = q.get("question", "").strip()
+            correct = q.get("correctAnswer", "").strip()
+            explanation = q.get("explanation", "").strip()
+
+            # Skip if invalid structure
+            if not q_type or not question or not correct:
+                continue
+
+            # Fallback for empty explanation
+            if not explanation:
+                explanation = f'The correct answer is "{correct}" because it best matches the concept in the question.'
+
+            quiz_item = {
+                "type": q_type,
+                "question": question,
+                "correctAnswer": correct,
+                "explanation": explanation,
+            }
+
+            if q_type == "mcq":
+                options = q.get("options", [])
+                if not isinstance(options, list) or len(options) != 4:
+                    continue
+                quiz_item["options"] = [opt.strip() for opt in options]
+
+            cleaned_quiz.append(quiz_item)
+
+        return cleaned_quiz
+
     except Exception as e:
-        print(f"[ERROR] Failed to generate or parse quiz: {e}", file=sys.stderr)
+        print(f"[❌ ERROR] Failed to generate or parse quiz: {e}", file=sys.stderr)
         return []
 
 if __name__ == "__main__":
@@ -81,10 +125,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        # Try parsing the transcript string to see if it's actually JSON
+        # Attempt to parse JSON input
         parsed_input = json.loads(args.transcript)
     except Exception:
         parsed_input = args.transcript
 
+    print("📤 Generating quiz from transcript...", file=sys.stderr)
     quiz = generate_quiz_from_transcript(parsed_input)
     print(json.dumps(quiz, ensure_ascii=False, indent=2))

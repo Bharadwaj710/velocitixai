@@ -1,7 +1,7 @@
 const Student = require("../models/Student");
 const mongoose = require("mongoose");
 const Course = require("../models/Course");
-const CareerAssessment = require("../models/careerAssessment");
+const CareerAssessment = require("../models/CareerAssessment");
 const axios = require("axios");
 
 exports.saveStudentDetails = async (req, res) => {
@@ -14,14 +14,13 @@ exports.saveStudentDetails = async (req, res) => {
       branch,
       yearOfStudy,
       college,
-      collegeSlug,  // ✅ new field
+      collegeSlug, // ✅ new field
       phoneNumber,
       address,
     } = req.body;
 
-
     if (!user || !rollNumber || !collegecourse || !collegeSlug) {
- console.log("⚠️ Missing required fields"); // LOG #2
+
       return res.status(400).json({ message: "Required fields missing" });
     }
 
@@ -37,16 +36,18 @@ exports.saveStudentDetails = async (req, res) => {
     const userDoc = await User.findById(user);
     console.log("👤 userDoc:", userDoc); // LOG #4
 
+
     const userName = userDoc ? userDoc.name : undefined;
 
-   
     if (student) {
       console.log("🎓 Existing student:", student); // LOG #5
       // ⚠️ Check if another student has the same roll number
       if (student.rollNumber !== rollNumber) {
         const existingRoll = await Student.findOne({ rollNumber });
         if (existingRoll && existingRoll.user.toString() !== user) {
-          return res.status(400).json({ message: "Roll number already exists" });
+          return res
+            .status(400)
+            .json({ message: "Roll number already exists" });
         }
       }
 
@@ -56,18 +57,16 @@ exports.saveStudentDetails = async (req, res) => {
       student.branch = branch;
       student.yearOfStudy = yearOfStudy;
       student.college = college;
-      student.collegeSlug = collegeSlug;  // ✅ store slug
+      student.collegeSlug = collegeSlug; // ✅ store slug
       student.phoneNumber = phoneNumber;
       student.address = address;
 
-      
       if (userName) student.name = userName; // auto-fill name
 
       await student.save();
 
       return res.json({ message: "Student details updated", student });
     }
-
 
     // ⚠️ Also check roll number before creating new
     const duplicate = await Student.findOne({ rollNumber });
@@ -85,14 +84,13 @@ exports.saveStudentDetails = async (req, res) => {
       branch,
       yearOfStudy,
       college,
-      collegeSlug,  // ✅ store slug
+      collegeSlug, // ✅ store slug
       phoneNumber,
       address,
     });
 
     await student.save();
     res.status(201).json({ message: "Student details saved", student });
-
   } catch (err) {
     res.status(500).json({ message: err.message || "Server error" });
   }
@@ -109,14 +107,16 @@ exports.getStudentDetails = async (req, res) => {
     // First query: Find student by userId
     let student = await Student.findOne({ user: userId }).populate({
       path: "course",
-      strictPopulate: false // prevent Mongoose error if referenced course is missing
+      strictPopulate: false, // prevent Mongoose error if referenced course is missing
     });
 
     // If not found, try using ObjectId directly
     if (!student) {
-      student = await Student.findOne({ user: new mongoose.Types.ObjectId(userId) }).populate({
+      student = await Student.findOne({
+        user: new mongoose.Types.ObjectId(userId),
+      }).populate({
         path: "course",
-        strictPopulate: false
+        strictPopulate: false,
       });
     }
 
@@ -129,8 +129,6 @@ exports.getStudentDetails = async (req, res) => {
   }
 };
 
-
-
 exports.enrollCourse = async (req, res) => {
   const { userId, courseId } = req.body;
   console.log("Received enroll request:", { userId, courseId });
@@ -140,12 +138,13 @@ exports.enrollCourse = async (req, res) => {
     !userId ||
     !courseId ||
     typeof courseId !== "string" ||
-  ! 
-    courseId === "" ||
+    !courseId === "" ||
     Array.isArray(courseId) ||
     typeof courseId === "object"
   ) {
-    return res.status(400).json({ error: "Missing or invalid userId or courseId" });
+    return res
+      .status(400)
+      .json({ error: "Missing or invalid userId or courseId" });
   }
 
   try {
@@ -204,7 +203,6 @@ exports.getEnrolledCourses = async (req, res) => {
   }
 };
 
-
 exports.getStudentLearningProgress = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -262,4 +260,3 @@ exports.getStudentLearningProgress = async (req, res) => {
     res.status(500).json({ message: err.message || "Server error" });
   }
 };
-
