@@ -12,16 +12,26 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from generate_quiz import generate_quiz_from_transcript
 from score_quiz import score_quiz_with_ai
+from interview_analysis import analyze_interview
+from live_cheating_detector import check_cheating
+from generate_next_question import generate_next_question
+from utils.progress_tracker import set_progress, get_progress
+from bson.objectid import ObjectId
 
-# --- Init ---
+# --- Load environment variables ---
 load_dotenv("../server/.env")
 MONGO_CONN = os.getenv("MONGO_CONN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+# --- Configure Gemini ---
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# --- Initialize Flask ---
 app = Flask(__name__)
 CORS(app)
 app.register_blueprint(chatbot_bp)
 
-# --- CORS ---
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
@@ -34,7 +44,8 @@ def add_cors_headers(response):
 def options_handler(path):
     return '', 204
 
-# --- Shared Functions ---
+# === Utility Functions ===
+
 def extract_youtube_id(url):
     patterns = [r"(?:v=|\/)([0-9A-Za-z_-]{11})"]
     for pat in patterns:
@@ -63,11 +74,7 @@ def run_whisper(audio_path):
         model = whisper.load_model("base")
         result = model.transcribe(audio_path, verbose=False)
         return [
-            {
-                "start": seg["start"],
-                "end": seg["end"],
-                "text": seg["text"].strip()
-            }
+            {"start": seg["start"], "end": seg["end"], "text": seg["text"].strip()}
             for seg in result.get("segments", [])
         ]
     except Exception as e:
@@ -79,14 +86,12 @@ def save_transcript(course_id, lesson_id, video_id, transcript):
     db = client["auth_db"]
     db["transcripts"].update_one(
         {"courseId": course_id, "lessonId": lesson_id, "videoId": video_id},
-        {
-            "$set": {
-                "courseId": course_id,
-                "lessonId": lesson_id,
-                "videoId": video_id,
-                "transcript": transcript,
-            }
-        },
+        {"$set": {
+            "courseId": course_id,
+            "lessonId": lesson_id,
+            "videoId": video_id,
+            "transcript": transcript,
+        }},
         upsert=True
     )
 
@@ -101,7 +106,8 @@ def find_lesson(video_id):
                         return course, lesson
     return None, None
 
-# --- Routes ---
+# === Core Routes ===
+
 @app.route("/recommend", methods=["POST"])
 def recommend():
     data = request.get_json()
@@ -127,136 +133,53 @@ def analyze_video():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/suggest-course-metadata", methods=["POST"])
-def suggest_course_metadata():
-    import json
-
-    # Get title and description
-    data = request.get_json()
-    title = data.get("title", "").strip()
-    description = data.get("description", "").strip()
-
-    # Check title
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
-
-    # Configure Gemini API key
-    try:
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    except Exception as e:
-        return jsonify({"error": f"Failed to configure Gemini: {str(e)}"}), 500
-
-    # Define allowed domains
-    allowed_domains = [
-        "Technology and Innovation",
-        "Healthcare and Wellness",
-        "Business and Finance",
-        "Arts and Creativity",
-        "Education and Social Services"
-    ]
-
-    # Prepare prompt
-    prompt = f"""
-    Given the following YouTube course title{' and description' if description else ''}, suggest:
-    - The most relevant domain for this course (choose ONLY from: {', '.join(allowed_domains)})
-    - 3 to 5 ideal job roles
-    - 3 to 5 key skills
-    - 2 to 3 learning challenges
-
-    Respond ONLY as JSON with keys: domain, idealRoles, skillsCovered, challengesAddressed.
-
-    Course Title: {title}
-    {"Course Description: " + description if description else ""}
-    """
-
-    # Generate response from Gemini
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        response_text = getattr(response, "text", "")
-
-        print("=== Gemini Raw Response ===")
-        print(response_text)
-
-        # Extract JSON block from response
-        match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        if not match:
-            raise ValueError("JSON not found in response.")
-
-        metadata = json.loads(match.group(0))
-
-        # Validate the domain
-        if metadata.get("domain") not in allowed_domains:
-            raise ValueError("Domain is not one of the allowed options.")
-
-        return jsonify(metadata), 200
-
-    except Exception as e:
-        return jsonify({
-            "error": f"AI response invalid or failed: {str(e)}",
-            "rawResponse": response_text if 'response_text' in locals() else ""
-        }), 500
-
-from utils.progress_tracker import set_progress
-
 @app.route("/generate-transcript", methods=["POST"])
 def generate_transcript():
     data = request.get_json()
     video_url = data.get("videoUrl")
-
     if not video_url:
         return jsonify({"error": "Missing videoUrl"}), 400
-
     try:
         video_id = extract_youtube_id(video_url).strip()
-        set_progress(video_id, 5)  # ✅ Start progress
+        set_progress(video_id, 5)
 
         audio_path = download_audio(video_url)
         if not audio_path:
             set_progress(video_id, 0)
             return jsonify({"error": "Audio download failed"}), 500
 
-        set_progress(video_id, 25)  # ✅ Audio downloaded
-
+        set_progress(video_id, 25)
         transcript = run_whisper(audio_path)
         if not transcript:
             set_progress(video_id, 0)
             return jsonify({"error": "Whisper failed"}), 500
 
-        set_progress(video_id, 80)  # ✅ Transcription done
-
+        set_progress(video_id, 80)
         course, lesson = find_lesson(video_id)
         if not course or not lesson:
             return jsonify({"error": "Lesson not found"}), 404
 
         save_transcript(course["_id"], lesson["_id"], video_id, transcript)
-        set_progress(video_id, 100)  # ✅ Done
-
+        set_progress(video_id, 100)
         return jsonify({"message": "Transcript saved", "videoId": video_id}), 200
 
     except Exception as e:
         set_progress(video_id, 0)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/generate-quiz", methods=["POST"])
 def generate_quiz():
     data = request.get_json()
-    if not data or "transcript" not in data:
+    transcript = data.get("transcript")
+    if not transcript:
         return jsonify({"error": "Transcript is required"}), 400
 
-    raw_transcript = data["transcript"]
-
-    # 🔧 Handle array of transcript segments (extract text and join)
-    if isinstance(raw_transcript, list):
-        transcript = " ".join(seg.get("text", "") for seg in raw_transcript)
-    elif isinstance(raw_transcript, str):
-        transcript = raw_transcript.strip()
+    if isinstance(transcript, list):
+        full_text = " ".join(seg.get("text", "") for seg in transcript)
     else:
-        return jsonify({"error": "Invalid transcript format"}), 400
+        full_text = str(transcript)
 
-    # ✅ Generate quiz using Gemini
-    quiz = generate_quiz_from_transcript(transcript)
+    quiz = generate_quiz_from_transcript(full_text)
     return jsonify(quiz), 200
 
 @app.route("/score-quiz", methods=["POST"])
@@ -265,23 +188,155 @@ def score_quiz():
         data = request.get_json()
         student_answers = data.get("studentAnswers", [])
         original_questions = data.get("originalQuestions", [])
-
         if not student_answers or not original_questions:
             return jsonify({"error": "Missing data"}), 400
 
         result = score_quiz_with_ai(student_answers, original_questions)
         return jsonify(result)
-
     except Exception as e:
-        print(f"[SERVER ERROR] {e}")
         return jsonify({"error": "Failed to score quiz"}), 500
 
 @app.route("/progress/<lesson_id>", methods=["GET"])
 def get_progress_for_lesson(lesson_id):
-    from utils.progress_tracker import get_progress
-    print(f"[PROGRESS CHECK] Fetching progress for {lesson_id}")
     return jsonify({ "progress": get_progress(lesson_id) })
 
+# === 🧠 AI INTERVIEW MODULE ===
+
+from pymongo import MongoClient
+
+@app.route("/generate-next-question", methods=["POST"])
+def get_next_question():
+    data = request.get_json()
+    answer = data.get("previousAnswer", "")
+    index = data.get("questionIndex", 0)
+    transcript = data.get("transcript", "")
+    student_id = data.get("studentId")
+    proficiency = data.get("proficiency", "Beginner")
+
+    if not answer.strip() and not transcript.strip():
+        return jsonify({"error": "Missing answer and transcript"}), 400
+
+    # ✅ Load proficiency from MongoDB
+    try:
+        client = MongoClient(MONGO_CONN)
+        db = client["auth_db"]
+        career_data = db["careerassessments"].find_one({"userId": student_id})
+        proficiency = career_data.get("corrected_level", "Beginner") if career_data else "Beginner"
+    except Exception as e:
+        print("⚠️ Failed to fetch proficiency:", str(e))
+        proficiency = "Beginner"
+
+    # ✅ Pass proficiency into the function
+    try:
+        result = generate_next_question(answer, index, transcript, proficiency)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/check-frame", methods=["POST"])
+def detect_cheating():
+    file = request.files.get("frame")
+    if not file:
+        return jsonify({"error": "No frame uploaded"}), 400
+    try:
+        result = check_cheating(file.read())
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/analyze-session", methods=["POST"])
+def final_interview_analysis():
+    try:
+        data = request.get_json()
+        video_url = data.get("videoUrl")
+        answers = data.get("answers", [])
+        timestamps = data.get("timestamps", [])
+        report = analyze_interview(video_url, answers, timestamps)
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/initial-question/<student_id>", methods=["GET"])
+def generate_initial_question(student_id):
+    try:
+        print("➡️  /initial-question hit with ID:", student_id)
+
+        # === Setup DB ===
+        client = MongoClient(MONGO_CONN)
+        db = client["auth_db"]
+
+        # === Get Course ID from Query ===
+        course_id_str = request.args.get("courseId")
+        if not course_id_str:
+            return jsonify({ "error": "Course ID is required in query param" }), 400
+
+        try:
+            course_id = ObjectId(course_id_str)
+        except:
+            return jsonify({ "error": "Invalid course ID" }), 400
+
+        # === Get Student ===
+        student = db["students"].find_one({ "user": ObjectId(student_id) })
+        if not student:
+            print("❌ Student not found in 'students'")
+            return jsonify({ "error": "Student not found" }), 404
+
+        # === Get Course ===
+        course = db["courses"].find_one({ "_id": course_id })
+        if not course:
+            print("❌ Course not found in 'courses'")
+            return jsonify({ "error": "Course not found" }), 404
+
+        course_title = course.get("title", "Unnamed Course")
+        skills = course.get("skillsCovered", [])
+        ideal_roles = course.get("idealRoles", [])
+        lesson_titles = []
+        for week in course.get("weeks", []):
+            for module in week.get("modules", []):
+                for lesson in module.get("lessons", []):
+                    lesson_titles.append(lesson.get("title", ""))
+
+        # === Get Proficiency and Domain from Career Assessment ===
+        career_data = db["careerassessments"].find_one({ "userId": student_id })
+        domain = career_data.get("domain", "Technology") if career_data else "Technology"
+        proficiency = career_data.get("corrected_level", "Beginner") if career_data else "Beginner"
+
+        # === Gemini Prompt Construction ===
+        skills_str = "\n".join(f"- {s}" for s in skills[:8])
+        lessons_str = "\n".join(f"- {l}" for l in lesson_titles[:8])
+        roles_str = ", ".join(ideal_roles[:5])
+
+        prompt = f"""
+        You are an AI interviewer conducting a mock interview for a student.
+
+        The student has completed the course: "{course_title}"
+        Domain: "{domain}"
+        Proficiency: "{proficiency}"
+        Ideal roles: {roles_str}
+
+        The course covers these skills:
+        {skills_str}
+
+        The course includes the following lesson topics:
+        {lessons_str}
+
+        Based on this, generate the **first mock interview question** tailored to test the student's applied understanding. Be clear and direct.
+
+        ONLY return the question.
+        """
+
+        print("📨 Prompt:\n", prompt)
+        response = model.generate_content(prompt)
+        print("✅ Gemini Response:", response.text.strip())
+
+        return jsonify({ "question": response.text.strip() })
+
+    except Exception as e:
+        print("❌ Exception occurred:", str(e))
+        return jsonify({ "error": "Failed to generate initial question" }), 500
+
+# === Run the Flask App ===
 
 if __name__ == "__main__":
     app.run(port=5001)
