@@ -20,22 +20,19 @@ exports.saveStudentDetails = async (req, res) => {
     } = req.body;
 
     if (!user || !rollNumber || !collegecourse || !collegeSlug) {
-
       return res.status(400).json({ message: "Required fields missing" });
     }
 
     // Check if student already exists for this user
     let student = await Student.findOne({ user });
 
-    
     if (!mongoose.Types.ObjectId.isValid(user)) {
       console.log("❌ Invalid user ID:", user); // LOG #3
-  return res.status(400).json({ message: "Invalid user ID format" });
-}
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
     const User = require("../models/User");
     const userDoc = await User.findById(user);
     console.log("👤 userDoc:", userDoc); // LOG #4
-
 
     const userName = userDoc ? userDoc.name : undefined;
 

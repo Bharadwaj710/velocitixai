@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Play,
@@ -161,6 +161,7 @@ const CoursePlayer = () => {
   const [selectionCoords, setSelectionCoords] = useState({ x: 0, y: 0 });
   const [openQuizLessonIdx, setOpenQuizLessonIdx] = useState(null); // flatIdx of quiz being taken
   const [quizModalOpen, setQuizModalOpen] = useState(false);
+  const navigate = useNavigate();
   // quizPassedLessons is now derived from quizResults
 
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -678,22 +679,19 @@ const CoursePlayer = () => {
     );
   };
 
-const allLessonsCompleted = useMemo(() => {
-  if (!courseData || !completedLessons || !quizResults) return false;
+  const allLessonsCompleted = useMemo(() => {
+    if (!courseData || !completedLessons || !quizResults) return false;
 
-  const allLessonIds = courseData.weeks
-    ?.flatMap((week) => week.modules)
-    ?.flatMap((mod) => mod.lessons)
-    ?.map((lesson) => lesson._id);
+    const allLessonIds = courseData.weeks
+      ?.flatMap((week) => week.modules)
+      ?.flatMap((mod) => mod.lessons)
+      ?.map((lesson) => lesson._id);
 
-  return (
-    Array.isArray(completedLessons) &&
-    allLessonIds.every((id) => completedLessons.includes(id))
-  );
-}, [courseData, completedLessons, quizResults]);
-
-
-
+    return (
+      Array.isArray(completedLessons) &&
+      allLessonIds.every((id) => completedLessons.includes(id))
+    );
+  }, [courseData, completedLessons, quizResults]);
 
   if (!courseData || !courseData.weeks)
     return <div className="p-6 text-gray-600">Loading course...</div>;
@@ -894,6 +892,12 @@ const allLessonsCompleted = useMemo(() => {
             {aiInterviewEnabled && (
               <div className="mt-8 w-full px-2">
                 <button
+                  onClick={() => {
+                    if (allLessonsCompleted)
+                      navigate(
+                        `/ai-interview-instructions?courseId=${courseId}`
+                      );
+                  }}
                   disabled={!allLessonsCompleted}
                   className={`w-full text-sm px-4 py-2 rounded font-semibold transition-all duration-300 border
         ${

@@ -70,12 +70,13 @@ app.use("/api/notes", notesRoutes);
 const quizRoutes = require("./routes/quizRoutes");
 app.use("/api/quiz", quizRoutes);
 
-
-const careerAssessmentRoutes = require('./routes/careerAssessment');
-app.use('/api/career-assessment', careerAssessmentRoutes);
+const careerAssessmentRoutes = require("./routes/careerAssessment");
+app.use("/api/career-assessment", careerAssessmentRoutes);
 
 app.use("/api/progress", progressRoutes);
 
 app.use("/api/lessons", require("./routes/lessonRoutes"));
 
 app.use("/api/notifications", notificationRoutes);
+
+app.use("/api/aiInterview", require("./routes/aiInterview"));
