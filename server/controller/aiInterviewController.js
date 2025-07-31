@@ -275,7 +275,7 @@ exports.checkCheating = async (req, res) => {
     const form = new FormData();
     form.append("frame", req.file.buffer, req.file.originalname);
 
-    const result = await axios.post("http://localhost:8000/check-frame", form, {
+    const result = await axios.post("http://localhost:5001/check-frame", form, {
       headers: form.getHeaders(),
     });
 
