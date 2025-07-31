@@ -5,6 +5,8 @@ import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import { jwtDecode } from "jwt-decode"; // ✅ correct
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const QUESTION_TIME = 120;
 
@@ -21,16 +23,17 @@ const AIInterview = () => {
   const [videoBlob, setVideoBlob] = useState(null);
   const [cheatCount, setCheatCount] = useState(0);
   const [loadingNextQuestion, setLoadingNextQuestion] = useState(false);
-
+  const [questions, setQuestions] = useState([]); // 💡 store all questions
+  const [skipped, setSkipped] = useState([]); // 💡 index of skipped questions
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
   const frameIntervalRef = useRef(null);
   const timestampsRef = useRef([]);
-
   const location = useLocation();
   const courseId = new URLSearchParams(location.search).get("courseId");
+  const [skipDisabled, setSkipDisabled] = useState(false);
 
   const [transcript, setTranscript] = useState([]);
 
@@ -75,15 +78,86 @@ const AIInterview = () => {
       timerRef.current = setInterval(() => {
         setTimeLeft((t) => {
           if (t <= 1) {
-            handleNext();
+            handleNext(false, true); // fromTimeout = true
             return QUESTION_TIME;
           }
+
           return t - 1;
         });
       }, 1000);
       return () => clearInterval(timerRef.current);
     }
   }, [recording, step]);
+  const handleSkip = async (timedOut = false) => {
+    const token = localStorage.getItem("token");
+    const decoded = jwtDecode(token);
+
+    setSkipped((prev) =>
+      prev.includes(questionIndex) ? prev : [...prev, questionIndex]
+    );
+
+    setAnswers((prev) => {
+      const exists = prev.find((a) => a.index === questionIndex);
+      return exists ? prev : [...prev, { index: questionIndex, answer: "" }];
+    });
+
+    if (timestampsRef.current.length > 0) {
+      timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
+    }
+
+    try {
+      await axios.post(
+        "http://localhost:8080/api/aiInterview/save-answer",
+        {
+          question: currentQuestion,
+          answer: "",
+          transcript: "",
+          index: questionIndex,
+          studentId: decoded.userId,
+          skip: true,
+          timedOut,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const res = await axios.post(
+        `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
+        {
+          answer: "",
+          question: currentQuestion,
+          transcript: "",
+          studentId: decoded.userId,
+          skip: true,
+          timedOut,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data.finished) {
+        stopRecording();
+        clearInterval(frameIntervalRef.current);
+        uploadFinalInterview();
+        setStep("complete");
+      } else {
+        const nextIndex = res.data.isRevisit
+          ? res.data.revisitIndex
+          : res.data.index ?? questionIndex + 1;
+
+        setCurrentQuestion(res.data.question);
+        setQuestionIndex(nextIndex);
+        setSkipDisabled(!!res.data.disableSkip); // ✅ disable on revisit
+        setTimeLeft(QUESTION_TIME);
+        timestampsRef.current.push({ question: nextIndex, start: Date.now() });
+        startRecording();
+      }
+    } catch (err) {
+      console.error(
+        "❌ Error in handleSkip:",
+        err?.response?.data || err.message
+      );
+      toast.error("❌ Failed to skip question.");
+    }
+  };
 
   const startRecording = () => {
     if (!streamRef.current) return;
@@ -177,7 +251,28 @@ const AIInterview = () => {
         }
       );
 
-      setCurrentQuestion(res.data.question);
+      const question = res.data.question;
+      const token = localStorage.getItem("token");
+      const decoded = jwtDecode(token);
+
+      // 💾 Save the first question to DB with empty answer
+      await axios.post(
+        "http://localhost:8080/api/aiInterview/save-answer",
+        {
+          question,
+          answer: "",
+          transcript: "",
+          index: 0,
+          studentId: decoded.userId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setCurrentQuestion(question);
       setStep("interview");
       setQuestionIndex(0);
       setAnswers([]);
@@ -190,62 +285,141 @@ const AIInterview = () => {
     }
   };
 
-  const handleNext = async () => {
+  const handleNext = async (skip = false, fromTimeout = false) => {
     const token = localStorage.getItem("token");
-    const decoded = jwtDecode(token); // ✅
+    const decoded = jwtDecode(token);
+    const finalAnswer = liveTranscript?.trim() || "";
+    const trimmedTranscript = finalAnswer;
+    const isEmptyAnswer = !trimmedTranscript;
 
-    const trimmedAnswer = answers[questionIndex]?.trim();
-    const trimmedTranscript = liveTranscript?.trim();
+    const index = questionIndex;
 
-    if (!trimmedAnswer && !trimmedTranscript) {
-      alert("Please say your answer before moving to the next question.");
+    if (fromTimeout && isEmptyAnswer) {
+      try {
+        await axios.post(
+          "http://localhost:8080/api/aiInterview/save-answer",
+          {
+            answer: "",
+            question: currentQuestion,
+            transcript: "",
+            index,
+            studentId: decoded.userId,
+            timedOut: true,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        setAnswers((prev) => {
+          const exists = prev.find((a) => a.index === index);
+          return exists ? prev : [...prev, { index, answer: "" }];
+        });
+
+        const res = await axios.post(
+          `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
+          {
+            answer: "",
+            question: currentQuestion,
+            transcript: "",
+            studentId: decoded.userId,
+            skip: false,
+            timedOut: true,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (res.data.finished) {
+          stopRecording();
+          clearInterval(frameIntervalRef.current);
+          uploadFinalInterview();
+          setStep("complete");
+        } else {
+          const nextIndex = res.data.isRevisit
+            ? res.data.revisitIndex
+            : res.data.index ?? questionIndex + 1;
+
+          setCurrentQuestion(res.data.question);
+          setQuestionIndex(nextIndex);
+          setSkipDisabled(!!res.data.disableSkip); // ✅ disable skip on revisit
+          setTimeLeft(QUESTION_TIME);
+          timestampsRef.current.push({
+            question: nextIndex,
+            start: Date.now(),
+          });
+          startRecording();
+        }
+      } catch (err) {
+        console.error("❌ Timeout error:", err);
+        toast.error("❌ Failed to fetch next question.");
+      }
+      return;
+    }
+
+    if (skip && isEmptyAnswer) return handleSkip(false);
+
+    if (!skip && !fromTimeout && isEmptyAnswer) {
+      toast.warn("⚠️ Please answer the question or skip it.");
       return;
     }
 
     if (loadingNextQuestion) return;
     setLoadingNextQuestion(true);
-
     timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
-    const userAnswer = document.getSelection()?.toString() || "";
+
     setAnswers((prev) => {
       const updated = [...prev];
-      updated[questionIndex] = userAnswer;
+      const existingIndex = updated.findIndex((a) => a.index === index);
+      if (existingIndex >= 0) updated[existingIndex].answer = finalAnswer;
+      else updated.push({ index, answer: finalAnswer });
       return updated;
     });
 
     try {
+      await axios.post(
+        "http://localhost:8080/api/aiInterview/save-answer",
+        {
+          answer: skip ? "" : finalAnswer,
+          question: currentQuestion,
+          transcript: skip ? "" : trimmedTranscript,
+          index,
+          studentId: decoded.userId,
+          timedOut: false,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
       const res = await axios.post(
         `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
         {
-          answer: answers[questionIndex] || "",
-          index: questionIndex,
-          transcript: liveTranscript,
+          answer: skip ? "" : finalAnswer,
+          question: currentQuestion,
+          transcript: skip ? "" : trimmedTranscript,
           studentId: decoded.userId,
+          skip,
+          timedOut: false,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
+
       if (res.data.finished) {
         stopRecording();
         clearInterval(frameIntervalRef.current);
         uploadFinalInterview();
         setStep("complete");
       } else {
-        setCurrentQuestion(res.data.question);
-        setQuestionIndex((i) => i + 1);
-        setTimeLeft(QUESTION_TIME);
-        timestampsRef.current.push({
-          question: questionIndex + 1,
-          start: Date.now(),
-        });
+        const nextIndex = res.data.isRevisit
+          ? res.data.revisitIndex
+          : res.data.index ?? questionIndex + 1;
 
-        startRecording(); // ✅ Start recording and listening for next question
+        setCurrentQuestion(res.data.question);
+        setQuestionIndex(nextIndex);
+        setSkipDisabled(!!res.data.disableSkip); // ✅ set disable flag
+        setTimeLeft(QUESTION_TIME);
+        timestampsRef.current.push({ question: nextIndex, start: Date.now() });
+        startRecording();
       }
     } catch (err) {
-      alert("Error getting next question.");
+      console.error("❌ Error in handleNext:", err.message);
+      toast.error("❌ Error fetching next question.");
     } finally {
       setLoadingNextQuestion(false);
     }
@@ -276,7 +450,8 @@ const AIInterview = () => {
       alert("Failed to upload interview.");
     }
   };
-
+  const trimmedTranscript = liveTranscript?.trim() || "";
+  const isEmptyAnswer = !trimmedTranscript;
   return (
     <div className="min-h-screen w-full bg-white flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-5xl mx-auto">
@@ -309,28 +484,38 @@ const AIInterview = () => {
         {step === "interview" && (
           <>
             {/* Question */}
-            <div className="bg-blue-50 rounded-lg p-6 w-full mb-6 text-xl text-blue-900 font-medium text-center shadow">
+            <div className="bg-blue-50 rounded-lg px-6 py-4 mb-6 text-xl text-blue-900 font-medium text-center shadow min-h-[90px] w-full max-w-5xl mx-auto">
               {currentQuestion}
+              {skipped.includes(questionIndex) && (
+                <span className="ml-2 text-yellow-600 text-sm">
+                  (⏭ Skipped Question)
+                </span>
+              )}
             </div>
 
             {/* Video + Transcript side-by-side */}
             <div className="flex flex-col md:flex-row gap-6 w-full max-w-5xl mb-6">
               {/* Video */}
-              <div className="flex-1">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  className="rounded-xl w-full bg-black aspect-video shadow-lg"
-                />
-              </div>
+              <div className="w-full flex flex-col md:flex-row gap-6 mb-6">
+                {/* Video Section - Wider */}
+                <div className="md:w-2/3 w-full">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    className="rounded-xl w-full bg-black aspect-video shadow-lg"
+                  />
+                </div>
 
-              {/* Transcript */}
-              <div className="w-full md:w-1/2 bg-gray-100 p-4 rounded-lg shadow-inner h-[300px] overflow-y-auto">
-                <h4 className="font-semibold text-blue-700 mb-2">Transcript</h4>
-                <p className="text-sm text-gray-700 whitespace-pre-line">
-                  {liveTranscript}
-                </p>
+                {/* Transcript Section - Right Side */}
+                <div className="md:w-1/3 w-full bg-gray-100 p-4 rounded-lg shadow-inner h-[300px] overflow-y-auto">
+                  <h4 className="font-semibold text-blue-700 mb-2">
+                    Transcript
+                  </h4>
+                  <p className="text-sm text-blue-600 whitespace-pre-line">
+                    {liveTranscript}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -348,12 +533,23 @@ const AIInterview = () => {
                 style={{ width: `${(timeLeft / QUESTION_TIME) * 100}%` }}
               ></div>
             </div>
+            <button
+              onClick={() => handleSkip()}
+              disabled={timeLeft > 60}
+              className={`ml-4 px-8 py-3 text-white rounded-lg font-semibold text-lg transition ${
+                timeLeft > 60
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-yellow-500 hover:bg-yellow-600"
+              }`}
+            >
+              Skip
+            </button>
 
             <button
-              onClick={handleNext}
-              disabled={loadingNextQuestion}
+              onClick={() => handleNext()}
+              disabled={loadingNextQuestion || isEmptyAnswer}
               className={`px-8 py-3 text-white rounded-lg font-semibold text-lg transition ${
-                loadingNextQuestion
+                loadingNextQuestion || isEmptyAnswer
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-green-600 hover:bg-green-700"
               }`}
@@ -388,6 +584,9 @@ const AIInterview = () => {
           </div>
         )}
       </div>
+
+      {/* Add ToastContainer for toasts */}
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

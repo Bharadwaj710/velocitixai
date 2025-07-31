@@ -8,6 +8,7 @@ const upload = multer();
 
 router.post("/start-interview", auth, controller.startInterview);
 router.post("/next-question", auth, controller.nextQuestion);
+router.post("/save-answer", auth, controller.saveAnswer);
 router.post("/check-frame", upload.single("frame"), controller.checkCheating);
 router.post("/terminate", auth, controller.terminateInterview);
 router.post(

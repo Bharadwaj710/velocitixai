@@ -208,31 +208,99 @@ from pymongo import MongoClient
 def get_next_question():
     data = request.get_json()
     answer = data.get("previousAnswer", "")
-    index = data.get("questionIndex", 0)
     transcript = data.get("transcript", "")
     student_id = data.get("studentId")
     proficiency = data.get("proficiency", "Beginner")
+    course_id = data.get("courseId")
+    is_skipped = data.get("skip", False)
+    timedOut = data.get("timedOut", False)
 
-    if not answer.strip() and not transcript.strip():
-        return jsonify({"error": "Missing answer and transcript"}), 400
-
-    # ✅ Load proficiency from MongoDB
     try:
         client = MongoClient(MONGO_CONN)
         db = client["auth_db"]
-        career_data = db["careerassessments"].find_one({"userId": student_id})
-        proficiency = career_data.get("corrected_level", "Beginner") if career_data else "Beginner"
-    except Exception as e:
-        print("⚠️ Failed to fetch proficiency:", str(e))
-        proficiency = "Beginner"
+        sessions = db["interviews"]
 
-    # ✅ Pass proficiency into the function
-    try:
-        result = generate_next_question(answer, index, transcript, proficiency)
-        return jsonify(result)
+        session = sessions.find_one({"student": ObjectId(student_id)})
+        if not session:
+            sessions.insert_one({
+                "student": ObjectId(student_id),
+                "questions": [],
+                "answers": [],
+                "skippedQuestions": [],
+                "notAttemptedQuestions": [],
+                "timestamps": [],
+                "status": "in-progress",
+                "lastGeneratedQuestion": {"index": 0, "question": ""}
+            })
+            session = sessions.find_one({"student": ObjectId(student_id)})
+
+        last_q = session.get("lastGeneratedQuestion", {})
+        current_index = last_q.get("index", 0)
+        current_question_text = last_q.get("question", "")
+
+        # ✅ Only if timedOut, push lastGeneratedQuestion to notAttempted (if not answered)
+        if timedOut and current_question_text:
+            existing_answer = session.get("answers", [])
+            alreadyAnswered=any(
+                isinstance(a, dict) and
+                a.get("index") == current_index and a.get("answer", "").strip()
+                for a in session.get("answers", [])
+            )
+            if not alreadyAnswered:
+                already_na = any(q.get("index") == current_index for q in session.get("notAttemptedQuestions", []))
+                if not already_na:
+                    sessions.update_one(
+                        {"student": ObjectId(student_id)},
+                        {
+                        "$push": {"notAttemptedQuestions": {"index": current_index, "question": current_question_text}}}
+                    )
+
+        if is_skipped and not answer.strip():
+            answer = "Skipped"
+        elif timedOut:
+            answer = "Timed out"
+
+        course = db["courses"].find_one({"_id": ObjectId(course_id)})
+        if not course:
+            return jsonify({"error": "Course not found"}), 404
+
+        skills = course.get("skillsCovered", [])
+        ideal_roles = course.get("idealRoles", [])
+        lesson_titles = [
+            lesson.get("title", "")
+            for week in course.get("weeks", [])
+            for module in week.get("modules", [])
+            for lesson in module.get("lessons", [])
+        ]
+
+        result = generate_next_question(
+            answer.strip(),
+            current_index,
+            transcript,
+            proficiency,
+            course.get("title", "Course"),
+            skills,
+            lesson_titles,
+            ideal_roles,
+        )
+
+        next_question = result.get("nextQuestion")
+        if not next_question:
+            return jsonify({"error": "AI failed to generate a question"}), 400
+        next_index = int(current_index) + 1
+
+        sessions.update_one(
+            {"student": ObjectId(student_id)},
+            {
+                "$addToSet": {"questions": {"index": next_index, "question": next_question}},
+                "$set": {"lastGeneratedQuestion": {"index": next_index, "question": next_question}}
+            }
+        )
+
+        return jsonify({"nextQuestion": next_question})
     except Exception as e:
+        print("❌ Error in /generate-next-question:", str(e))
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/check-frame", methods=["POST"])
 def detect_cheating():
@@ -329,7 +397,22 @@ def generate_initial_question(student_id):
         print("📨 Prompt:\n", prompt)
         response = model.generate_content(prompt)
         print("✅ Gemini Response:", response.text.strip())
-
+        question = response.text.strip()
+        
+        db["interviews"].update_one(
+            { "student": ObjectId(student_id) },
+            {
+                "$set": {
+                    "questions": [{ "index": 0, "question": question }],
+                    "answers": [""],
+                    "skippedQuestions": [],
+                    "notAttemptedQuestions": [],
+                    "lastGeneratedQuestion": { "index": 0, "question": question },
+                    "status": "in-progress",
+            }
+            },
+            upsert=True
+        )
         return jsonify({ "question": response.text.strip() })
 
     except Exception as e:
@@ -339,4 +422,4 @@ def generate_initial_question(student_id):
 # === Run the Flask App ===
 
 if __name__ == "__main__":
-    app.run(port=5001)
+    app.run(port=5001, debug=True)

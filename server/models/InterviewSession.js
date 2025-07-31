@@ -1,4 +1,3 @@
-// server/models/InterviewSession.js
 const mongoose = require("mongoose");
 
 const InterviewSessionSchema = new mongoose.Schema(
@@ -9,7 +8,6 @@ const InterviewSessionSchema = new mongoose.Schema(
       required: true,
     },
     videoUrl: String,
-    answers: [String],
     timestamps: [
       {
         question: Number,
@@ -17,10 +15,39 @@ const InterviewSessionSchema = new mongoose.Schema(
         end: Number,
       },
     ],
+    questions: [
+      {
+        index: Number,
+        question: String,
+      },
+    ],
+    answers: [
+      {
+        index: Number,
+        answer: String,
+      },
+    ],
+    skippedQuestions: [
+      {
+        index: Number,
+        question: String,
+      },
+    ],
+    notAttemptedQuestions: [
+      {
+        index: Number,
+        question: String,
+      },
+    ],
+    lastGeneratedQuestion: {
+      index: Number,
+      question: String,
+    },
+
     status: {
       type: String,
-      enum: ["completed", "terminated"],
-      default: "completed",
+      enum: ["in-progress", "completed", "terminated"],
+      default: "in-progress",
     },
     cheatingDetected: { type: Boolean, default: false },
     report: {
