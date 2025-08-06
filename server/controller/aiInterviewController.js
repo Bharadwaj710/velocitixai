@@ -7,19 +7,44 @@ const { jwtDecode } = require("jwt-decode"); // ✅ correct for CommonJS
 
 exports.startInterview = async (req, res) => {
   try {
-    const courseId = req.query.courseId; // Get courseId from query string
+    const courseId = req.query.courseId;
+    const userId = req.user.id;
 
     if (!courseId) {
       return res.status(400).json({ error: "Missing courseId in request" });
     }
 
     const profileRes = await axios.get(
-      `http://localhost:5001/initial-question/${req.user.id}?courseId=${courseId}`
+      `http://localhost:5001/initial-question/${userId}?courseId=${courseId}`
     );
 
-    console.log("🔁 Flask API Response:", profileRes.data);
+    const firstQuestion = profileRes.data.question;
 
-    return res.json({ question: profileRes.data.question });
+    // Save session with first question
+    let session = await InterviewSession.findOne({ student: userId });
+    if (!session) {
+      session = new InterviewSession({
+        student: userId,
+        answers: [],
+        questions: [{ index: 0, question: firstQuestion }],
+        skippedQuestions: [],
+        notAttemptedQuestions: [],
+        timestamps: [],
+        lastGeneratedQuestion: { index: 0, question: firstQuestion },
+        status: "in-progress",
+      });
+    } else {
+      // Only if first question not added already
+      const alreadyExists = session.questions.some((q) => q.index === 0);
+      if (!alreadyExists) {
+        session.questions.push({ index: 0, question: firstQuestion });
+        session.lastGeneratedQuestion = { index: 0, question: firstQuestion };
+      }
+    }
+
+    await session.save();
+
+    return res.json({ question: firstQuestion });
   } catch (err) {
     console.error("Start interview error:", err.message || err);
     return res
@@ -29,42 +54,298 @@ exports.startInterview = async (req, res) => {
 };
 
 exports.nextQuestion = async (req, res) => {
-  const { answer, index, transcript } = req.body;
+  const { answer, transcript, skip, timedOut } = req.body;
+  const userId = req.user?.id;
+  const courseId = req.query.courseId;
 
   try {
-    if (index >= 9) {
+    const session = await InterviewSession.findOne({ student: userId });
+    if (!session) return res.status(404).json({ error: "Session not found" });
+
+    const lastQ = session.lastGeneratedQuestion || {};
+    const currentIndex = typeof lastQ.index === "number" ? lastQ.index : 0;
+    const currentText = lastQ.question || "";
+
+    const isSkip = !!skip;
+    const isTimedOut = !!timedOut;
+
+    const alreadyAnswered = session.answers.some(
+      (a) => a.index === currentIndex && a.answer.trim() !== ""
+    );
+
+    if (isTimedOut && currentText && !alreadyAnswered) {
+      // ✅ Filter duplicates before pushing
+      session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
+        (q) => q.index !== currentIndex
+      );
+      session.notAttemptedQuestions.push({
+        index: currentIndex,
+        question: currentText,
+      });
+      session.markModified("notAttemptedQuestions");
+
+      session.skippedQuestions = session.skippedQuestions.filter(
+        (q) => q.index !== currentIndex
+      );
+    }
+
+    if (isSkip && currentText) {
+      const alreadyInSkip = session.skippedQuestions.some(
+        (q) => q.index === currentIndex
+      );
+      if (!alreadyInSkip) {
+        session.skippedQuestions.push({
+          index: currentIndex,
+          question: currentText,
+        });
+        session.markModified("skippedQuestions");
+      }
+    }
+
+    const generatedIndexes = new Set([
+      ...session.questions.map((q) => q.index),
+      ...session.notAttemptedQuestions.map((q) => q.index),
+      ...session.answers.map((q) => q.index),
+      ...session.skippedQuestions.map((q) => q.index),
+    ]);
+
+    if (generatedIndexes.size >= 10) {
+      const revisit = session.skippedQuestions.sort(
+        (a, b) => a.index - b.index
+      )[0];
+      if (revisit) {
+        session.lastGeneratedQuestion = {
+          index: revisit.index,
+          question: revisit.question,
+        };
+        session.markModified("lastGeneratedQuestion");
+        await session.save();
+        return res.json({
+          question: revisit.question,
+          revisitIndex: revisit.index,
+          finished: false,
+          isRevisit: true,
+          disableSkip: true,
+        });
+      }
       return res.json({ finished: true });
     }
 
-    const finalAnswer = transcript?.trim() || answer?.trim();
-    if (!finalAnswer) {
-      return res
-        .status(400)
-        .json({ error: "No answer or transcript provided" });
+    const usedIndexes = new Set(
+      [
+        ...session.questions,
+        ...session.answers,
+        ...session.notAttemptedQuestions,
+        ...session.skippedQuestions,
+      ].map((q) => q.index)
+    );
+
+    let nextIndex = 0;
+    while (usedIndexes.has(nextIndex)) nextIndex++;
+
+    // 🛑 Redundant safety: check again in latest session
+    const latest = await InterviewSession.findOne({ student: userId });
+    const already = latest.questions.find((q) => q.index === nextIndex);
+    if (already) {
+      session.lastGeneratedQuestion = {
+        index: already.index,
+        question: already.question,
+      };
+      await session.save();
+      return res.json({
+        question: already.question,
+        index: already.index,
+        finished: false,
+      });
     }
 
-    // ✅ Extract token and decode
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(" ")[1];
+    // 🧠 Token + Proficiency
+    const token = req.headers.authorization?.split(" ")[1];
     const decoded = token ? jwtDecode(token) : {};
     const proficiency = decoded?.proficiency || "Beginner";
 
-    const aiResponse = await axios.post(
-      "http://localhost:5001/generate-next-question",
-      {
-        previousAnswer: finalAnswer,
-        questionIndex: index,
-        studentId: req.user.id,
-        courseId: req.query.courseId,
-        proficiency,
-      }
+    const usedQuestionsText = new Set(
+      [
+        ...session.questions,
+        ...session.skippedQuestions,
+        ...session.notAttemptedQuestions,
+      ].map((q) => q.question.trim().toLowerCase())
+    );
+    // Check if a question already exists for currentIndex
+    const allIndexQuestions = [
+      ...session.questions,
+      ...session.notAttemptedQuestions,
+      ...session.skippedQuestions,
+    ];
+    const sameIndexQ = allIndexQuestions.filter(
+      (q) => q.index === currentIndex
     );
 
-    const nextQ = aiResponse.data?.nextQuestion;
-    res.json({ question: nextQ, finished: false });
+    let finalQuestion = null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const aiRes = await axios.post(
+        "http://localhost:5001/generate-next-question",
+        {
+          previousAnswer: isSkip
+            ? "Skipped"
+            : isTimedOut
+            ? ""
+            : transcript || answer,
+          questionIndex: nextIndex,
+          studentId: userId,
+          courseId,
+          proficiency,
+          skip: isSkip,
+          timedOut: isTimedOut,
+        }
+      );
+
+      const generated = aiRes.data?.nextQuestion?.trim();
+      if (generated && !usedQuestionsText.has(generated.toLowerCase())) {
+        finalQuestion = generated;
+        break;
+      }
+    }
+
+    if (!finalQuestion) {
+      return res
+        .status(409)
+        .json({ error: "Duplicate question after retries" });
+    }
+
+    // ✅ Store
+    session.questions.push({ index: nextIndex, question: finalQuestion });
+    session.lastGeneratedQuestion = {
+      index: nextIndex,
+      question: finalQuestion,
+    };
+    session.markModified("questions");
+    session.markModified("lastGeneratedQuestion");
+    await session.save();
+
+    return res.json({
+      question: finalQuestion,
+      index: nextIndex,
+      finished: false,
+    });
   } catch (err) {
-    console.error("❌ Next question error:", err.message, err.response?.data);
-    res.status(500).json({ error: "Failed to generate next question." });
+    console.error("❌ nextQuestion error:", err.message);
+    return res.status(500).json({ error: "Failed to generate next question" });
+  }
+};
+
+exports.saveAnswer = async (req, res) => {
+  const { question, answer, index, studentId, timedOut, skip } = req.body;
+
+  try {
+    const session = await InterviewSession.findOneAndUpdate(
+      { student: studentId },
+      {
+        $setOnInsert: {
+          student: studentId,
+          status: "in-progress",
+          answers: [],
+          questions: [],
+          skippedQuestions: [],
+          notAttemptedQuestions: [],
+          lastGeneratedQuestion: { index: 0, question: "" },
+        },
+      },
+      { new: true, upsert: true }
+    );
+
+    const finalIndex = typeof index === "number" ? index : 0;
+    const questionText = question?.trim() || "";
+    const trimmedAnswer = typeof answer === "string" ? answer.trim() : "";
+
+    // ✅ BLOCK accidental empty answer save
+    const shouldBlockEmpty = trimmedAnswer === "" && !timedOut && !skip;
+
+    if (shouldBlockEmpty) {
+      return res
+        .status(400)
+        .json({ error: "Empty answer without skip or timeout" });
+    }
+
+    // ✅ TIMED OUT + EMPTY => push to notAttemptedQuestions
+    // ✅ TIMED OUT + EMPTY => push to notAttemptedQuestions (also clean skipped if revisited)
+    if (timedOut && trimmedAnswer === "" && questionText) {
+      // Remove from answers[] if somehow saved earlier
+      session.answers = session.answers.filter((a) => a.index !== finalIndex);
+
+      // Remove from skipped if this was a revisit
+      session.skippedQuestions = session.skippedQuestions.filter(
+        (q) => q.index !== finalIndex
+      );
+
+      // Update notAttemptedQuestions
+      session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
+        (q) => q.index !== finalIndex
+      );
+      session.notAttemptedQuestions.push({
+        index: finalIndex,
+        question: questionText,
+      });
+
+      session.markModified("notAttemptedQuestions");
+      session.markModified("skippedQuestions");
+      session.markModified("answers");
+      await session.save();
+      return res.json({ message: "Timeout: no answer saved" });
+    }
+
+    // ✅ SKIP FLOW
+    if (skip && questionText) {
+      if (!session.skippedQuestions.some((q) => q.index === finalIndex)) {
+        session.skippedQuestions.push({
+          index: finalIndex,
+          question: questionText,
+        });
+        session.markModified("skippedQuestions");
+      }
+
+      // Ensure question saved
+      if (!session.questions.some((q) => q.index === finalIndex)) {
+        session.questions.push({ index: finalIndex, question: questionText });
+        session.markModified("questions");
+      }
+
+      await session.save();
+      return res.json({ message: "Skipped" });
+    }
+
+    // ✅ NORMAL VALID ANSWER FLOW
+    if (trimmedAnswer !== "") {
+      const existing = session.answers.find((a) => a.index === finalIndex);
+      if (existing) {
+        existing.answer = trimmedAnswer;
+      } else {
+        session.answers.push({ index: finalIndex, answer: trimmedAnswer });
+      }
+
+      // Clean from other sections
+      session.skippedQuestions = session.skippedQuestions.filter(
+        (q) => q.index !== finalIndex
+      );
+      session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
+        (q) => q.index !== finalIndex
+      );
+
+      if (!session.questions.some((q) => q.index === finalIndex)) {
+        session.questions.push({ index: finalIndex, question: questionText });
+        session.markModified("questions");
+      }
+
+      session.markModified("answers");
+      await session.save();
+      return res.json({ message: "Answer saved" });
+    }
+
+    return res.status(400).json({ error: "Invalid request" });
+  } catch (err) {
+    console.error("❌ saveAnswer error:", err.message);
+    return res.status(500).json({ error: "Failed to save answer" });
   }
 };
 
@@ -75,7 +356,7 @@ exports.checkCheating = async (req, res) => {
     const form = new FormData();
     form.append("frame", req.file.buffer, req.file.originalname);
 
-    const result = await axios.post("http://localhost:8000/check-frame", form, {
+    const result = await axios.post("http://localhost:5000/check-frame", form, {
       headers: form.getHeaders(),
     });
 
@@ -92,7 +373,7 @@ exports.terminateInterview = async (req, res) => {
 };
 
 exports.completeInterview = async (req, res) => {
-  const { answers, timestamps } = req.body;
+  const { answers, timestamps, questions } = req.body;
   const file = req.file;
 
   if (!file) return res.status(400).json({ error: "No video uploaded" });
@@ -115,18 +396,37 @@ exports.completeInterview = async (req, res) => {
       videoUrl: cloudResult.secure_url,
       answers: JSON.parse(answers),
       timestamps: JSON.parse(timestamps),
+      questions: JSON.parse(questions),
       studentId: req.user.id,
     });
 
-    const session = await InterviewSession.create({
-      student: req.user.id,
-      videoUrl: cloudResult.secure_url,
-      answers: JSON.parse(answers),
-      timestamps: JSON.parse(timestamps),
-      report: analysis.data,
-    });
+    const session = await InterviewSession.findOneAndUpdate(
+      { student: req.user.id },
+      {
+        $set: {
+          videoUrl: cloudResult.secure_url,
+          answers: JSON.parse(answers),
+          timestamps: JSON.parse(timestamps),
+          questions: JSON.parse(questions),
+          report: analysis.data,
+          status: "completed", // ✅ update status
+        },
+      },
+      { new: true }
+    );
 
-    res.json({ message: "Interview complete", session });
+    // Attach skipped questions and their answer status
+    const skippedSummary = (session.skippedQuestions || []).map((q) => ({
+      index: q.index,
+      question: q.question,
+      answer: session.answers[q.index] || "not attempted",
+    }));
+
+    res.json({
+      message: "Interview complete",
+      session,
+      skippedQuestions: skippedSummary,
+    });
   } catch (err) {
     console.error("Interview completion failed:", err.message);
     res.status(500).json({ error: "Failed to complete interview." });

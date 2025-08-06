@@ -207,32 +207,87 @@ from pymongo import MongoClient
 @app.route("/generate-next-question", methods=["POST"])
 def get_next_question():
     data = request.get_json()
-    answer = data.get("previousAnswer", "")
-    index = data.get("questionIndex", 0)
-    transcript = data.get("transcript", "")
+    answer = data.get("previousAnswer", "").strip()
+    transcript = data.get("transcript", "").strip()
     student_id = data.get("studentId")
     proficiency = data.get("proficiency", "Beginner")
+    course_id = data.get("courseId")
+    is_skipped = data.get("skip", False)
+    timedOut = data.get("timedOut", False)
 
-    if not answer.strip() and not transcript.strip():
-        return jsonify({"error": "Missing answer and transcript"}), 400
-
-    # ✅ Load proficiency from MongoDB
     try:
         client = MongoClient(MONGO_CONN)
         db = client["auth_db"]
-        career_data = db["careerassessments"].find_one({"userId": student_id})
-        proficiency = career_data.get("corrected_level", "Beginner") if career_data else "Beginner"
-    except Exception as e:
-        print("⚠️ Failed to fetch proficiency:", str(e))
-        proficiency = "Beginner"
+        sessions = db["interviewsessions"]
+        courses = db["courses"]
 
-    # ✅ Pass proficiency into the function
-    try:
-        result = generate_next_question(answer, index, transcript, proficiency)
-        return jsonify(result)
+        session = sessions.find_one({"student": ObjectId(student_id)})
+        if not session:
+            sessions.insert_one({
+                "student": ObjectId(student_id),
+                "questions": [],
+                "answers": [],
+                "skippedQuestions": [],
+                "notAttemptedQuestions": [],
+                "timestamps": [],
+                "status": "in-progress",
+                "lastGeneratedQuestion": {"index": 0, "question": ""}
+            })
+            session = sessions.find_one({"student": ObjectId(student_id)})
+
+        last_q = session.get("lastGeneratedQuestion", {})
+        current_index = last_q.get("index", 0)
+        current_question_text = last_q.get("question", "")
+
+        # ✅ Push to notAttempted if timed out and not answered already
+
+        # ✅ Normalize answer input
+        if is_skipped and not answer:
+            answer = "Skipped"
+        elif timedOut:
+            answer = "Timed out"
+
+        # ✅ Load course data
+        course = courses.find_one({"_id": ObjectId(course_id)})
+        if not course:
+            return jsonify({"error": "Course not found"}), 404
+
+        skills = course.get("skillsCovered", [])[:8]
+        ideal_roles = course.get("idealRoles", [])[:5]
+        lesson_titles = [
+            lesson.get("title", "")
+            for week in course.get("weeks", [])
+            for module in week.get("modules", [])
+            for lesson in module.get("lessons", [])
+        ][:10]
+
+        # ✅ Prevent duplicate text questions
+        all_used_questions = set()
+        for section in ["questions", "notAttemptedQuestions", "skippedQuestions"]:
+            all_used_questions.update(q.get("question", "").strip()
+                                      for q in session.get(section, []))
+
+        # ✅ Retry Gemini if duplicate content
+        for _ in range(3):
+            result = generate_next_question(
+                answer,
+                current_index,
+                transcript,
+                proficiency,
+                course.get("title", "Course"),
+                skills,
+                lesson_titles,
+                ideal_roles,
+            )
+            next_question = result.get("nextQuestion", "").strip()
+            if next_question and next_question not in all_used_questions:
+                return jsonify({"nextQuestion": next_question})
+
+        return jsonify({"error": "AI failed to generate unique question"}), 409
+
     except Exception as e:
+        print("❌ Error in /generate-next-question:", str(e))
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/check-frame", methods=["POST"])
 def detect_cheating():
@@ -329,7 +384,22 @@ def generate_initial_question(student_id):
         print("📨 Prompt:\n", prompt)
         response = model.generate_content(prompt)
         print("✅ Gemini Response:", response.text.strip())
-
+        question = response.text.strip()
+        
+        db["interviewsessions"].update_one(
+            { "student": ObjectId(student_id) },
+            {
+                "$set": {
+                    "questions": [{ "index": 0, "question": question }],
+                    "answers": [],  # ✅
+                    "skippedQuestions": [],
+                    "notAttemptedQuestions": [],
+                    "lastGeneratedQuestion": { "index": 0, "question": question },
+                    "status": "in-progress",
+            }
+            },
+            upsert=True
+        )
         return jsonify({ "question": response.text.strip() })
 
     except Exception as e:
@@ -339,4 +409,4 @@ def generate_initial_question(student_id):
 # === Run the Flask App ===
 
 if __name__ == "__main__":
-    app.run(port=5001)
+    app.run(port=5001, debug=True)
