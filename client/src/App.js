@@ -1,3 +1,4 @@
+// All your imports (no changes needed here)
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -30,9 +31,9 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import HRProfile from "./pages/hr/Profile";
 import CollegeOnboarding from "./pages/college/CollegeOnboarding";
-import { ChatProvider } from "./context/ChatContext";
+import LiveTranscriber from './components/LiveTranscriber';
 import ChatAssistant from "./components/ChatAssistant/ChatAssistant";
-import CoursePlayer from "./pages/student/CoursePlayer"; // Adjust path if needed
+import CoursePlayer from "./pages/student/CoursePlayer";
 import MyLearning from "./pages/student/MyLearning";
 import LearningPath from "./pages/student/LearningPath";
 import AIInterview from "./pages/ai-interview/AIInterview";
@@ -47,18 +48,16 @@ const AppContent = () => {
     "/college-dashboard",
     "/student",
     "/course-player",
-    "/ai-interview" // ✅ Hides navbar on AI interview page
+    "/ai-interview"
   ];
 
   const shouldHideNavbar = hideNavbarRoutes.some((path) =>
     location.pathname.startsWith(path)
   );
 
-
   const showChatbot = ["/student/CoursePlayer"].includes(
     location.pathname
-  ) && location.pathname !== "/ai-interview"; // ✅ Prevent chatbot on AI Interview page
-
+  ) && location.pathname !== "/ai-interview";
 
   return (
     <>
@@ -71,7 +70,17 @@ const AppContent = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/ai-interview" element={<AIInterview />} />
+
+          {/* 🎙️ AI Interview route with LiveTranscriber */}
+          <Route
+            path="/ai-interview"
+            element={
+              <>
+                <AIInterview />
+                <LiveTranscriber /> {/* Speech-to-text happening here! */}
+              </>
+            }
+          />
           <Route path="/ai-interview-instructions" element={<AIInterviewInstructions />} />
 
           {/* Admin routes */}
@@ -113,7 +122,7 @@ const AppContent = () => {
           />
           <Route path="/college/onboarding" element={<CollegeOnboarding />} />
 
-          {/* ✅ Global course player route */}
+          {/* Course Player */}
           <Route path="/course-player/:id" element={<CoursePlayer />} />
 
           {/* Student routes */}
@@ -154,13 +163,11 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <Router>
         <AuthProvider>
-
           <NotificationProvider>
             <AppContent />
             <Toaster position="top-right" />
             <ToastContainer position="top-right" autoClose={3000} />
           </NotificationProvider>
-
         </AuthProvider>
       </Router>
     </div>

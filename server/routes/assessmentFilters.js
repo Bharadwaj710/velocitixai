@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const CareerAssessment = require("../models/careerAssessment");
+const CareerAssessment = require("../models/CareerAssessment");
 
 // GET /api/assessments/filters
 router.get("/filters", async (req, res) => {

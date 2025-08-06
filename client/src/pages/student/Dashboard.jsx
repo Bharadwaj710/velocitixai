@@ -90,9 +90,17 @@ const StudentDashboard = () => {
         } else {
           setShowAssessmentBtn(true);
         }
-      } catch (err) {
-        setShowAssessmentBtn(true);
-      } finally {
+     } catch (err) {
+  console.error("Dashboard data fetch failed:", err);
+  if (err.response && err.response.status === 401) {
+    // Token expired or unauthorized - log the user out
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    navigate("/login");
+  } else {
+    setShowAssessmentBtn(true);
+  }
+}finally {
         setLoading(false);
       }
     };

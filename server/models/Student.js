@@ -28,6 +28,11 @@ const StudentSchema = new Schema({
     type: String,
     required: false,
   },
+  hasCompletedAssessment: {
+  type: Boolean,
+  default: false, // new students haven't completed the assessment
+},
+
 });
 
 
