@@ -64,50 +64,52 @@ exports.nextQuestion = async (req, res) => {
 
     const lastQ = session.lastGeneratedQuestion || {};
     const currentIndex = typeof lastQ.index === "number" ? lastQ.index : 0;
+    const currentText = lastQ.question || "";
 
-    const isSkip = skip === true;
-    const isTimedOut = timedOut === true;
+    const isSkip = !!skip;
+    const isTimedOut = !!timedOut;
 
     const alreadyAnswered = session.answers.some(
       (a) => a.index === currentIndex && a.answer.trim() !== ""
     );
 
-    if (isTimedOut && lastQ.question?.trim()) {
-      const alreadyInNA = session.notAttemptedQuestions.some(
-        (q) => q.index === currentIndex
+    if (isTimedOut && currentText && !alreadyAnswered) {
+      // ✅ Filter duplicates before pushing
+      session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
+        (q) => q.index !== currentIndex
       );
-      if (!alreadyAnswered && !alreadyInNA) {
-        session.notAttemptedQuestions.push({
-          index: currentIndex,
-          question: lastQ.question,
-        });
-        session.markModified("notAttemptedQuestions");
-        await session.save();
-      }
+      session.notAttemptedQuestions.push({
+        index: currentIndex,
+        question: currentText,
+      });
+      session.markModified("notAttemptedQuestions");
+
+      session.skippedQuestions = session.skippedQuestions.filter(
+        (q) => q.index !== currentIndex
+      );
     }
 
-    if (isSkip && !isTimedOut && lastQ.question?.trim()) {
-      const alreadySkipped = session.skippedQuestions.some(
+    if (isSkip && currentText) {
+      const alreadyInSkip = session.skippedQuestions.some(
         (q) => q.index === currentIndex
       );
-      if (!alreadySkipped) {
+      if (!alreadyInSkip) {
         session.skippedQuestions.push({
           index: currentIndex,
-          question: lastQ.question,
+          question: currentText,
         });
         session.markModified("skippedQuestions");
-        await session.save();
       }
     }
 
-    const uniqueQuestionIndexes = new Set([
+    const generatedIndexes = new Set([
       ...session.questions.map((q) => q.index),
       ...session.notAttemptedQuestions.map((q) => q.index),
+      ...session.answers.map((q) => q.index),
+      ...session.skippedQuestions.map((q) => q.index),
     ]);
 
-    const totalGenerated = uniqueQuestionIndexes.size;
-
-    if (totalGenerated >= 10) {
+    if (generatedIndexes.size >= 10) {
       const revisit = session.skippedQuestions.sort(
         (a, b) => a.index - b.index
       )[0];
@@ -129,28 +131,66 @@ exports.nextQuestion = async (req, res) => {
       return res.json({ finished: true });
     }
 
-    const allIndexes = [
-      ...session.questions,
-      ...session.notAttemptedQuestions,
-      ...session.skippedQuestions,
-    ].map((q) => q.index);
-    const nextIndex = Math.max(-1, ...allIndexes) + 1;
+    const usedIndexes = new Set(
+      [
+        ...session.questions,
+        ...session.answers,
+        ...session.notAttemptedQuestions,
+        ...session.skippedQuestions,
+      ].map((q) => q.index)
+    );
 
+    let nextIndex = 0;
+    while (usedIndexes.has(nextIndex)) nextIndex++;
+
+    // 🛑 Redundant safety: check again in latest session
+    const latest = await InterviewSession.findOne({ student: userId });
+    const already = latest.questions.find((q) => q.index === nextIndex);
+    if (already) {
+      session.lastGeneratedQuestion = {
+        index: already.index,
+        question: already.question,
+      };
+      await session.save();
+      return res.json({
+        question: already.question,
+        index: already.index,
+        finished: false,
+      });
+    }
+
+    // 🧠 Token + Proficiency
     const token = req.headers.authorization?.split(" ")[1];
     const decoded = token ? jwtDecode(token) : {};
     const proficiency = decoded?.proficiency || "Beginner";
 
-    let nextQ = null;
-    let attempts = 0;
+    const usedQuestionsText = new Set(
+      [
+        ...session.questions,
+        ...session.skippedQuestions,
+        ...session.notAttemptedQuestions,
+      ].map((q) => q.question.trim().toLowerCase())
+    );
+    // Check if a question already exists for currentIndex
+    const allIndexQuestions = [
+      ...session.questions,
+      ...session.notAttemptedQuestions,
+      ...session.skippedQuestions,
+    ];
+    const sameIndexQ = allIndexQuestions.filter(
+      (q) => q.index === currentIndex
+    );
 
-    while (attempts < 3 && !nextQ) {
+    let finalQuestion = null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
       const aiRes = await axios.post(
         "http://localhost:5001/generate-next-question",
         {
           previousAnswer: isSkip
             ? "Skipped"
             : isTimedOut
-            ? "Timed out"
+            ? ""
             : transcript || answer,
           questionIndex: nextIndex,
           studentId: userId,
@@ -161,31 +201,34 @@ exports.nextQuestion = async (req, res) => {
         }
       );
 
-      const candidate = aiRes.data?.nextQuestion;
-      const alreadyAsked = session.questions.some(
-        (q) => q.question === candidate
-      );
-
-      if (candidate && !alreadyAsked) {
-        session.questions.push({ index: nextIndex, question: candidate });
-        session.lastGeneratedQuestion = {
-          index: nextIndex,
-          question: candidate,
-        };
-        session.markModified("questions");
-        session.markModified("lastGeneratedQuestion");
-        await session.save();
-        nextQ = candidate;
-      } else {
-        attempts++;
+      const generated = aiRes.data?.nextQuestion?.trim();
+      if (generated && !usedQuestionsText.has(generated.toLowerCase())) {
+        finalQuestion = generated;
+        break;
       }
     }
 
-    if (!nextQ) {
-      return res.status(400).json({ error: "Failed to generate question" });
+    if (!finalQuestion) {
+      return res
+        .status(409)
+        .json({ error: "Duplicate question after retries" });
     }
 
-    res.json({ question: nextQ, index: nextIndex, finished: false });
+    // ✅ Store
+    session.questions.push({ index: nextIndex, question: finalQuestion });
+    session.lastGeneratedQuestion = {
+      index: nextIndex,
+      question: finalQuestion,
+    };
+    session.markModified("questions");
+    session.markModified("lastGeneratedQuestion");
+    await session.save();
+
+    return res.json({
+      question: finalQuestion,
+      index: nextIndex,
+      finished: false,
+    });
   } catch (err) {
     console.error("❌ nextQuestion error:", err.message);
     return res.status(500).json({ error: "Failed to generate next question" });
@@ -213,55 +256,93 @@ exports.saveAnswer = async (req, res) => {
     );
 
     const finalIndex = typeof index === "number" ? index : 0;
-    const actualQuestion = question?.trim() || "";
-    const isRealAnswer = !timedOut && !skip && answer.trim() !== "";
+    const questionText = question?.trim() || "";
+    const trimmedAnswer = typeof answer === "string" ? answer.trim() : "";
 
-    const existingAnswer = session.answers.find((a) => a.index === finalIndex);
-    const alreadyAnswered = existingAnswer?.answer?.trim() !== "";
+    // ✅ BLOCK accidental empty answer save
+    const shouldBlockEmpty = trimmedAnswer === "" && !timedOut && !skip;
 
-    if (!existingAnswer) {
-      session.answers.push({ index: finalIndex, answer });
-    } else if (isRealAnswer) {
-      existingAnswer.answer = answer;
-    }
-    session.markModified("answers");
-
-    if (!session.questions.some((q) => q.index === finalIndex)) {
-      session.questions.push({ index: finalIndex, question: actualQuestion });
-      session.markModified("questions");
+    if (shouldBlockEmpty) {
+      return res
+        .status(400)
+        .json({ error: "Empty answer without skip or timeout" });
     }
 
-    if (timedOut && !alreadyAnswered) {
-      if (!session.notAttemptedQuestions.some((q) => q.index === finalIndex)) {
-        session.notAttemptedQuestions.push({
-          index: finalIndex,
-          question: actualQuestion,
-        });
-        session.markModified("notAttemptedQuestions");
-      }
+    // ✅ TIMED OUT + EMPTY => push to notAttemptedQuestions
+    // ✅ TIMED OUT + EMPTY => push to notAttemptedQuestions (also clean skipped if revisited)
+    if (timedOut && trimmedAnswer === "" && questionText) {
+      // Remove from answers[] if somehow saved earlier
+      session.answers = session.answers.filter((a) => a.index !== finalIndex);
+
+      // Remove from skipped if this was a revisit
+      session.skippedQuestions = session.skippedQuestions.filter(
+        (q) => q.index !== finalIndex
+      );
+
+      // Update notAttemptedQuestions
+      session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
+        (q) => q.index !== finalIndex
+      );
+      session.notAttemptedQuestions.push({
+        index: finalIndex,
+        question: questionText,
+      });
+
+      session.markModified("notAttemptedQuestions");
+      session.markModified("skippedQuestions");
+      session.markModified("answers");
+      await session.save();
+      return res.json({ message: "Timeout: no answer saved" });
     }
 
-    if (skip && !timedOut && actualQuestion) {
+    // ✅ SKIP FLOW
+    if (skip && questionText) {
       if (!session.skippedQuestions.some((q) => q.index === finalIndex)) {
         session.skippedQuestions.push({
           index: finalIndex,
-          question: actualQuestion,
+          question: questionText,
         });
         session.markModified("skippedQuestions");
       }
+
+      // Ensure question saved
+      if (!session.questions.some((q) => q.index === finalIndex)) {
+        session.questions.push({ index: finalIndex, question: questionText });
+        session.markModified("questions");
+      }
+
+      await session.save();
+      return res.json({ message: "Skipped" });
     }
 
-    if (isRealAnswer) {
+    // ✅ NORMAL VALID ANSWER FLOW
+    if (trimmedAnswer !== "") {
+      const existing = session.answers.find((a) => a.index === finalIndex);
+      if (existing) {
+        existing.answer = trimmedAnswer;
+      } else {
+        session.answers.push({ index: finalIndex, answer: trimmedAnswer });
+      }
+
+      // Clean from other sections
       session.skippedQuestions = session.skippedQuestions.filter(
         (q) => q.index !== finalIndex
       );
       session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
         (q) => q.index !== finalIndex
       );
+
+      if (!session.questions.some((q) => q.index === finalIndex)) {
+        session.questions.push({ index: finalIndex, question: questionText });
+        session.markModified("questions");
+      }
+
+      session.markModified("answers");
+      await session.save();
+      return res.json({ message: "Answer saved" });
     }
 
-    await session.save();
-    return res.json({ message: "Answer saved" });
+    return res.status(400).json({ error: "Invalid request" });
   } catch (err) {
     console.error("❌ saveAnswer error:", err.message);
     return res.status(500).json({ error: "Failed to save answer" });
@@ -275,7 +356,7 @@ exports.checkCheating = async (req, res) => {
     const form = new FormData();
     form.append("frame", req.file.buffer, req.file.originalname);
 
-    const result = await axios.post("http://localhost:5001/check-frame", form, {
+    const result = await axios.post("http://localhost:5000/check-frame", form, {
       headers: form.getHeaders(),
     });
 
