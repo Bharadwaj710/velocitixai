@@ -9,6 +9,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const QUESTION_TIME = 120;
+const READING_TIME = 20;
 
 const AIInterview = () => {
   const { transcript: liveTranscript, resetTranscript } =
@@ -18,6 +19,8 @@ const AIInterview = () => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
+  const [phase, setPhase] = useState("reading"); // "reading" | "answering"
+
   const [recording, setRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [videoBlob, setVideoBlob] = useState(null);
@@ -34,7 +37,7 @@ const AIInterview = () => {
   const location = useLocation();
   const courseId = new URLSearchParams(location.search).get("courseId");
   const [skipDisabled, setSkipDisabled] = useState(false);
-
+  const timedOutTriggeredRef = useRef(false);
   const [transcript, setTranscript] = useState([]);
 
   useEffect(() => {
@@ -76,18 +79,25 @@ const AIInterview = () => {
   useEffect(() => {
     if (recording && step === "interview") {
       timerRef.current = setInterval(() => {
-        setTimeLeft((t) => {
-          if (t <= 1) {
-            handleNext(false, true); // fromTimeout = true
-            return QUESTION_TIME;
+        setTimeLeft((prev) => {
+          if (prev === 21 && phase === "answering") {
+            toast.warn("⏳ Hurry up! Less than 20 seconds left. Answer soon!");
           }
 
-          return t - 1;
+          if (prev <= 1) {
+            if (phase === "answering") {
+              handleNext(false, true); // timeout
+            }
+            return 0;
+          }
+
+          return prev - 1;
         });
       }, 1000);
       return () => clearInterval(timerRef.current);
     }
-  }, [recording, step]);
+  }, [recording, step, phase]);
+
   const handleSkip = async (timedOut = false) => {
     const token = localStorage.getItem("token");
     const decoded = jwtDecode(token);
@@ -185,6 +195,15 @@ const AIInterview = () => {
     mr.start();
     setRecording(true);
     timestampsRef.current.push({ question: questionIndex, start: Date.now() });
+    setPhase("reading");
+    setTimeLeft(READING_TIME);
+    toast.info("📖 Reading time started...");
+
+    setTimeout(() => {
+      setPhase("answering");
+      setTimeLeft(QUESTION_TIME);
+      toast.success("🎤 You may now begin answering...");
+    }, READING_TIME * 1000);
   };
 
   const stopRecording = () => {
@@ -255,23 +274,6 @@ const AIInterview = () => {
       const token = localStorage.getItem("token");
       const decoded = jwtDecode(token);
 
-      // 💾 Save the first question to DB with empty answer
-      await axios.post(
-        "http://localhost:8080/api/aiInterview/save-answer",
-        {
-          question,
-          answer: "",
-          transcript: "",
-          index: 0,
-          studentId: decoded.userId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
       setCurrentQuestion(question);
       setStep("interview");
       setQuestionIndex(0);
@@ -286,33 +288,24 @@ const AIInterview = () => {
   };
 
   const handleNext = async (skip = false, fromTimeout = false) => {
+    if (loadingNextQuestion) return;
+    setLoadingNextQuestion(true);
+
     const token = localStorage.getItem("token");
     const decoded = jwtDecode(token);
-    const finalAnswer = liveTranscript?.trim() || "";
-    const trimmedTranscript = finalAnswer;
-    const isEmptyAnswer = !trimmedTranscript;
-
     const index = questionIndex;
 
-    if (fromTimeout && isEmptyAnswer) {
-      try {
-        await axios.post(
-          "http://localhost:8080/api/aiInterview/save-answer",
-          {
-            answer: "",
-            question: currentQuestion,
-            transcript: "",
-            index,
-            studentId: decoded.userId,
-            timedOut: true,
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+    const finalAnswer = fromTimeout || skip ? "" : liveTranscript?.trim() || "";
+    const isEmptyAnswer = !finalAnswer;
 
-        setAnswers((prev) => {
-          const exists = prev.find((a) => a.index === index);
-          return exists ? prev : [...prev, { index, answer: "" }];
-        });
+    try {
+      // 🕒 TIMEOUT FLOW
+      if (fromTimeout && isEmptyAnswer) {
+        if (timedOutTriggeredRef.current) return;
+        timedOutTriggeredRef.current = true;
+
+        timestampsRef.current[timestampsRef.current.length - 1].end =
+          Date.now();
 
         const res = await axios.post(
           `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
@@ -327,6 +320,8 @@ const AIInterview = () => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
+        timedOutTriggeredRef.current = false;
+
         if (res.data.finished) {
           stopRecording();
           clearInterval(frameIntervalRef.current);
@@ -339,7 +334,7 @@ const AIInterview = () => {
 
           setCurrentQuestion(res.data.question);
           setQuestionIndex(nextIndex);
-          setSkipDisabled(!!res.data.disableSkip); // ✅ disable skip on revisit
+          setSkipDisabled(!!res.data.disableSkip);
           setTimeLeft(QUESTION_TIME);
           timestampsRef.current.push({
             question: nextIndex,
@@ -347,52 +342,39 @@ const AIInterview = () => {
           });
           startRecording();
         }
-      } catch (err) {
-        console.error("❌ Timeout error:", err);
-        toast.error("❌ Failed to fetch next question.");
+        return;
       }
-      return;
-    }
 
-    if (skip && isEmptyAnswer) return handleSkip(false);
+      // 🧼 Guard: if user hasn't typed anything and is not skipping
+      if (!skip && !fromTimeout && isEmptyAnswer) {
+        toast.warn("⚠️ Please answer or skip.");
+        return;
+      }
 
-    if (!skip && !fromTimeout && isEmptyAnswer) {
-      toast.warn("⚠️ Please answer the question or skip it.");
-      return;
-    }
+      timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
 
-    if (loadingNextQuestion) return;
-    setLoadingNextQuestion(true);
-    timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
-
-    setAnswers((prev) => {
-      const updated = [...prev];
-      const existingIndex = updated.findIndex((a) => a.index === index);
-      if (existingIndex >= 0) updated[existingIndex].answer = finalAnswer;
-      else updated.push({ index, answer: finalAnswer });
-      return updated;
-    });
-
-    try {
+      // ✅ Save answer or skip
       await axios.post(
         "http://localhost:8080/api/aiInterview/save-answer",
         {
           answer: skip ? "" : finalAnswer,
           question: currentQuestion,
-          transcript: skip ? "" : trimmedTranscript,
+          transcript: skip ? "" : finalAnswer,
           index,
           studentId: decoded.userId,
           timedOut: false,
+          skip,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      // ✅ Fetch next question
       const res = await axios.post(
         `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
         {
           answer: skip ? "" : finalAnswer,
           question: currentQuestion,
-          transcript: skip ? "" : trimmedTranscript,
+          transcript: skip ? "" : finalAnswer,
           studentId: decoded.userId,
           skip,
           timedOut: false,
@@ -412,14 +394,17 @@ const AIInterview = () => {
 
         setCurrentQuestion(res.data.question);
         setQuestionIndex(nextIndex);
-        setSkipDisabled(!!res.data.disableSkip); // ✅ set disable flag
+        setSkipDisabled(!!res.data.disableSkip);
         setTimeLeft(QUESTION_TIME);
         timestampsRef.current.push({ question: nextIndex, start: Date.now() });
         startRecording();
       }
     } catch (err) {
-      console.error("❌ Error in handleNext:", err.message);
-      toast.error("❌ Error fetching next question.");
+      console.error(
+        "❌ Error in handleNext:",
+        err?.response?.data || err.message
+      );
+      toast.error("❌ Failed to fetch next question.");
     } finally {
       setLoadingNextQuestion(false);
     }
@@ -512,9 +497,15 @@ const AIInterview = () => {
                   <h4 className="font-semibold text-blue-700 mb-2">
                     Transcript
                   </h4>
-                  <p className="text-sm text-blue-600 whitespace-pre-line">
-                    {liveTranscript}
-                  </p>
+                  {phase === "reading" ? (
+                    <p className="text-sm text-gray-400 italic">
+                      Reading time... transcript disabled
+                    </p>
+                  ) : (
+                    <p className="text-sm text-blue-600 whitespace-pre-line">
+                      {liveTranscript}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -527,17 +518,29 @@ const AIInterview = () => {
               </span>
             </div>
 
-            <div className="w-full h-3 bg-gray-200 rounded-full mb-6">
+            <div className="w-full h-3 bg-gray-200 rounded-full mb-6 overflow-hidden">
               <div
-                className="h-3 bg-blue-500 rounded-full transition-all"
-                style={{ width: `${(timeLeft / QUESTION_TIME) * 100}%` }}
+                className={`h-full transition-all duration-300 ${
+                  phase === "reading"
+                    ? "bg-yellow-400"
+                    : timeLeft <= 20
+                    ? "bg-red-600"
+                    : "bg-green-500"
+                }`}
+                style={{
+                  width: `${
+                    (timeLeft /
+                      (phase === "reading" ? READING_TIME : QUESTION_TIME)) *
+                    100
+                  }%`,
+                }}
               ></div>
             </div>
             <button
               onClick={() => handleSkip()}
-              disabled={timeLeft > 60}
+              disabled={phase === "reading" || skipDisabled || timeLeft > 60}
               className={`ml-4 px-8 py-3 text-white rounded-lg font-semibold text-lg transition ${
-                timeLeft > 60
+                phase === "reading" || skipDisabled || timeLeft > 60
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-yellow-500 hover:bg-yellow-600"
               }`}
@@ -547,9 +550,11 @@ const AIInterview = () => {
 
             <button
               onClick={() => handleNext()}
-              disabled={loadingNextQuestion || isEmptyAnswer}
+              disabled={
+                loadingNextQuestion || isEmptyAnswer || phase === "reading"
+              }
               className={`px-8 py-3 text-white rounded-lg font-semibold text-lg transition ${
-                loadingNextQuestion || isEmptyAnswer
+                loadingNextQuestion || isEmptyAnswer || phase === "reading"
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-green-600 hover:bg-green-700"
               }`}

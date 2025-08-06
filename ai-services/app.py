@@ -207,8 +207,8 @@ from pymongo import MongoClient
 @app.route("/generate-next-question", methods=["POST"])
 def get_next_question():
     data = request.get_json()
-    answer = data.get("previousAnswer", "")
-    transcript = data.get("transcript", "")
+    answer = data.get("previousAnswer", "").strip()
+    transcript = data.get("transcript", "").strip()
     student_id = data.get("studentId")
     proficiency = data.get("proficiency", "Beginner")
     course_id = data.get("courseId")
@@ -218,7 +218,8 @@ def get_next_question():
     try:
         client = MongoClient(MONGO_CONN)
         db = client["auth_db"]
-        sessions = db["interviews"]
+        sessions = db["interviewsessions"]
+        courses = db["courses"]
 
         session = sessions.find_one({"student": ObjectId(student_id)})
         if not session:
@@ -238,66 +239,52 @@ def get_next_question():
         current_index = last_q.get("index", 0)
         current_question_text = last_q.get("question", "")
 
-        # ✅ Only if timedOut, push lastGeneratedQuestion to notAttempted (if not answered)
-        if timedOut and current_question_text:
-            existing_answer = session.get("answers", [])
-            alreadyAnswered=any(
-                isinstance(a, dict) and
-                a.get("index") == current_index and a.get("answer", "").strip()
-                for a in session.get("answers", [])
-            )
-            if not alreadyAnswered:
-                already_na = any(q.get("index") == current_index for q in session.get("notAttemptedQuestions", []))
-                if not already_na:
-                    sessions.update_one(
-                        {"student": ObjectId(student_id)},
-                        {
-                        "$push": {"notAttemptedQuestions": {"index": current_index, "question": current_question_text}}}
-                    )
+        # ✅ Push to notAttempted if timed out and not answered already
 
-        if is_skipped and not answer.strip():
+        # ✅ Normalize answer input
+        if is_skipped and not answer:
             answer = "Skipped"
         elif timedOut:
             answer = "Timed out"
 
-        course = db["courses"].find_one({"_id": ObjectId(course_id)})
+        # ✅ Load course data
+        course = courses.find_one({"_id": ObjectId(course_id)})
         if not course:
             return jsonify({"error": "Course not found"}), 404
 
-        skills = course.get("skillsCovered", [])
-        ideal_roles = course.get("idealRoles", [])
+        skills = course.get("skillsCovered", [])[:8]
+        ideal_roles = course.get("idealRoles", [])[:5]
         lesson_titles = [
             lesson.get("title", "")
             for week in course.get("weeks", [])
             for module in week.get("modules", [])
             for lesson in module.get("lessons", [])
-        ]
+        ][:10]
 
-        result = generate_next_question(
-            answer.strip(),
-            current_index,
-            transcript,
-            proficiency,
-            course.get("title", "Course"),
-            skills,
-            lesson_titles,
-            ideal_roles,
-        )
+        # ✅ Prevent duplicate text questions
+        all_used_questions = set()
+        for section in ["questions", "notAttemptedQuestions", "skippedQuestions"]:
+            all_used_questions.update(q.get("question", "").strip()
+                                      for q in session.get(section, []))
 
-        next_question = result.get("nextQuestion")
-        if not next_question:
-            return jsonify({"error": "AI failed to generate a question"}), 400
-        next_index = int(current_index) + 1
+        # ✅ Retry Gemini if duplicate content
+        for _ in range(3):
+            result = generate_next_question(
+                answer,
+                current_index,
+                transcript,
+                proficiency,
+                course.get("title", "Course"),
+                skills,
+                lesson_titles,
+                ideal_roles,
+            )
+            next_question = result.get("nextQuestion", "").strip()
+            if next_question and next_question not in all_used_questions:
+                return jsonify({"nextQuestion": next_question})
 
-        sessions.update_one(
-            {"student": ObjectId(student_id)},
-            {
-                "$addToSet": {"questions": {"index": next_index, "question": next_question}},
-                "$set": {"lastGeneratedQuestion": {"index": next_index, "question": next_question}}
-            }
-        )
+        return jsonify({"error": "AI failed to generate unique question"}), 409
 
-        return jsonify({"nextQuestion": next_question})
     except Exception as e:
         print("❌ Error in /generate-next-question:", str(e))
         return jsonify({"error": str(e)}), 500
@@ -399,12 +386,12 @@ def generate_initial_question(student_id):
         print("✅ Gemini Response:", response.text.strip())
         question = response.text.strip()
         
-        db["interviews"].update_one(
+        db["interviewsessions"].update_one(
             { "student": ObjectId(student_id) },
             {
                 "$set": {
                     "questions": [{ "index": 0, "question": question }],
-                    "answers": [""],
+                    "answers": [],  # ✅
                     "skippedQuestions": [],
                     "notAttemptedQuestions": [],
                     "lastGeneratedQuestion": { "index": 0, "question": question },
