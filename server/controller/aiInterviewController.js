@@ -21,7 +21,10 @@ exports.startInterview = async (req, res) => {
     const firstQuestion = profileRes.data.question;
 
     // Save session with first question
-    let session = await InterviewSession.findOne({ student: userId });
+    let session = await InterviewSession.findOne({
+      student: userId,
+      course: courseId,
+    });
     if (!session) {
       session = new InterviewSession({
         student: userId,
@@ -59,7 +62,10 @@ exports.nextQuestion = async (req, res) => {
   const courseId = req.query.courseId;
 
   try {
-    const session = await InterviewSession.findOne({ student: userId });
+    const session = await InterviewSession.findOne({
+      student: userId,
+      course: courseId,
+    });
     if (!session) return res.status(404).json({ error: "Session not found" });
 
     const lastQ = session.lastGeneratedQuestion || {};
@@ -73,20 +79,23 @@ exports.nextQuestion = async (req, res) => {
       (a) => a.index === currentIndex && a.answer.trim() !== ""
     );
 
+    // ✅ Handle revisit timeout as well
     if (isTimedOut && currentText && !alreadyAnswered) {
-      // ✅ Filter duplicates before pushing
+      session.skippedQuestions = session.skippedQuestions.filter(
+        (q) => q.index !== currentIndex
+      );
       session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
         (q) => q.index !== currentIndex
       );
+
       session.notAttemptedQuestions.push({
         index: currentIndex,
         question: currentText,
       });
-      session.markModified("notAttemptedQuestions");
 
-      session.skippedQuestions = session.skippedQuestions.filter(
-        (q) => q.index !== currentIndex
-      );
+      session.markModified("notAttemptedQuestions");
+      session.markModified("skippedQuestions");
+      await session.save();
     }
 
     if (isSkip && currentText) {
@@ -109,6 +118,7 @@ exports.nextQuestion = async (req, res) => {
       ...session.skippedQuestions.map((q) => q.index),
     ]);
 
+    // 🛑 If done, pick revisit first
     if (generatedIndexes.size >= 10) {
       const revisit = session.skippedQuestions.sort(
         (a, b) => a.index - b.index
@@ -143,8 +153,10 @@ exports.nextQuestion = async (req, res) => {
     let nextIndex = 0;
     while (usedIndexes.has(nextIndex)) nextIndex++;
 
-    // 🛑 Redundant safety: check again in latest session
-    const latest = await InterviewSession.findOne({ student: userId });
+    const latest = await InterviewSession.findOne({
+      student: userId,
+      course: courseId,
+    });
     const already = latest.questions.find((q) => q.index === nextIndex);
     if (already) {
       session.lastGeneratedQuestion = {
@@ -159,7 +171,6 @@ exports.nextQuestion = async (req, res) => {
       });
     }
 
-    // 🧠 Token + Proficiency
     const token = req.headers.authorization?.split(" ")[1];
     const decoded = token ? jwtDecode(token) : {};
     const proficiency = decoded?.proficiency || "Beginner";
@@ -171,18 +182,8 @@ exports.nextQuestion = async (req, res) => {
         ...session.notAttemptedQuestions,
       ].map((q) => q.question.trim().toLowerCase())
     );
-    // Check if a question already exists for currentIndex
-    const allIndexQuestions = [
-      ...session.questions,
-      ...session.notAttemptedQuestions,
-      ...session.skippedQuestions,
-    ];
-    const sameIndexQ = allIndexQuestions.filter(
-      (q) => q.index === currentIndex
-    );
 
     let finalQuestion = null;
-
     for (let attempt = 0; attempt < 3; attempt++) {
       const aiRes = await axios.post(
         "http://localhost:5001/generate-next-question",
@@ -214,7 +215,6 @@ exports.nextQuestion = async (req, res) => {
         .json({ error: "Duplicate question after retries" });
     }
 
-    // ✅ Store
     session.questions.push({ index: nextIndex, question: finalQuestion });
     session.lastGeneratedQuestion = {
       index: nextIndex,
@@ -236,14 +236,16 @@ exports.nextQuestion = async (req, res) => {
 };
 
 exports.saveAnswer = async (req, res) => {
-  const { question, answer, index, studentId, timedOut, skip } = req.body;
+  const { question, answer, index, studentId, timedOut, skip, courseId } =
+    req.body;
 
   try {
     const session = await InterviewSession.findOneAndUpdate(
-      { student: studentId },
+      { student: studentId, course: courseId },
       {
         $setOnInsert: {
           student: studentId,
+          course: courseId,
           status: "in-progress",
           answers: [],
           questions: [],
@@ -259,43 +261,43 @@ exports.saveAnswer = async (req, res) => {
     const questionText = question?.trim() || "";
     const trimmedAnswer = typeof answer === "string" ? answer.trim() : "";
 
-    // ✅ BLOCK accidental empty answer save
-    const shouldBlockEmpty = trimmedAnswer === "" && !timedOut && !skip;
-
-    if (shouldBlockEmpty) {
+    // 🚫 Block empty answer unless skip/timeout
+    if (trimmedAnswer === "" && !timedOut && !skip) {
       return res
         .status(400)
         .json({ error: "Empty answer without skip or timeout" });
     }
 
-    // ✅ TIMED OUT + EMPTY => push to notAttemptedQuestions
-    // ✅ TIMED OUT + EMPTY => push to notAttemptedQuestions (also clean skipped if revisited)
+    // 🕒 Timeout: move skipped → notAttempted
     if (timedOut && trimmedAnswer === "" && questionText) {
-      // Remove from answers[] if somehow saved earlier
-      session.answers = session.answers.filter((a) => a.index !== finalIndex);
-
-      // Remove from skipped if this was a revisit
+      // Remove from skipped (revisit timeout case)
       session.skippedQuestions = session.skippedQuestions.filter(
         (q) => q.index !== finalIndex
       );
 
-      // Update notAttemptedQuestions
+      // Remove old notAttempted if exists
       session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
         (q) => q.index !== finalIndex
       );
+
+      // Add to notAttempted
       session.notAttemptedQuestions.push({
         index: finalIndex,
         question: questionText,
       });
 
-      session.markModified("notAttemptedQuestions");
-      session.markModified("skippedQuestions");
+      // Remove any existing answer
+      session.answers = session.answers.filter((a) => a.index !== finalIndex);
+
       session.markModified("answers");
+      session.markModified("skippedQuestions");
+      session.markModified("notAttemptedQuestions");
+
       await session.save();
-      return res.json({ message: "Timeout: no answer saved" });
+      return res.json({ message: "Timeout: moved to notAttempted" });
     }
 
-    // ✅ SKIP FLOW
+    // ⏭ Skip flow
     if (skip && questionText) {
       if (!session.skippedQuestions.some((q) => q.index === finalIndex)) {
         session.skippedQuestions.push({
@@ -305,7 +307,6 @@ exports.saveAnswer = async (req, res) => {
         session.markModified("skippedQuestions");
       }
 
-      // Ensure question saved
       if (!session.questions.some((q) => q.index === finalIndex)) {
         session.questions.push({ index: finalIndex, question: questionText });
         session.markModified("questions");
@@ -315,7 +316,7 @@ exports.saveAnswer = async (req, res) => {
       return res.json({ message: "Skipped" });
     }
 
-    // ✅ NORMAL VALID ANSWER FLOW
+    // ✏ Normal answer flow
     if (trimmedAnswer !== "") {
       const existing = session.answers.find((a) => a.index === finalIndex);
       if (existing) {
@@ -324,7 +325,7 @@ exports.saveAnswer = async (req, res) => {
         session.answers.push({ index: finalIndex, answer: trimmedAnswer });
       }
 
-      // Clean from other sections
+      // Remove from skipped & notAttempted
       session.skippedQuestions = session.skippedQuestions.filter(
         (q) => q.index !== finalIndex
       );

@@ -221,10 +221,14 @@ def get_next_question():
         sessions = db["interviewsessions"]
         courses = db["courses"]
 
-        session = sessions.find_one({"student": ObjectId(student_id)})
+        # 🔹 Always look up by both student & course
+        session = sessions.find_one({"student": ObjectId(student_id), "course": ObjectId(course_id)})
+
+        # 🔹 If session doesn't exist, create it clean
         if not session:
             sessions.insert_one({
                 "student": ObjectId(student_id),
+                "course": ObjectId(course_id),
                 "questions": [],
                 "answers": [],
                 "skippedQuestions": [],
@@ -233,21 +237,35 @@ def get_next_question():
                 "status": "in-progress",
                 "lastGeneratedQuestion": {"index": 0, "question": ""}
             })
-            session = sessions.find_one({"student": ObjectId(student_id)})
+            session = sessions.find_one({"student": ObjectId(student_id), "course": ObjectId(course_id)})
+
+        # 🔹 Ensure no contamination from another course
+        #    If somehow old data exists but for wrong course, reset arrays
+        if session.get("course") != ObjectId(course_id):
+            sessions.update_one(
+                {"_id": session["_id"]},
+                {"$set": {
+                    "questions": [],
+                    "answers": [],
+                    "skippedQuestions": [],
+                    "notAttemptedQuestions": [],
+                    "lastGeneratedQuestion": {"index": 0, "question": ""},
+                    "status": "in-progress"
+                }}
+            )
+            session = sessions.find_one({"student": ObjectId(student_id), "course": ObjectId(course_id)})
 
         last_q = session.get("lastGeneratedQuestion", {})
         current_index = last_q.get("index", 0)
         current_question_text = last_q.get("question", "")
 
-        # ✅ Push to notAttempted if timed out and not answered already
-
-        # ✅ Normalize answer input
+        # Normalize answer
         if is_skipped and not answer:
             answer = "Skipped"
         elif timedOut:
             answer = "Timed out"
 
-        # ✅ Load course data
+        # Load course data
         course = courses.find_one({"_id": ObjectId(course_id)})
         if not course:
             return jsonify({"error": "Course not found"}), 404
@@ -261,13 +279,15 @@ def get_next_question():
             for lesson in module.get("lessons", [])
         ][:10]
 
-        # ✅ Prevent duplicate text questions
+        # Prevent duplicates within the same course
         all_used_questions = set()
-        for section in ["questions", "notAttemptedQuestions", "skippedQuestions"]:
-            all_used_questions.update(q.get("question", "").strip()
-                                      for q in session.get(section, []))
+        for section in ["questions", "notAttemptedQuestions", "skippedQuestions","answers"]:
+            all_used_questions.update(
+                q.get("question", "").strip()
+                for q in session.get(section, [])
+            )
 
-        # ✅ Retry Gemini if duplicate content
+        # Retry AI generation until unique
         for _ in range(3):
             result = generate_next_question(
                 answer,
@@ -281,6 +301,11 @@ def get_next_question():
             )
             next_question = result.get("nextQuestion", "").strip()
             if next_question and next_question not in all_used_questions:
+                # Save as lastGeneratedQuestion for this course only
+                sessions.update_one(
+                    {"_id": session["_id"]},
+                    {"$set": {"lastGeneratedQuestion": {"index": current_index + 1, "question": next_question}}}
+                )
                 return jsonify({"nextQuestion": next_question})
 
         return jsonify({"error": "AI failed to generate unique question"}), 409
@@ -387,9 +412,10 @@ def generate_initial_question(student_id):
         question = response.text.strip()
         
         db["interviewsessions"].update_one(
-            { "student": ObjectId(student_id) },
+            { "student": ObjectId(student_id), "course": ObjectId(course_id) },
             {
                 "$set": {
+                    "course": ObjectId(course_id),
                     "questions": [{ "index": 0, "question": question }],
                     "answers": [],  # ✅
                     "skippedQuestions": [],
