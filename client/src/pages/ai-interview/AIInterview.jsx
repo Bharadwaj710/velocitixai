@@ -8,7 +8,7 @@ import { jwtDecode } from "jwt-decode"; // ✅ correct
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const QUESTION_TIME = 120;
+const QUESTION_TIME = 20;
 const READING_TIME = 20;
 
 const AIInterview = () => {
@@ -126,6 +126,7 @@ const AIInterview = () => {
           studentId: decoded.userId,
           skip: true,
           timedOut,
+          courseId: courseId,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -299,8 +300,12 @@ const AIInterview = () => {
     const isEmptyAnswer = !finalAnswer;
 
     try {
-      // 🕒 TIMEOUT FLOW
-      if (fromTimeout && isEmptyAnswer) {
+      // ✅ Detect revisit with no answer (treat as timedOut)
+      const isRevisitNoAnswer =
+        skipDisabled && !skip && !fromTimeout && isEmptyAnswer;
+
+      // 🕒 TIMEOUT FLOW (normal or revisit-no-answer)
+      if ((fromTimeout && isEmptyAnswer) || isRevisitNoAnswer) {
         if (timedOutTriggeredRef.current) return;
         timedOutTriggeredRef.current = true;
 
@@ -315,7 +320,8 @@ const AIInterview = () => {
             transcript: "",
             studentId: decoded.userId,
             skip: false,
-            timedOut: true,
+            timedOut: true, // ✅ will be true for revisit no answer as well
+            courseId: courseId,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -345,7 +351,7 @@ const AIInterview = () => {
         return;
       }
 
-      // 🧼 Guard: if user hasn't typed anything and is not skipping
+      // 🧼 Guard: require answer if not skipping
       if (!skip && !fromTimeout && isEmptyAnswer) {
         toast.warn("⚠️ Please answer or skip.");
         return;
@@ -364,6 +370,7 @@ const AIInterview = () => {
           studentId: decoded.userId,
           timedOut: false,
           skip,
+          courseId: courseId,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
