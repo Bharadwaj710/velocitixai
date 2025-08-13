@@ -8,7 +8,7 @@ import { jwtDecode } from "jwt-decode"; // ✅ correct
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const QUESTION_TIME = 20;
+const QUESTION_TIME = 120;
 const READING_TIME = 20;
 
 const AIInterview = () => {
@@ -374,6 +374,7 @@ const AIInterview = () => {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      setSkipped((prev) => prev.filter((i) => i !== questionIndex));
 
       // ✅ Fetch next question
       const res = await axios.post(
@@ -566,11 +567,22 @@ const AIInterview = () => {
                   : "bg-green-600 hover:bg-green-700"
               }`}
             >
-              {questionIndex === 9
-                ? "Finish Interview"
-                : loadingNextQuestion
-                ? "Loading..."
-                : "Next Question"}
+              {(() => {
+                // Condition 1: No skipped questions and last question
+                const isLastNormalQuestion =
+                  skipped.length === 0 && questionIndex === 9;
+
+                // Condition 2: Revisiting the final skipped question
+                const isFinalRevisit =
+                  skipDisabled &&
+                  skipped.length === 1 &&
+                  skipped[0] === questionIndex;
+
+                if (isLastNormalQuestion || isFinalRevisit) {
+                  return "Finish Interview";
+                }
+                return loadingNextQuestion ? "Loading..." : "Next Question";
+              })()}
             </button>
           </>
         )}
