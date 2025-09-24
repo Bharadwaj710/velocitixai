@@ -56,7 +56,7 @@ def extract_json(raw_text):
 
 def analyze_transcript(text):
     prompt = f"""
-    A student completed a 10-question AI mock interview. Analyze their transcript and return this as JSON:
+    A student completed a 10-question AI interview. Analyze their transcript and return this as JSON:
     {{
       "confidence": "1–10",
       "clarity": "1–10",

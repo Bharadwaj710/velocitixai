@@ -27,7 +27,7 @@
     "react-markdown": "^10.1.0",
     "react-player": "^3.0.0",
     "react-router-dom": "^7.6.2",
-    "react-scripts": "5.0.1",
+    "react-scripts": "^5.0.1",
     "react-speech-recognition": "^4.0.1",
     "react-toastify": "^11.0.5",
     "react-youtube": "^10.1.0",

@@ -13,10 +13,10 @@ from flask_cors import CORS
 from generate_quiz import generate_quiz_from_transcript
 from score_quiz import score_quiz_with_ai
 from interview_analysis import analyze_interview
-from live_cheating_detector import check_cheating
-from generate_next_question import generate_next_question
+from live_cheating_detector import check_cheating, clear_session
 from utils.progress_tracker import set_progress, get_progress
 from bson.objectid import ObjectId
+from generate_next_question import generate_next_question
 
 # --- Load environment variables ---
 load_dotenv("../server/.env")
@@ -313,17 +313,25 @@ def get_next_question():
     except Exception as e:
         print("❌ Error in /generate-next-question:", str(e))
         return jsonify({"error": str(e)}), 500
-
+    
 @app.route("/check-frame", methods=["POST"])
 def detect_cheating():
     file = request.files.get("frame")
+    session_id = request.form.get("sessionId") or request.args.get("sessionId") or "default"
     if not file:
         return jsonify({"error": "No frame uploaded"}), 400
     try:
-        result = check_cheating(file.read())
+        result = check_cheating(file.read(), session_id=session_id)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/cheating-session/reset", methods=["POST"])
+def reset_cheating_session():
+    data = request.get_json(silent=True) or {}
+    session_id = data.get("sessionId", "default")
+    clear_session(session_id)
+    return jsonify({"ok": True})
 
 @app.route("/analyze-session", methods=["POST"])
 def final_interview_analysis():
@@ -336,6 +344,15 @@ def final_interview_analysis():
         return jsonify(report)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/reset/<session_id>", methods=["POST"])
+def reset_session(session_id):
+    try:
+        clear_session(session_id)
+        print(f"[CheatDetector] Reset session for {session_id}")
+        return jsonify({"status": "ok", "message": f"Session {session_id} reset"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/initial-question/<student_id>", methods=["GET"])
 def generate_initial_question(student_id):

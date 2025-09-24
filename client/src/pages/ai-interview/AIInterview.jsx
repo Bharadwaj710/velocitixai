@@ -20,11 +20,11 @@ const AIInterview = () => {
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
   const [phase, setPhase] = useState("reading"); // "reading" | "answering"
-
+  const token = localStorage.getItem("token");
+  const [terminated, setTerminated] = useState(false);
+  const [cheatingMessage, setCheatingMessage] = useState("");
+  const [warning, setWarning] = useState("");
   const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [videoBlob, setVideoBlob] = useState(null);
-  const [cheatCount, setCheatCount] = useState(0);
   const [loadingNextQuestion, setLoadingNextQuestion] = useState(false);
   const [questions, setQuestions] = useState([]); // 💡 store all questions
   const [skipped, setSkipped] = useState([]); // 💡 index of skipped questions
@@ -39,6 +39,11 @@ const AIInterview = () => {
   const [skipDisabled, setSkipDisabled] = useState(false);
   const timedOutTriggeredRef = useRef(false);
   const [transcript, setTranscript] = useState([]);
+  const lastWarningRef = useRef(0); // for cooldown
+  const [remainingAttempts, setRemainingAttempts] = useState(3);
+  const [warningMessage, setWarningMessage] = useState("");
+  const mediaRecorderRef = useRef(null);
+  const [videoBlob, setVideoBlob] = useState(null);
 
   useEffect(() => {
     async function getWebcam() {
@@ -176,10 +181,8 @@ const AIInterview = () => {
     SpeechRecognition.stopListening(); // ✅ stop any prior instance
     resetTranscript(); // ✅ reset before new question
     SpeechRecognition.startListening({ continuous: true }); // ✅ fresh start
-    const mr = new MediaRecorder(streamRef.current, {
-      mimeType: "video/webm",
-    });
-    setMediaRecorder(mr);
+    const mr = new MediaRecorder(streamRef.current, { mimeType: "video/webm" });
+    mediaRecorderRef.current = mr; // ✅ store in ref
     chunksRef.current = [];
 
     mr.ondataavailable = (e) => {
@@ -208,50 +211,151 @@ const AIInterview = () => {
   };
 
   const stopRecording = () => {
-    if (mediaRecorder?.state !== "inactive") {
-      mediaRecorder.stop();
+    try {
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state !== "inactive"
+      ) {
+        mediaRecorderRef.current.stop();
+      } else {
+        console.warn("MediaRecorder is already inactive or not initialized");
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null; // cleanup
+      }
+    } catch (err) {
+      console.error("Error stopping recording:", err);
     }
-    setRecording(false);
   };
+
+  const processingRef = useRef(false);
+
+  const WARNING_COOLDOWN_MS = 6000;
 
   const startCheatingDetection = () => {
     const canvas = document.createElement("canvas");
-    frameIntervalRef.current = setInterval(() => {
-      const video = videoRef.current;
-      if (!video) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0);
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
+    frameIntervalRef.current = setInterval(async () => {
+      if (processingRef.current) return;
+      processingRef.current = true;
+
+      try {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) {
+          processingRef.current = false;
+          return;
+        }
+
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise((resolve) =>
+          canvas.toBlob(resolve, "image/jpeg", 0.7)
+        );
+        if (!blob) {
+          processingRef.current = false;
+          return;
+        }
+
         const formData = new FormData();
         formData.append("frame", blob);
-        try {
-          const res = await axios.post(
-            "http://localhost:8080/api/aiInterview/check-frame",
-            formData
-          );
-          console.log("Cheating check response:", res.data);
-          if (res.data.cheating) {
-            if (cheatCount === 0) {
-              alert("Warning: Suspicious behavior detected!");
-              setCheatCount(1);
-            } else if (cheatCount === 1) {
-              await axios.post(
-                "http://localhost:8080/api/aiInterview/terminate"
-              );
-              stopRecording();
-              clearInterval(timerRef.current);
-              clearInterval(frameIntervalRef.current);
-              setStep("terminated");
-            }
+
+        const token = localStorage.getItem("token");
+        const res = await axios.post(
+          "http://localhost:8080/api/aiInterview/check-frame",
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "multipart/form-data",
+            },
+            timeout: 8000,
           }
-        } catch (err) {
-          console.error("Cheating check failed", err);
+        );
+
+        const data = res.data || {};
+        console.debug("Cheat detector response:", data);
+
+        // Update attempts safely
+        const attemptsFromServer =
+          typeof data.cheatingAttempts === "number"
+            ? data.cheatingAttempts
+            : remainingAttempts;
+        setRemainingAttempts(attemptsFromServer);
+
+        // Calibration mode → no penalties
+        if (!data.baseline_ready && data.status !== "terminated") {
+          setWarningMessage("Calibrating... please keep your face steady");
+          processingRef.current = false;
+          return;
         }
-      }, "image/jpeg");
-    }, 1500);
+
+        // If backend says terminated (only for critical cases like no face too long / multiple faces)
+        if (
+          data.status === "terminated" ||
+          (typeof data.cheatingAttempts === "number" &&
+            data.cheatingAttempts <= 0)
+        ) {
+          toast.error(
+            "Interview terminated due to repeated critical violations."
+          );
+          stopRecording();
+          clearInterval(timerRef.current);
+          clearInterval(frameIntervalRef.current);
+          setWarningMessage(
+            "Interview terminated due to repeated critical violations."
+          );
+          setStep("terminated");
+          processingRef.current = false;
+          return;
+        }
+
+        // ✅ Handle warnings (head tilt / turn etc.)
+        if (Array.isArray(data.reasons) && data.reasons.length > 0) {
+          const now = Date.now();
+          if (
+            !lastWarningRef.current ||
+            now - lastWarningRef.current > WARNING_COOLDOWN_MS
+          ) {
+            // remove angle values if included
+            const cleanReasons = data.reasons.map((r) =>
+              r.replace(/\(.*?\)/g, "").trim()
+            );
+
+            const message = `⚠️ ${cleanReasons.join(
+              " | "
+            )} — please face the camera.`;
+            setWarningMessage(message);
+            toast.warn(message, {
+              style: { background: "yellow", color: "black" },
+            });
+            lastWarningRef.current = now;
+          }
+        } else {
+          // no warnings → clear
+          setWarningMessage("");
+        }
+
+        // ✅ Handle critical events (red toast, still attempt decrement handled by backend)
+        if (Array.isArray(data.critical) && data.critical.length > 0) {
+          const msg = `❌ ${data.critical.join(
+            " | "
+          )}. Attempts left: ${attemptsFromServer}`;
+          toast.error(msg, { style: { background: "red", color: "white" } });
+          setWarningMessage(msg);
+        }
+      } catch (err) {
+        console.error(
+          "Cheating detection error:",
+          err?.response?.data || err.message
+        );
+      } finally {
+        processingRef.current = false;
+      }
+    }, 1000); // still runs every 1.5s, but no-face detection gap shortened in backend
   };
 
   const handleStart = async () => {
@@ -260,6 +364,14 @@ const AIInterview = () => {
         alert("Course ID missing from URL.");
         return;
       }
+      // Reset local states before starting
+      setRemainingAttempts(3);
+      setWarningMessage("");
+      setTerminated(false);
+      setSkipped([]);
+      setAnswers([]);
+      setTranscript([]);
+      setLoadingNextQuestion(false);
 
       const res = await axios.post(
         `http://localhost:8080/api/aiInterview/start-interview?courseId=${courseId}`,
@@ -517,6 +629,16 @@ const AIInterview = () => {
                 </div>
               </div>
             </div>
+            {/* Warning & Attempts */}
+            {warningMessage && (
+              <div className="w-full max-w-5xl mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-semibold">
+                {warningMessage}
+              </div>
+            )}
+
+            <p className="text-gray-700 mb-4">
+              Attempts: <strong>{remainingAttempts}</strong>
+            </p>
 
             {/* Progress + Button */}
             <div className="w-full flex justify-between mb-4 text-gray-600">

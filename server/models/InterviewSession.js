@@ -55,7 +55,12 @@ const InterviewSessionSchema = new mongoose.Schema(
       enum: ["in-progress", "completed", "terminated"],
       default: "in-progress",
     },
+
+    // 👇 Added fields
     cheatingDetected: { type: Boolean, default: false },
+    cheatingWarning: { type: Boolean, default: false },
+    cheatingAttempts: { type: Number, default: 3 },
+
     report: {
       confidenceScore: Number,
       subjectKnowledgeScore: Number,

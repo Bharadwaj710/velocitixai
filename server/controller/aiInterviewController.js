@@ -3,62 +3,97 @@ const InterviewSession = require("../models/InterviewSession");
 const cloudinary = require("../utlis/cloudinary");
 const axios = require("axios");
 const FormData = require("form-data");
-const { jwtDecode } = require("jwt-decode"); // ✅ correct for CommonJS
+const { jwtDecode } = require("jwt-decode"); // CommonJS
+
+// Helper: safe read
+const safe = (v, fallback) => (typeof v === "undefined" ? fallback : v);
 
 exports.startInterview = async (req, res) => {
   try {
     const courseId = req.query.courseId;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.body.studentId;
 
     if (!courseId) {
       return res.status(400).json({ error: "Missing courseId in request" });
     }
 
-    const profileRes = await axios.get(
-      `http://localhost:5001/initial-question/${userId}?courseId=${courseId}`
-    );
+    // 🆕 Reset Python detector state for this user
+    try {
+      await axios.post(
+        `http://127.0.0.1:5001/reset/${userId}`,
+        {},
+        { timeout: 4000 }
+      );
+      console.log(`[StartInterview] Reset python detector for user=${userId}`);
+    } catch (err) {
+      console.warn("⚠️ Could not reset python detector:", err.message);
+      // don’t block interview if reset fails — just continue
+    }
 
-    const firstQuestion = profileRes.data.question;
+    // Fetch first AI-generated question
+    let firstQuestion;
+    try {
+      const profileRes = await axios.get(
+        `http://127.0.0.1:5001/initial-question/${userId}?courseId=${courseId}`,
+        { timeout: 15000 }
+      );
+      firstQuestion = profileRes.data.question;
+    } catch (err) {
+      console.error("❌ Could not fetch first question:", err.message);
+      return res
+        .status(500)
+        .json({ error: "AI service unavailable, try again later." });
+    }
 
-    // Save session with first question
+    // Find existing session or create new
     let session = await InterviewSession.findOne({
       student: userId,
       course: courseId,
     });
+
     if (!session) {
       session = new InterviewSession({
         student: userId,
+        course: courseId,
         answers: [],
         questions: [{ index: 0, question: firstQuestion }],
         skippedQuestions: [],
         notAttemptedQuestions: [],
         timestamps: [],
         lastGeneratedQuestion: { index: 0, question: firstQuestion },
-        status: "in-progress",
+        status: "in-progress", // ✅ force fresh status
+        cheatingAttempts: 3,
+        cheatingDetected: false,
+        cheatingWarning: false,
       });
+      await session.save();
+      console.log(`[StartInterview] New session created for user=${userId}`);
     } else {
-      // Only if first question not added already
-      const alreadyExists = session.questions.some((q) => q.index === 0);
-      if (!alreadyExists) {
-        session.questions.push({ index: 0, question: firstQuestion });
-        session.lastGeneratedQuestion = { index: 0, question: firstQuestion };
-      }
+      // ✅ Reset session for fresh attempt
+      session.status = "in-progress"; // <-- CRITICAL: reset from 'terminated'
+      session.cheatingAttempts = 3;
+      session.cheatingDetected = false;
+      session.cheatingWarning = false;
+      session.answers = [];
+      session.skippedQuestions = [];
+      session.notAttemptedQuestions = [];
+      session.timestamps = [];
+      session.questions = [{ index: 0, question: firstQuestion }];
+      session.lastGeneratedQuestion = { index: 0, question: firstQuestion };
+      await session.save();
+      console.log(`[StartInterview] Reset session for user=${userId}`);
     }
-
-    await session.save();
 
     return res.json({ question: firstQuestion });
   } catch (err) {
     console.error("Start interview error:", err.message || err);
-    return res
-      .status(500)
-      .json({ error: "Failed to generate first question." });
+    return res.status(500).json({ error: "Failed to start interview." });
   }
 };
 
 exports.nextQuestion = async (req, res) => {
   const { answer, transcript, skip, timedOut } = req.body;
-  const userId = req.user?.id;
+  const userId = req.user?.id || req.body.studentId;
   const courseId = req.query.courseId;
 
   try {
@@ -79,7 +114,7 @@ exports.nextQuestion = async (req, res) => {
       (a) => a.index === currentIndex && a.answer.trim() !== ""
     );
 
-    // ✅ Handle revisit timeout as well
+    // Timeout flow: move to notAttempted
     if (isTimedOut && currentText && !alreadyAnswered) {
       session.skippedQuestions = session.skippedQuestions.filter(
         (q) => q.index !== currentIndex
@@ -118,7 +153,7 @@ exports.nextQuestion = async (req, res) => {
       ...session.skippedQuestions.map((q) => q.index),
     ]);
 
-    // 🛑 If done, pick revisit first
+    // If done -> revisit skipped questions first
     if (generatedIndexes.size >= 10) {
       const revisit = session.skippedQuestions.sort(
         (a, b) => a.index - b.index
@@ -141,6 +176,7 @@ exports.nextQuestion = async (req, res) => {
       return res.json({ finished: true });
     }
 
+    // pick next free index
     const usedIndexes = new Set(
       [
         ...session.questions,
@@ -252,6 +288,9 @@ exports.saveAnswer = async (req, res) => {
           skippedQuestions: [],
           notAttemptedQuestions: [],
           lastGeneratedQuestion: { index: 0, question: "" },
+          cheatingAttempts: 3,
+          cheatingDetected: false,
+          cheatingWarning: false,
         },
       },
       { new: true, upsert: true }
@@ -261,32 +300,25 @@ exports.saveAnswer = async (req, res) => {
     const questionText = question?.trim() || "";
     const trimmedAnswer = typeof answer === "string" ? answer.trim() : "";
 
-    // 🚫 Block empty answer unless skip/timeout
     if (trimmedAnswer === "" && !timedOut && !skip) {
       return res
         .status(400)
         .json({ error: "Empty answer without skip or timeout" });
     }
 
-    // 🕒 Timeout: move skipped → notAttempted
+    // Timeout: move to notAttempted
     if (timedOut && trimmedAnswer === "" && questionText) {
-      // Remove from skipped (revisit timeout case)
       session.skippedQuestions = session.skippedQuestions.filter(
         (q) => q.index !== finalIndex
       );
-
-      // Remove old notAttempted if exists
       session.notAttemptedQuestions = session.notAttemptedQuestions.filter(
         (q) => q.index !== finalIndex
       );
 
-      // Add to notAttempted
       session.notAttemptedQuestions.push({
         index: finalIndex,
         question: questionText,
       });
-
-      // Remove any existing answer
       session.answers = session.answers.filter((a) => a.index !== finalIndex);
 
       session.markModified("answers");
@@ -297,7 +329,7 @@ exports.saveAnswer = async (req, res) => {
       return res.json({ message: "Timeout: moved to notAttempted" });
     }
 
-    // ⏭ Skip flow
+    // Skip flow
     if (skip && questionText) {
       if (!session.skippedQuestions.some((q) => q.index === finalIndex)) {
         session.skippedQuestions.push({
@@ -306,17 +338,15 @@ exports.saveAnswer = async (req, res) => {
         });
         session.markModified("skippedQuestions");
       }
-
       if (!session.questions.some((q) => q.index === finalIndex)) {
         session.questions.push({ index: finalIndex, question: questionText });
         session.markModified("questions");
       }
-
       await session.save();
       return res.json({ message: "Skipped" });
     }
 
-    // ✏ Normal answer flow
+    // Normal answer
     if (trimmedAnswer !== "") {
       const existing = session.answers.find((a) => a.index === finalIndex);
       if (existing) {
@@ -325,7 +355,6 @@ exports.saveAnswer = async (req, res) => {
         session.answers.push({ index: finalIndex, answer: trimmedAnswer });
       }
 
-      // Remove from skipped & notAttempted
       session.skippedQuestions = session.skippedQuestions.filter(
         (q) => q.index !== finalIndex
       );
@@ -352,25 +381,173 @@ exports.saveAnswer = async (req, res) => {
 
 exports.checkCheating = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "Frame missing" });
+    if (!req.file) return res.status(400).json({ error: "Missing frame" });
 
     const form = new FormData();
     form.append("frame", req.file.buffer, req.file.originalname);
 
-    const result = await axios.post("http://localhost:5000/check-frame", form, {
-      headers: form.getHeaders(),
-    });
+    let result;
+    try {
+      // send to python detector
+      result = await axios.post("http://127.0.0.1:5001/check-frame", form, {
+        headers: form.getHeaders(),
+        timeout: 5000,
+      });
+    } catch (err) {
+      console.error("❌ Cheating service unavailable:", err.message);
+      return res.status(500).json({ error: "Cheating service unavailable" });
+    }
 
-    res.json(result.data);
+    const {
+      cheating,
+      critical = [],
+      reasons = [],
+      metrics = {},
+      baseline_ready = false,
+    } = result.data || {};
+
+    // If no user (debug), just return raw detector output
+    if (!req.user?.id) {
+      return res.json({ ...result.data });
+    }
+
+    const session = await InterviewSession.findOne({ student: req.user.id });
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    // Ensure attempts field exists
+    if (typeof session.cheatingAttempts !== "number") {
+      session.cheatingAttempts = 3;
+      await session.save();
+    }
+
+    // If already terminated, keep returning terminated without changes
+    if (session.status === "terminated") {
+      console.log(
+        `[Cheating Check] session already terminated user=${req.user.id}`
+      );
+      return res.json({
+        ...result.data,
+        cheatingAttempts: session.cheatingAttempts,
+        status: "terminated",
+      });
+    }
+
+    // If calibration still in progress - don't penalize
+    // If calibration still in progress - don't penalize
+    if (!baseline_ready) {
+      console.log(
+        `[Cheating Check] calibration in progress (user=${req.user.id})`
+      );
+      return res.json({
+        ...result.data,
+        cheating: false,
+        critical: [],
+        reasons: [], // 🚨 force empty reasons
+        cheatingAttempts: session.cheatingAttempts ?? 3,
+        status: session.status || "in-progress",
+        toastType: "info",
+        toastMessage:
+          "Calibrating face baseline — please face the camera steadily.",
+      });
+    }
+    // After baseline ready:
+    let attempts = session.cheatingAttempts ?? 3;
+
+    // Critical events (no face / multiple faces) -> decrement attempts (atomic)
+    if (Array.isArray(critical) && critical.length > 0) {
+      // Atomically decrement attempts only if attempts > 0
+      const updated = await InterviewSession.findOneAndUpdate(
+        { _id: session._id, cheatingAttempts: { $gt: 0 } },
+        { $inc: { cheatingAttempts: -1 } },
+        { new: true }
+      );
+
+      const updatedAttempts = updated ? updated.cheatingAttempts : attempts;
+      console.log(
+        `[Cheating Check] CRITICAL=${critical.join(" | ")} user=${
+          req.user.id
+        } attemptsLeft=${updatedAttempts}`
+      );
+
+      // if attempts drop to 0 -> terminate
+      if (updatedAttempts <= 0) {
+        await InterviewSession.findByIdAndUpdate(session._id, {
+          cheatingAttempts: 0,
+          cheatingDetected: true,
+          status: "terminated",
+        });
+        return res.json({
+          ...result.data,
+          cheatingAttempts: 0,
+          status: "terminated",
+          toastType: "critical",
+          toastMessage:
+            "🚨 Interview terminated: too many critical violations.",
+        });
+      }
+
+      // still some attempts left
+      return res.json({
+        ...result.data,
+        cheatingAttempts: updatedAttempts,
+        status: "in-progress",
+        toastType: "critical",
+        toastMessage: `❌ ${critical.join(
+          " | "
+        )}. Attempts left: ${updatedAttempts}`,
+      });
+    }
+
+    // Warnings (head tilt / yaw) -> do not decrement attempts, only set warning flag
+    if (Array.isArray(reasons) && reasons.length > 0) {
+      await InterviewSession.findByIdAndUpdate(session._id, {
+        cheatingWarning: true,
+      });
+
+      const isHeadTilt = reasons.some(
+        (r) =>
+          r.toLowerCase().includes("head turned") ||
+          r.toLowerCase().includes("head tilted")
+      );
+
+      console.log(`[Cheating Check] WARNING=${reasons} user=${req.user.id}`);
+
+      return res.json({
+        ...result.data,
+        cheatingAttempts: session.cheatingAttempts ?? 3,
+        status: session.status || "in-progress",
+        toastType: isHeadTilt ? "critical" : "warning", // head tilt red toast, others yellow
+        toastMessage: `${isHeadTilt ? "❌" : "⚠️"} ${reasons.join(
+          " | "
+        )} — please look at the camera.`,
+      });
+    }
+    // No issues
+    return res.json({
+      ...result.data,
+      cheatingAttempts: session.cheatingAttempts ?? 3,
+      status: session.status || "in-progress",
+      toastType: "none",
+    });
   } catch (err) {
-    console.error("Cheating check failed:", err.message);
-    res.status(500).json({ error: "Cheating detection failed." });
+    console.error("Error in checkCheating:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 exports.terminateInterview = async (req, res) => {
-  // Optional: store reason for termination, or log it
-  res.json({ message: "Interview terminated due to suspicious activity." });
+  try {
+    await InterviewSession.findOneAndUpdate(
+      { student: req.user.id },
+      { $set: { status: "terminated", cheatingDetected: true } }
+    );
+    res.json({ message: "Interview terminated due to suspicious activity." });
+  } catch (err) {
+    console.error("terminateInterview error:", err);
+    res.status(500).json({ error: "Failed to terminate interview." });
+  }
 };
 
 exports.completeInterview = async (req, res) => {
@@ -410,13 +587,12 @@ exports.completeInterview = async (req, res) => {
           timestamps: JSON.parse(timestamps),
           questions: JSON.parse(questions),
           report: analysis.data,
-          status: "completed", // ✅ update status
+          status: "completed",
         },
       },
       { new: true }
     );
 
-    // Attach skipped questions and their answer status
     const skippedSummary = (session.skippedQuestions || []).map((q) => ({
       index: q.index,
       question: q.question,
@@ -429,7 +605,7 @@ exports.completeInterview = async (req, res) => {
       skippedQuestions: skippedSummary,
     });
   } catch (err) {
-    console.error("Interview completion failed:", err.message);
+    console.error("Interview completion failed:", err.message || err);
     res.status(500).json({ error: "Failed to complete interview." });
   }
 };
