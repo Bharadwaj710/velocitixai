@@ -27,7 +27,7 @@ cloudinary.config(
 
 # Configure Gemini
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 def download_video(cloud_url, save_path):
     response = requests.get(cloud_url)

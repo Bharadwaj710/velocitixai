@@ -11,7 +11,7 @@ def score_quiz_with_ai(student_answers, original_questions):
         raise ValueError("GEMINI_API_KEY not found in .env")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     prompt = f"""
 You're an intelligent quiz evaluator.

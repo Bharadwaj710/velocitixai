@@ -43,28 +43,32 @@ STATE = defaultdict(
         "yaw_calib": [],
         "pitch_calib": [],
         "last_warning_time": 0.0,
+        # new / added fields:
+        "last_critical_time": None,   # when first no-face/multi-face seen
+        "last_warning_str": None,     # last warning text for cooldown
+        "calib_start_time": None,     # time when calibration began
     }
 )
-
 # ---------- Tuning parameters (adjust these as needed) ----------
-CALIBRATION_FRAMES = 15        # frames used to compute baseline (short but robust)
-NO_FACE_TOLERANCE = 1         # allow small detection glitches
-MESH_FAIL_TOLERANCE = 3       # tolerate a few mesh fails
+CALIBRATION_TIME_SEC = 4.0      # seconds to build baseline (4s calibration)
+NO_FACE_TOLERANCE = 1           # allow tiny detection glitches
+MESH_FAIL_TOLERANCE = 3
 DETECTION_CONF_THRESHOLD = 0.50
-USE_EAR = False               # disable EAR by default (can be noisy)
+
+USE_EAR = False                 # keep EAR disabled (you asked to ignore eye movement)
 EAR_THRESH_ENTER = 0.18
 EAR_THRESH_EXIT = 0.22
 
-# Warning thresholds (moderate values -> show warning)
-YAW_WARN = 75.0               # degrees deviation for warning
-PITCH_WARN = 60.0
-DEADZONE = 5.0   # new
+# Head movement thresholds — increased to make detector less sensitive to slight turns
+YAW_WARN = 50.0                 # degrees (larger = less sensitive)
+PITCH_WARN = 40.0               # degrees
+DEADZONE = 10.0                 # extra deadzone
 
-# Escalation thresholds (more strict for critical if you'd like)
-# We will treat yaw/pitch as warnings, not critical. Critical == no face / multiple faces.
-BAD_FRAME_LIMIT = 3       # consecutive confirmed 'bad' frames needed to confirm a reason
+# Grace + debounce
+CRITICAL_GRACE_PERIOD = 3.0     # seconds before no-face / multi-face becomes critical
+BAD_FRAME_LIMIT = 6             # consecutive bad frames before repeated-warning logic
 RESET_STABLE_FRAMES = 5
-WARNING_COOLDOWN = 1.0        # seconds before issuing another warning
+WARNING_COOLDOWN = 2.0          # seconds before repeating the same toast
 DEBUG = os.environ.get("CHEAT_DETECTOR_DEBUG", "0") == "1"
 
 # ---------- Utilities ----------
@@ -162,27 +166,24 @@ def _get_eye_points(face_landmarks, w, h, is_left=True):
 # ---------- Main function ----------
 def check_cheating(frame_bytes: bytes, session_id: str = "default"):
     """
-    Input: JPEG frame bytes (e.g., request.files['frame'].read())
-    Returns a dict:
-      {
-        cheating: bool,          # True for critical events (immediate termination candidate)
-        reason: str | None,      # user-friendly reason (prefers critical)
-        metrics: {...},          # numeric diagnostic info
-        critical: [...],         # critical reasons (no face, multiple faces)
-        reasons: [...],          # warning reasons (head turned/tilted)
-        baseline_ready: bool
-      }
+    Improved check_cheating:
+    - time-based calibration (CALIBRATION_TIME_SEC)
+    - grace period for criticals (CRITICAL_GRACE_PERIOD)
+    - reduced sensitivity to small head movements
+    - ignore eye movement (USE_EAR=False)
+    - warning cooldown + debounce
     """
     st = STATE[session_id]
 
-    # ensure baseline keys exist
+    # Ensure baseline keys exist (defensive)
     if "baseline_ready" not in st:
         st["baseline_ready"] = False
         st["calib_count"] = 0
         st["yaw_calib"] = []
         st["pitch_calib"] = []
+        st["calib_start_time"] = None
 
-    # if session already cancelled, return consistent response
+    # If cancelled, return stable response
     if st.get("cancelled", False):
         metrics = {
             "faces": 0,
@@ -238,7 +239,6 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
         det_confidence = None
         if faces:
             try:
-                # detection.score is sometimes available
                 det_confidence = float(faces[0].score[0]) if hasattr(faces[0], "score") else None
             except Exception:
                 det_confidence = None
@@ -249,21 +249,22 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
 
         # --- Face presence and mesh checks ---
         if face_count == 0:
-            st["noface_frames"] += 1
-            # only set reason after tolerance to avoid quick false positives
+            st["noface_frames"] = st.get("noface_frames", 0) + 1
             if st["noface_frames"] > NO_FACE_TOLERANCE:
-                reason = f"No face visible ({st['noface_frames']})"
+                # Reason kept short (used for message). We'll manage grace in later logic.
+                reason = "No face visible"
                 violation_types.append("noface")
         elif face_count > 1:
             st["multi_frames"] = st.get("multi_frames", 0) + 1
-            # multiple faces are critical immediately (but we can still debounce if desired)
-            if st["multi_frames"] > (NO_FACE_TOLERANCE + 3): 
-             reason = "Multiple faces detected"
-             violation_types.append("multiple_faces")
+            if st["multi_frames"] > (NO_FACE_TOLERANCE + 3):
+                reason = "Multiple faces detected"
+                violation_types.append("multiple_faces")
         else:
-            # exactly one face
+            # exactly one face -> reset multi/no-face counters and timers
             st["noface_frames"] = 0
             st["multi_frames"] = 0
+            st["last_critical_time"] = None  # user corrected the critical condition
+
             # if detection confidence exists and is low -> candidate mesh fail
             if det_confidence is not None and det_confidence < DETECTION_CONF_THRESHOLD:
                 st["mesh_fail_frames"] += 1
@@ -294,67 +295,55 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
                     if pitch is not None:
                         st["pitch_buf"].append(float(pitch))
 
-                    # optional EAR checks (disabled by default)
-                    if USE_EAR:
-                        try:
-                            ptsL = _get_eye_points(fl, w, h, is_left=True)
-                            ptsR = _get_eye_points(fl, w, h, is_left=False)
-                            el = _eye_aspect_ratio(ptsL)
-                            er = _eye_aspect_ratio(ptsR)
-                            if el is not None:
-                                st["earL_buf"].append(float(el))
-                            if er is not None:
-                                st["earR_buf"].append(float(er))
-                        except Exception:
-                            pass
-
-                    # medians for smoothing
+                    # MEDIANS for smoothing
                     med_yaw = statistics.median(st["yaw_buf"]) if st["yaw_buf"] else 0.0
                     med_pitch = statistics.median(st["pitch_buf"]) if st["pitch_buf"] else 0.0
-                    med_earL = statistics.median(st["earL_buf"]) if st["earL_buf"] else None
-                    med_earR = statistics.median(st["earR_buf"]) if st["earR_buf"] else None
 
-                    # calibration phase: collect a few frames to build baseline
-                    if not st["baseline_ready"]:
-                        if yaw is not None and pitch is not None:
-                            st["yaw_calib"].append(med_yaw)
-                            st["pitch_calib"].append(med_pitch)
-                            st["calib_count"] += 1
-                            if st["calib_count"] >= CALIBRATION_FRAMES:
-                                # set baseline as median of collected values
-                                try:
-                                    st["yaw_baseline"] = float(statistics.median(st["yaw_calib"]))
-                                    st["pitch_baseline"] = float(statistics.median(st["pitch_calib"]))
-                                    st["baseline_ready"] = True
-                                except Exception:
-                                    st["baseline_ready"] = False
-                                    st["calib_count"] = 0
+                    # --- Calibration (time-based) ---
+                    if not st.get("baseline_ready", False):
+                        now = time.time()
+                        if st.get("calib_start_time") is None:
+                            st["calib_start_time"] = now
+                            st["yaw_calib"] = []
+                            st["pitch_calib"] = []
+                        # Collect medians while calibration time not expired
+                        st["yaw_calib"].append(med_yaw)
+                        st["pitch_calib"].append(med_pitch)
+                        elapsed = now - st["calib_start_time"]
+                        if elapsed >= CALIBRATION_TIME_SEC and len(st["yaw_calib"]) >= 5:
+                            # set baseline as median of collected values
+                            try:
+                                st["yaw_baseline"] = float(statistics.median(st["yaw_calib"]))
+                                st["pitch_baseline"] = float(statistics.median(st["pitch_calib"]))
+                                st["baseline_ready"] = True
+                                # Reset buffers after calibration to avoid immediate jitter
+                                st["yaw_buf"].clear()
+                                st["pitch_buf"].clear()
+                            except Exception:
+                                st["baseline_ready"] = False
+                                st["calib_start_time"] = None
                     else:
                         # baseline ready -> compute deviations relative to baseline
                         yaw_dev = abs(med_yaw - st.get("yaw_baseline", 0.0))
                         pitch_dev = abs(med_pitch - st.get("pitch_baseline", 0.0))
 
-                        # warnings on moderate head movements
+                        # Only treat *big* movements as warnings (less sensitive)
                         if yaw_dev >= (YAW_WARN + DEADZONE):
-                            reason = f"Head turned"
+                            reason = "Head turned"
                             violation_types.append("yaw")
                         elif pitch_dev >= (PITCH_WARN + DEADZONE):
-                            reason = f"Head tilted"
+                            reason = "Head tilted"
                             violation_types.append("pitch")
                         else:
-                            # check EAR if enabled
-                            if USE_EAR and med_earL is not None and med_earR is not None:
-                                if med_earL < EAR_THRESH_ENTER and med_earR < EAR_THRESH_ENTER:
-                                    reason = f"Eyes possibly closed (EAR {med_earL:.2f},{med_earR:.2f})"
-                                    violation_types.append("eyes")
-                            else:
-                                reason = None
+                            # ignore EAR / eye movement entirely (USE_EAR=False)
+                            reason = None
 
-                        if st["stable_frames"] > 30:  # ~1 sec stable at ~30fps
-                            st["yaw_baseline"] = 0.9 * st["yaw_baseline"] + 0.1 * med_yaw
-                            st["pitch_baseline"] = 0.9 * st["pitch_baseline"] + 0.1 * med_pitch
+                        # slowly adapt baseline when stable for a while
+                        if st["stable_frames"] > 30 and st.get("yaw_baseline") is not None:
+                            st["yaw_baseline"] = 0.95 * st["yaw_baseline"] + 0.05 * med_yaw
+                            st["pitch_baseline"] = 0.95 * st["pitch_baseline"] + 0.05 * med_pitch
 
-        # Decision/debounce logic
+        # Decision/debounce logic (per-frame)
         if reason:
             st["bad_frames"] += 1
             st["stable_frames"] = 0
@@ -363,69 +352,67 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
             st["stable_frames"] += 1
             if st["stable_frames"] >= RESET_STABLE_FRAMES:
                 st["warning_given"] = False
+                st["last_warning_str"] = None
 
-        # Determine final categories: critical vs warning
+        # Determine final categories: critical vs warning (and handle grace for criticals)
         critical_reasons = []
         warning_reasons = []
         cheating = False
 
+        now = time.time()
         if reason:
-          low = str(reason).lower()
-    # Treat 'no face' as critical only if prolonged, else as warning
-          if "no face" in low:
-            if st["noface_frames"] > (NO_FACE_TOLERANCE + 3):
-              critical_reasons.append(reason)
-              cheating = True
+            low = str(reason).lower()
+
+            # Handle no-face / multiple-face with grace period (allow frontend toast)
+            if "no face" in low or "multiple" in low:
+                # first time we see this critical kind -> set timestamp & warn
+                if st.get("last_critical_time") is None:
+                    st["last_critical_time"] = now
+                    # warning (red toast) but no attempt deduction yet
+                    warning_reasons.append(reason)
+                    cheating = False
+                else:
+                    # If still persisting beyond grace period -> escalate to critical
+                    if now - st["last_critical_time"] >= CRITICAL_GRACE_PERIOD:
+                        critical_reasons.append(reason)
+                        cheating = True
+                    else:
+                        warning_reasons.append(reason)
+                        cheating = False
             else:
-              warning_reasons.append(reason)
-              cheating = False
-    # Treat 'multiple faces' as critical only if prolonged, else as warning
-          elif "multiple" in low:
-              if st.get("multi_frames", 0) > (NO_FACE_TOLERANCE + 3):
-                critical_reasons.append(reason)
-                cheating = True
-              else:
-                warning_reasons.append(reason)
-                cheating = False
-    # All these are warnings (never critical)
-          elif (
-         "turned" in low
-        or "tilted" in low
-        or "head" in low
-        or "eyes" in low
-        or "detection low" in low
-        or "landmarks missing" in low
-    ):
-            warning_reasons.append(reason)
-            cheating = False
-          else:
-        # Conservative default - treat as warning
-            warning_reasons.append(reason)
-            cheating = False
- 
-            # Confirmed after BAD_FRAME_LIMIT consecutive bad frames:
-            if st["bad_frames"] >= BAD_FRAME_LIMIT and st["baseline_ready"]:
-                now = time.time()
-                # If we didn't previously show an official warning, make it a warning first
+                # For any other reason, reset critical timer (face corrected)
+                st["last_critical_time"] = None
+
+                # Compose warning text for head movement and other non-critical issues.
+                # Use cooldown so same warning isn't repeatedly sent each frame.
+                warn_text = reason
+                last_warn = st.get("last_warning_str")
+                last_warn_time = st.get("last_warning_time", 0.0)
+                if (warn_text != last_warn) or (now - last_warn_time) > WARNING_COOLDOWN:
+                    warning_reasons.append(warn_text)
+                    st["last_warning_str"] = warn_text
+                    st["last_warning_time"] = now
+                    cheating = False
+                else:
+                    # If same warning within cooldown: do not spam
+                    cheating = False
+
+            # Repeated bad frames escalation (for e.g. large jitter) -- keep as warning/escalation
+            if st["bad_frames"] >= BAD_FRAME_LIMIT and st.get("baseline_ready", False):
+                # If not already flagged, set a single warning instead of immediate termination.
                 if not st.get("warning_given", False):
-                    # first confirmed warning: set warning flag and reset bad_frames,
-                    # let frontend show warning message (no termination yet)
                     st["warning_given"] = True
                     st["bad_frames"] = 0
                     st["last_warning_time"] = now
-                    # keep cheating False (warning only)
-                    cheating = False
-                    # ensure reason appears in warning_reasons
+                    # ensure an explanatory message is present
                     if reason and reason not in warning_reasons:
                         warning_reasons.append(reason)
+                    cheating = False
                 else:
-                    # repeated confirmed bad -> escalate: cancel the session
-                    st["bad_frames"] = 0
-                    st["last_warning_time"] = now
-                    cheating = False
-                    # prefer critical phrasing
+                    # repeated confirmed bad -> escalate (but we treat this conservatively)
                     if reason and reason not in warning_reasons:
                         warning_reasons.append(reason)
+                    cheating = False
 
         # Build metrics to help frontend and Node controller
         metrics = {
@@ -435,10 +422,10 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
             "pitch_raw": float(pitch) if pitch is not None else None,
             "yaw_med": statistics.median(st["yaw_buf"]) if st["yaw_buf"] else None,
             "pitch_med": statistics.median(st["pitch_buf"]) if st["pitch_buf"] else None,
-            "noface_frames": int(st["noface_frames"]),
-            "mesh_fail_frames": int(st["mesh_fail_frames"]),
-            "bad_frames": int(st["bad_frames"]),
-            "stable_frames": int(st["stable_frames"]),
+            "noface_frames": int(st.get("noface_frames", 0)),
+            "mesh_fail_frames": int(st.get("mesh_fail_frames", 0)),
+            "bad_frames": int(st.get("bad_frames", 0)),
+            "stable_frames": int(st.get("stable_frames", 0)),
             "baseline_ready": bool(st.get("baseline_ready", False)),
             "yaw_baseline": float(st.get("yaw_baseline")) if st.get("yaw_baseline") is not None else None,
             "pitch_baseline": float(st.get("pitch_baseline")) if st.get("pitch_baseline") is not None else None,
@@ -466,11 +453,11 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
                 "violation_types": violation_types,
                 "yaw_buf": list(st["yaw_buf"]),
                 "pitch_buf": list(st["pitch_buf"]),
-                "earL_buf": list(st["earL_buf"]),
-                "earR_buf": list(st["earR_buf"]),
                 "last_warning_time": st.get("last_warning_time"),
+                "last_critical_time": st.get("last_critical_time"),
                 "cancelled": st.get("cancelled", False),
-                "calib_count": st.get("calib_count", 0),
+                "calib_start_time": st.get("calib_start_time"),
+                "calib_count": len(st.get("yaw_calib", [])),
             }
 
         # concise console log
@@ -501,7 +488,6 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
             "reasons": [],
             "baseline_ready": bool(st.get("baseline_ready", False)),
         }
-
 
 def clear_session(session_id: str):
     if session_id in STATE:

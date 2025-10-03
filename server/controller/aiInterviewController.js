@@ -35,7 +35,7 @@ exports.startInterview = async (req, res) => {
     try {
       const profileRes = await axios.get(
         `http://127.0.0.1:5001/initial-question/${userId}?courseId=${courseId}`,
-        { timeout: 15000 }
+        { timeout: 30000 }
       );
       firstQuestion = profileRes.data.question;
     } catch (err) {
@@ -456,50 +456,59 @@ exports.checkCheating = async (req, res) => {
     let attempts = session.cheatingAttempts ?? 3;
 
     // Critical events (no face / multiple faces) -> decrement attempts (atomic)
+    // Critical events (no face / multiple faces) -> only decrement if Python says cheating=true
     if (Array.isArray(critical) && critical.length > 0) {
-      // Atomically decrement attempts only if attempts > 0
-      const updated = await InterviewSession.findOneAndUpdate(
-        { _id: session._id, cheatingAttempts: { $gt: 0 } },
-        { $inc: { cheatingAttempts: -1 } },
-        { new: true }
-      );
+      if (cheating) {
+        // ✅ Python already applied grace → now it's a confirmed critical
+        const updated = await InterviewSession.findOneAndUpdate(
+          { _id: session._id, cheatingAttempts: { $gt: 0 } },
+          { $inc: { cheatingAttempts: -1 } },
+          { new: true }
+        );
 
-      const updatedAttempts = updated ? updated.cheatingAttempts : attempts;
-      console.log(
-        `[Cheating Check] CRITICAL=${critical.join(" | ")} user=${
-          req.user.id
-        } attemptsLeft=${updatedAttempts}`
-      );
+        const updatedAttempts = updated ? updated.cheatingAttempts : attempts;
+        console.log(
+          `[Cheating Check] CRITICAL=${critical.join(" | ")} user=${
+            req.user.id
+          } attemptsLeft=${updatedAttempts}`
+        );
 
-      // if attempts drop to 0 -> terminate
-      if (updatedAttempts <= 0) {
-        await InterviewSession.findByIdAndUpdate(session._id, {
-          cheatingAttempts: 0,
-          cheatingDetected: true,
-          status: "terminated",
-        });
+        if (updatedAttempts <= 0) {
+          await InterviewSession.findByIdAndUpdate(session._id, {
+            cheatingAttempts: 0,
+            cheatingDetected: true,
+            status: "terminated",
+          });
+          return res.json({
+            ...result.data,
+            cheatingAttempts: 0,
+            status: "terminated",
+            toastType: "critical",
+            toastMessage:
+              "🚨 Interview terminated: too many critical violations.",
+          });
+        }
+
         return res.json({
           ...result.data,
-          cheatingAttempts: 0,
-          status: "terminated",
+          cheatingAttempts: updatedAttempts,
+          status: "in-progress",
           toastType: "critical",
-          toastMessage:
-            "🚨 Interview terminated: too many critical violations.",
+          toastMessage: `❌ ${critical.join(
+            " | "
+          )}. Attempts left: ${updatedAttempts}`,
+        });
+      } else {
+        // 🚨 First detection within grace period → just show warning toast, no attempt decrement
+        return res.json({
+          ...result.data,
+          cheatingAttempts: session.cheatingAttempts ?? 3,
+          status: "in-progress",
+          toastType: "critical",
+          toastMessage: `❌ ${critical.join(" | ")} — please face the camera.`,
         });
       }
-
-      // still some attempts left
-      return res.json({
-        ...result.data,
-        cheatingAttempts: updatedAttempts,
-        status: "in-progress",
-        toastType: "critical",
-        toastMessage: `❌ ${critical.join(
-          " | "
-        )}. Attempts left: ${updatedAttempts}`,
-      });
     }
-
     // Warnings (head tilt / yaw) -> do not decrement attempts, only set warning flag
     if (Array.isArray(reasons) && reasons.length > 0) {
       await InterviewSession.findByIdAndUpdate(session._id, {
