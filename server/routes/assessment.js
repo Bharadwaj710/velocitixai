@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const mongoose = require("mongoose");
-const CareerAssessment = require("../models/careerAssessment");
+const CareerAssessment = require("../models/CareerAssessment");
 const User = require("../models/User");
 
 // Multer storage config
