@@ -1,13 +1,57 @@
 // server/controller/aiInterviewController.js
 const InterviewSession = require("../models/InterviewSession");
-const cloudinary = require("../utlis/cloudinary");
+const InterviewReport = require("../models/InterviewReport");
+const { cloudinary } = require("../utlis/cloudinary");
 const axios = require("axios");
 const FormData = require("form-data");
+const fs = require("fs");
+const path = require("path");
 const { jwtDecode } = require("jwt-decode"); // CommonJS
 
 // Helper: safe read
 const safe = (v, fallback) => (typeof v === "undefined" ? fallback : v);
 
+// NEW: helper to upload either a multer buffer or a local file path to Cloudinary
+const uploadToCloudinary = async (file, opts = {}) => {
+  if (!file) throw new Error("No file provided for upload");
+
+  // If multer provided a buffer (memory storage)
+  if (file.buffer && file.buffer instanceof Buffer) {
+    // Convert buffer to data URI to upload via cloudinary.uploader.upload
+    const mime = file.mimetype || "application/octet-stream";
+    const base64 = file.buffer.toString("base64");
+    const dataUri = `data:${mime};base64,${base64}`;
+    const res = await cloudinary.uploader.upload(dataUri, {
+      resource_type: "auto",
+      ...opts,
+    });
+    return res;
+  }
+
+  // If multer/disk or other provided a path
+  if (file.path && fs.existsSync(file.path)) {
+    const res = await cloudinary.uploader.upload(file.path, {
+      resource_type: "auto",
+      ...opts,
+    });
+    // optional: remove local file if it's a temporary upload
+    try {
+      fs.unlinkSync(file.path);
+    } catch (e) {
+      // ignore cleanup errors
+    }
+    return res;
+  }
+
+  // Fallback: some libraries set file.url or file.secure_url already
+  if (file.secure_url || file.url) {
+    return { secure_url: file.secure_url || file.url };
+  }
+
+  throw new Error("Unsupported file object for Cloudinary upload");
+};
+
+// 🧠 Interview flow
 exports.startInterview = async (req, res) => {
   try {
     const courseId = req.query.courseId;
@@ -548,73 +592,288 @@ exports.checkCheating = async (req, res) => {
 
 exports.terminateInterview = async (req, res) => {
   try {
-    await InterviewSession.findOneAndUpdate(
-      { student: req.user.id },
-      { $set: { status: "terminated", cheatingDetected: true } }
+    if (!req.file)
+      return res.status(400).json({ error: "No video uploaded" });
+
+    const studentId = req.user.id;
+    const uploadResult = await uploadToCloudinary(req.file, {
+      folder: "ai_interviews",
+    });
+    const videoUrl = uploadResult.secure_url || uploadResult.url;
+
+    // ✅ Update session
+    const session = await InterviewSession.findOneAndUpdate(
+      { student: studentId },
+      { $set: { status: "terminated", cheatingDetected: true } },
+      { new: true }
     );
-    res.json({ message: "Interview terminated due to suspicious activity." });
+    if (!session) return res.status(404).json({ error: "Session not found" });
+
+    // ✅ Delete any previous report for same student & course
+    await InterviewReport.deleteMany({
+      student: studentId,
+      course: session.course,
+    });
+
+    // Analyze
+    let analysisResult = {};
+    try {
+      const { data } = await axios.post("http://localhost:5001/analyze-session", {
+        videoUrl,
+        answers: session.answers,
+        timestamps: session.timestamps,
+        questions: session.questions,
+        studentId,
+        terminated: true,
+      });
+      analysisResult = data;
+    } catch (err) {
+      console.warn("⚠️ Python analysis failed (terminate):", err.message);
+      analysisResult = {};
+    }
+
+    // ✅ Build transcripts — fallback to session data
+    const answersMap = (session.answers || []).reduce((acc, a) => {
+      acc[a.index] = a.answer || "";
+      return acc;
+    }, {});
+
+    const transcriptsToSave =
+      (analysisResult.transcripts && analysisResult.transcripts.length > 0)
+        ? analysisResult.transcripts.map((t) => ({
+            question: t.question,
+            start: t.start,
+            end: t.end,
+            text: t.text || "",
+          }))
+        : (session.questions || []).map((q) => ({
+            question: q.question,
+            start: null,
+            end: null,
+            text: answersMap[q.index] || "",
+          }));
+
+    // ✅ Create new report
+    const report = await InterviewReport.create({
+      student: studentId,
+      session: session._id,
+      course: session.course,
+      videoUrl,
+      overallScores: analysisResult.overallScores || {},
+      perQuestion: analysisResult.perQuestion || [],
+      transcripts: transcriptsToSave,
+    });
+
+    res.json({
+      message: "Interview terminated and analyzed successfully.",
+      report,
+    });
   } catch (err) {
-    console.error("terminateInterview error:", err);
-    res.status(500).json({ error: "Failed to terminate interview." });
+    console.error("❌ terminateInterview failed:", err.message || err);
+    res.status(500).json({ error: "Failed to terminate interview" });
   }
 };
 
 exports.completeInterview = async (req, res) => {
-  const { answers, timestamps, questions } = req.body;
-  const file = req.file;
-
-  if (!file) return res.status(400).json({ error: "No video uploaded" });
-
   try {
-    const uploadPromise = new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { resource_type: "video" },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        }
-      );
-      file.stream.pipe(stream);
+    if (!req.file)
+      return res.status(400).json({ error: "No video uploaded" });
+
+    const studentId = req.user.id;
+    const { answers, timestamps, questions } = req.body;
+
+    // Upload video
+    let uploadResult = await uploadToCloudinary(req.file, {
+      folder: "ai_interviews",
     });
+    const videoUrl = uploadResult.secure_url || uploadResult.url;
 
-    const cloudResult = await uploadPromise;
-
-    const analysis = await axios.post("http://localhost:5001/analyze-session", {
-      videoUrl: cloudResult.secure_url,
-      answers: JSON.parse(answers),
-      timestamps: JSON.parse(timestamps),
-      questions: JSON.parse(questions),
-      studentId: req.user.id,
-    });
-
+    // ✅ Find latest session
     const session = await InterviewSession.findOneAndUpdate(
-      { student: req.user.id },
+      { student: studentId },
       {
         $set: {
-          videoUrl: cloudResult.secure_url,
+          status: "completed",
           answers: JSON.parse(answers),
           timestamps: JSON.parse(timestamps),
           questions: JSON.parse(questions),
-          report: analysis.data,
-          status: "completed",
         },
       },
       { new: true }
     );
 
-    const skippedSummary = (session.skippedQuestions || []).map((q) => ({
-      index: q.index,
-      question: q.question,
-      answer: session.answers[q.index] || "not attempted",
-    }));
+    if (!session) return res.status(404).json({ error: "Session not found" });
+
+    // ✅ Delete any existing report for same student + course
+    await InterviewReport.deleteMany({
+      student: studentId,
+      course: session.course,
+    });
+
+    // Analyze via Python service
+    let analysis = {};
+    try {
+      const { data } = await axios.post("http://localhost:5001/analyze-session", {
+        videoUrl,
+        answers: JSON.parse(answers),
+        timestamps: JSON.parse(timestamps),
+        questions: JSON.parse(questions),
+        studentId,
+      });
+      analysis = data;
+    } catch (err) {
+      console.warn("⚠️ Python analysis failed:", err.message);
+      analysis = {};
+    }
+
+    // ✅ Build transcripts: prefer analysis, else derive from session
+    const answersMap = (session.answers || []).reduce((acc, a) => {
+      acc[a.index] = a.answer || "";
+      return acc;
+    }, {});
+
+    const transcriptsToSave =
+      (analysis.transcripts && analysis.transcripts.length > 0)
+        ? analysis.transcripts.map((t) => ({
+            question: t.question,
+            start: t.start,
+            end: t.end,
+            text: t.text || "",
+          }))
+        : (session.questions || []).map((q) => ({
+            question: q.question,
+            start: null,
+            end: null,
+            text: answersMap[q.index] || "",
+          }));
+
+    // ✅ Build per-question list
+    const perQuestionToSave = (analysis.perQuestion || []).map((p, i) => {
+      const idx =
+        typeof p.index === "number" ? p.index : parseInt(p.index || i, 10);
+      const sessQ = (session.questions || []).find((q) => q.index === idx);
+      return {
+        index: idx,
+        question: p.question || sessQ?.question || `Question ${idx}`,
+        answer:
+          p.answer ||
+          (session.answers || []).find((a) => a.index === idx)?.answer ||
+          "",
+        scores: p.scores || {},
+        feedback: p.feedback || "",
+      };
+    });
+
+    // ✅ Save final report
+    const report = await InterviewReport.create({
+      student: studentId,
+      session: session._id,
+      course: session.course,
+      videoUrl,
+      overallScores: analysis.overallScores || {},
+      perQuestion: perQuestionToSave,
+      transcripts: transcriptsToSave,
+    });
 
     res.json({
-      message: "Interview complete",
-      session,
-      skippedQuestions: skippedSummary,
+      message: "Interview completed and analyzed successfully.",
+      report,
     });
   } catch (err) {
-    console.error("Interview completion failed:", err.message || err);
+    console.error("❌ Interview completion failed:", err.message || err);
     res.status(500).json({ error: "Failed to complete interview." });
+  }
+};
+
+exports.getReport = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    let report = null;
+
+    // 1️⃣ Try finding by Report ID
+    if (sessionId.match(/^[0-9a-fA-F]{24}$/)) {
+      report = await InterviewReport.findById(sessionId).populate("session");
+    }
+
+    // 2️⃣ Try finding by Session ID
+    if (!report) {
+      report = await InterviewReport.findOne({ session: sessionId }).populate("session");
+    }
+
+    // 3️⃣ Try finding by Course ID
+    if (!report) {
+      report = await InterviewReport.findOne({ course: sessionId }).populate("session");
+    }
+
+    if (!report) {
+      return res.status(404).json({ error: "Report not found for given ID" });
+    }
+
+    // 4️⃣ Fetch the actual interview session
+    const session =
+      (report.session?._id && (await InterviewSession.findById(report.session._id))) ||
+      (await InterviewSession.findOne({ course: report.course, student: report.student }));
+
+    // 5️⃣ Merge session data into response for frontend
+    if (session) {
+      report = {
+        ...report.toObject(),
+        sessionDetails: {
+          questions: session.questions || [],
+          answers: session.answers || [],
+          skippedQuestions: session.skippedQuestions || [],
+          notAttemptedQuestions: session.notAttemptedQuestions || [],
+          cheatingDetected: session.cheatingDetected || false,
+          cheatingWarning: session.cheatingWarning || false,
+          cheatingAttempts: session.cheatingAttempts ?? 3,
+        },
+      };
+    }
+
+    res.json(report);
+  } catch (err) {
+    console.error("getReport error:", err);
+    res.status(500).json({ error: "Failed to fetch report" });
+  }
+};
+
+exports.getLatestSession = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // find the most recent interview session by this student
+    const session = await InterviewSession.findOne({ student: studentId })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (!session) {
+      return res.status(404).json({ error: "No session found" });
+    }
+
+    res.json(session);
+  } catch (err) {
+    console.error("getLatestSession error:", err);
+    res.status(500).json({ error: "Failed to fetch latest session" });
+  }
+};
+
+exports.getSessionByCourse = async (req, res) => {
+  try {
+    const { studentId, courseId } = req.params;
+
+    const session = await InterviewSession.findOne({
+      student: studentId,
+      course: courseId,
+    });
+
+    if (!session) {
+      return res.status(200).json({ status: "not-started" }); // instead of 404
+    }
+
+    res.json({ status: session.status });
+  } catch (err) {
+    console.error("getSessionByCourse error:", err);
+    res.status(500).json({ error: "Failed to fetch session" });
   }
 };

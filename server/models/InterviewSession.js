@@ -12,8 +12,6 @@ const InterviewSessionSchema = new mongoose.Schema(
       ref: "Course",
       required: true,
     },
-
-    videoUrl: String,
     timestamps: [
       {
         question: Number,
@@ -60,14 +58,6 @@ const InterviewSessionSchema = new mongoose.Schema(
     cheatingDetected: { type: Boolean, default: false },
     cheatingWarning: { type: Boolean, default: false },
     cheatingAttempts: { type: Number, default: 3 },
-
-    report: {
-      confidenceScore: Number,
-      subjectKnowledgeScore: Number,
-      domainKnowledge: String,
-      professionalism: String,
-      summary: String,
-    },
   },
   { timestamps: true }
 );

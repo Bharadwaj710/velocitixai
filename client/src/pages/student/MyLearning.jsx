@@ -31,7 +31,11 @@ const MyLearning = () => {
               let lastFlatIdx = 0;
               for (let w = 0; w < weeks.length; w++) {
                 for (let m = 0; m < (weeks[w].modules || []).length; m++) {
-                  for (let l = 0; l < (weeks[w].modules[m].lessons || []).length; l++) {
+                  for (
+                    let l = 0;
+                    l < (weeks[w].modules[m].lessons || []).length;
+                    l++
+                  ) {
                     totalLessons++;
                     const lesson = weeks[w].modules[m].lessons[l];
                     if (!found && !completedLessons.includes(lesson.title)) {
@@ -54,7 +58,29 @@ const MyLearning = () => {
             }
           })
         );
-        setEnrolledCourses(coursesWithProgress);
+        // Fetch interview session status for each course (if AI Interview enabled)
+        const token = localStorage.getItem("token");
+        const coursesWithStatus = await Promise.all(
+          coursesWithProgress.map(async (c) => {
+            try {
+              // Only query if course supports AI interview (property present)
+              if (!c.aiInterviewEnabled) return { ...c, interviewStatus: null };
+              const opts = token
+                ? { headers: { Authorization: `Bearer ${token}` } }
+                : {};
+              const res = await axios.get(
+                `/api/aiInterview/session/${userId}/${c._id}`,
+                opts
+              );
+              return { ...c, interviewStatus: res.data.status || null };
+            } catch (err) {
+              // on any error, don't block—set null status
+              return { ...c, interviewStatus: null };
+            }
+          })
+        );
+
+        setEnrolledCourses(coursesWithStatus);
       } catch (err) {
         console.error("Failed to load enrolled courses:", err);
         setEnrolledCourses([]);
@@ -125,20 +151,56 @@ const MyLearning = () => {
                 ></div>
               </div>
 
-              <button
-                className="mt-auto bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
-                onClick={() =>
-                  getCourseProgress(course) > 0
-                    ? navigate(`/course-player/${course._id}`, {
-                        state: { flatIdx: course.lastFlatIdx },
-                      })
-                    : navigate(`/course-player/${course._id}`)
-                }
-              >
-                {getCourseStatus(course)}
-              </button>
-            </div>
+              {/* Main Course Action Button */}
+<button
+  className={`mt-auto px-5 py-2 rounded-lg shadow font-semibold transition ${
+    getCourseProgress(course) === 100
+      ? "bg-green-600 hover:bg-green-700 text-white"
+      : "bg-blue-600 hover:bg-blue-700 text-white"
+  }`}
+  onClick={() =>
+    navigate(`/course-player/${course._id}`, {
+      state: {
+        flatIdx:
+          getCourseProgress(course) === 100
+            ? 0 // restart from start after completion
+            : course.lastFlatIdx,
+      },
+    })
+  }
+>
+  {getCourseProgress(course) === 100
+    ? "Go to Course"
+    : getCourseProgress(course) > 0
+    ? "Resume"
+    : "Get Started"}
+</button>
+
+{/* AI Interview Button */}
+{course.aiInterviewEnabled &&
+  getCourseProgress(course) === 100 &&
+  (course.interviewStatus === "completed" ||
+    course.interviewStatus === "terminated" ? (
+    <button
+      className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition"
+      onClick={() => navigate(`/ai-interview-analysis/${course._id}`)}
+    >
+      View Analysis
+    </button>
+  ) : (
+    <button
+      className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+      onClick={() =>
+        navigate(`/ai-interview-instructions?courseId=${course._id}`)
+      }
+    >
+      Start AI Interview
+    </button>
+  ))}
+
+        </div>
           ))}
+
         </div>
       )}
     </div>

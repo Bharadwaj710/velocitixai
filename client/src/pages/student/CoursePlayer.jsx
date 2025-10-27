@@ -161,6 +161,9 @@ const CoursePlayer = () => {
   const [selectionCoords, setSelectionCoords] = useState({ x: 0, y: 0 });
   const [openQuizLessonIdx, setOpenQuizLessonIdx] = useState(null); // flatIdx of quiz being taken
   const [quizModalOpen, setQuizModalOpen] = useState(false);
+  const [interviewStatus, setInterviewStatus] = useState(null);
+  const [loadingInterviewStatus, setLoadingInterviewStatus] = useState(true);
+
   const navigate = useNavigate();
   // quizPassedLessons is now derived from quizResults
 
@@ -692,6 +695,43 @@ const CoursePlayer = () => {
       allLessonIds.every((id) => completedLessons.includes(id))
     );
   }, [courseData, completedLessons, quizResults]);
+    useEffect(() => {
+  const fetchInterviewSession = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.warn("⚠️ No token found in localStorage");
+        setInterviewStatus("not-started");
+        setLoadingInterviewStatus(false);
+        return;
+      }
+
+      const res = await axios.get(
+        `http://localhost:8080/api/aiInterview/session/${userId}/${courseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // ✅ required for your auth middleware
+          },
+        }
+      );
+
+      setInterviewStatus(res.data.status || "not-started");
+    } catch (err) {
+      console.error(
+        "❌ Error fetching interview session:",
+        err.response?.status,
+        err.response?.data || err.message
+      );
+      setInterviewStatus("not-started");
+    } finally {
+      setLoadingInterviewStatus(false);
+    }
+  };
+
+  if (aiInterviewEnabled && allLessonsCompleted && userId) {
+    fetchInterviewSession();
+  }
+}, [aiInterviewEnabled, allLessonsCompleted, userId, courseId]);  
 
   if (!courseData || !courseData.weeks)
     return <div className="p-6 text-gray-600">Loading course...</div>;
@@ -890,32 +930,38 @@ const CoursePlayer = () => {
               ))}
             </div>
             {aiInterviewEnabled && (
-              <div className="mt-8 w-full px-2">
-                <button
-                  onClick={() => {
-                    if (allLessonsCompleted)
-                      navigate(
-                        `/ai-interview-instructions?courseId=${courseId}`
-                      );
-                  }}
-                  disabled={!allLessonsCompleted}
-                  className={`w-full text-sm px-4 py-2 rounded font-semibold transition-all duration-300 border
-        ${
-          allLessonsCompleted
-            ? "bg-blue-600 text-white hover:bg-blue-700"
-            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-        }
-      `}
-                >
-                  AI Interview
-                </button>
-                {!allLessonsCompleted && (
-                  <div className="mt-1 text-[11px] text-gray-400 text-center">
-                    Complete all lessons to unlock
-                  </div>
-                )}
-              </div>
-            )}
+  <div className="mt-8 w-full px-2">
+    {loadingInterviewStatus ? (
+      <div className="text-center text-sm text-gray-500">
+        Checking interview status...
+      </div>
+    ) : interviewStatus === "completed" || interviewStatus === "terminated" ? (
+      <button
+        onClick={() => navigate(`/ai-interview-analysis/${courseId}`)}
+        className="w-full text-sm px-4 py-2 rounded font-semibold bg-green-600 text-white hover:bg-green-700 transition-all"
+      >
+        View Report
+      </button>
+    ) : (
+      <button
+        onClick={() => {
+          if (allLessonsCompleted)
+            navigate(`/ai-interview-instructions?courseId=${courseId}`);
+        }}
+        disabled={!allLessonsCompleted}
+        className={`w-full text-sm px-4 py-2 rounded font-semibold transition-all duration-300 border
+          ${
+            allLessonsCompleted
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+          }`}
+      >
+        Start AI Interview
+      </button>
+    )}
+  </div>
+)}
+
           </div>
         </div>
 

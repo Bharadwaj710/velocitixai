@@ -31,13 +31,13 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import HRProfile from "./pages/hr/Profile";
 import CollegeOnboarding from "./pages/college/CollegeOnboarding";
-import LiveTranscriber from './components/LiveTranscriber';
 import ChatAssistant from "./components/ChatAssistant/ChatAssistant";
 import CoursePlayer from "./pages/student/CoursePlayer";
 import MyLearning from "./pages/student/MyLearning";
 import LearningPath from "./pages/student/LearningPath";
 import AIInterview from "./pages/ai-interview/AIInterview";
 import AIInterviewInstructions from "./pages/ai-interview/AIInterviewInstructions";
+import InterviewAnalysis from "./pages/ai-interview/InterviewAnalysis";
 
 const AppContent = () => {
   const location = useLocation();
@@ -48,16 +48,16 @@ const AppContent = () => {
     "/college-dashboard",
     "/student",
     "/course-player",
-    "/ai-interview"
+    "/ai-interview",
   ];
 
   const shouldHideNavbar = hideNavbarRoutes.some((path) =>
     location.pathname.startsWith(path)
   );
 
-  const showChatbot = ["/student/CoursePlayer"].includes(
-    location.pathname
-  ) && location.pathname !== "/ai-interview";
+  const showChatbot =
+    ["/student/CoursePlayer"].includes(location.pathname) &&
+    location.pathname !== "/ai-interview";
 
   return (
     <>
@@ -70,18 +70,19 @@ const AppContent = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-
-          {/* 🎙️ AI Interview route with LiveTranscriber */}
           <Route
             path="/ai-interview"
             element={
               <>
                 <AIInterview />
-                <LiveTranscriber /> {/* Speech-to-text happening here! */}
               </>
             }
           />
-          <Route path="/ai-interview-instructions" element={<AIInterviewInstructions />} />
+          <Route
+            path="/ai-interview-instructions"
+            element={<AIInterviewInstructions />}
+          />
+          <Route path="/ai-interview-analysis/:courseId" element={<InterviewAnalysis />} />
 
           {/* Admin routes */}
           <Route

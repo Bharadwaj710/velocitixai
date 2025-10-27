@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
@@ -44,6 +44,70 @@ const AIInterview = () => {
   const [warningMessage, setWarningMessage] = useState("");
   const mediaRecorderRef = useRef(null);
   const [videoBlob, setVideoBlob] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [reportId, setReportId] = useState(null);
+
+  const navigate = useNavigate();
+
+  const pollForReport = async (reportId) => {
+    let attempts = 0;
+    const token = localStorage.getItem("token");
+
+    const interval = setInterval(async () => {
+      attempts++;
+      console.log(`🔍 Checking analysis report... attempt ${attempts}`);
+
+      try {
+        const res = await axios.get(
+          `http://localhost:8080/api/aiInterview/report/${reportId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (res.data && res.data._id) {
+          clearInterval(interval);
+          console.log("✅ Report ready:", res.data._id);
+          setAnalyzing(false);
+          navigate(`/ai-interview-analysis/${courseId}`);
+        }
+      } catch (err) {
+        if (err.response?.status === 404) {
+          console.log("Report not ready yet...");
+        } else {
+          console.error("Polling error:", err.message);
+        }
+      }
+
+      if (attempts > 12) {
+        clearInterval(interval);
+        toast.error(
+          "Analysis taking longer than expected. Please check later."
+        );
+        navigate("/student/dashboard");
+      }
+    }, 5000);
+  };
+  // NEW: keep a ref copy of current phase to avoid stale closures in interval
+  const phaseRef = useRef(phase);
+
+useEffect(() => {
+  const checkIfCompleted = async () => {
+    if (!courseId) return;
+    try {
+      const res = await axios.get(
+        `http://localhost:8080/api/aiInterview/report/course/${courseId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (res.data && res.data._id) {
+        setStep("completed-report");
+      }
+    } catch {
+      // not completed yet
+    }
+  };
+  checkIfCompleted();
+}, [courseId]);
 
   useEffect(() => {
     async function getWebcam() {
@@ -81,27 +145,59 @@ const AIInterview = () => {
     }
   }, [step]);
 
-  useEffect(() => {
-    if (recording && step === "interview") {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev === 21 && phase === "answering") {
-            toast.warn("⏳ Hurry up! Less than 20 seconds left. Answer soon!");
-          }
+  // --- helper: start phase timer ---
+  const startPhaseTimer = (phaseType) => {
+    // sync states and refs
+    setPhase(phaseType);
+    phaseRef.current = phaseType;
+    setTimeLeft(phaseType === "reading" ? READING_TIME : QUESTION_TIME);
 
-          if (prev <= 1) {
-            if (phase === "answering") {
-              handleNext(false, true); // timeout
-            }
-            return 0;
-          }
-
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timerRef.current);
+    // clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  }, [recording, step, phase]);
+
+    // start centralized countdown
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        const next = prev - 1;
+
+        // reading -> answering transition
+        if (next <= 0 && phaseRef.current === "reading") {
+          // switch to answering
+          phaseRef.current = "answering";
+          setPhase("answering");
+          // start speech recognition safely
+          try {
+            SpeechRecognition.startListening({ continuous: true });
+          } catch {}
+          resetTranscript();
+          // set answering time and continue countdown next tick
+          return QUESTION_TIME;
+        }
+
+        // answering timeout -> call handleNext once and stop timer
+        if (next <= 0 && phaseRef.current === "answering") {
+          try {
+            SpeechRecognition.stopListening();
+          } catch {}
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          // call handleNext (timeout)
+          setTimeout(() => handleNext(false, true), 0);
+          return 0;
+        }
+
+        // warning toast when entering last 20s of answering
+        if (phaseRef.current === "answering" && next === 20) {
+          toast.warn("⏳ Hurry up! Less than 20 seconds left to answer!");
+        }
+
+        return next;
+      });
+    }, 1000);
+  };
 
   const handleSkip = async (timedOut = false) => {
     const token = localStorage.getItem("token");
@@ -162,9 +258,12 @@ const AIInterview = () => {
         setCurrentQuestion(res.data.question);
         setQuestionIndex(nextIndex);
         setSkipDisabled(!!res.data.disableSkip); // ✅ disable on revisit
-        setTimeLeft(QUESTION_TIME);
+
+        // NEW: start the READING phase for the new question (20s) and reset transcript
+        resetTranscript();
+        startPhaseTimer("reading");
+
         timestampsRef.current.push({ question: nextIndex, start: Date.now() });
-        startRecording();
       }
     } catch (err) {
       console.error(
@@ -177,12 +276,10 @@ const AIInterview = () => {
 
   const startRecording = () => {
     if (!streamRef.current) return;
-    resetTranscript();
-    SpeechRecognition.stopListening(); // ✅ stop any prior instance
-    resetTranscript(); // ✅ reset before new question
-    SpeechRecognition.startListening({ continuous: true }); // ✅ fresh start
-    const mr = new MediaRecorder(streamRef.current, { mimeType: "video/webm" });
-    mediaRecorderRef.current = mr; // ✅ store in ref
+    const mr = new MediaRecorder(streamRef.current, {
+      mimeType: "video/webm;codecs=vp8,opus",
+    });
+    mediaRecorderRef.current = mr;
     chunksRef.current = [];
 
     mr.ondataavailable = (e) => {
@@ -191,43 +288,85 @@ const AIInterview = () => {
 
     mr.onstop = () => {
       const fullBlob = new Blob(chunksRef.current, { type: "video/webm" });
+      console.log("🎥 Final interview blob created:", fullBlob);
       setVideoBlob(fullBlob);
-      SpeechRecognition.stopListening();
-      setTranscript((prev) => [...prev, liveTranscript]);
     };
 
     mr.start();
     setRecording(true);
-    timestampsRef.current.push({ question: questionIndex, start: Date.now() });
-    setPhase("reading");
-    setTimeLeft(READING_TIME);
-    toast.info("📖 Reading time started...");
-
-    setTimeout(() => {
-      setPhase("answering");
-      setTimeLeft(QUESTION_TIME);
-      toast.success("🎤 You may now begin answering...");
-    }, READING_TIME * 1000);
   };
 
-  const stopRecording = () => {
-    try {
-      if (
-        mediaRecorderRef.current &&
-        mediaRecorderRef.current.state !== "inactive"
-      ) {
-        mediaRecorderRef.current.stop();
-      } else {
-        console.warn("MediaRecorder is already inactive or not initialized");
-      }
+  const uploadTerminatedInterview = async (finalBlob) => {
+    if (!finalBlob) {
+      console.error("❌ No video blob available to upload for termination.");
+      return;
+    }
 
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null; // cleanup
+    const formData = new FormData();
+    formData.append("video", finalBlob, "terminated.webm");
+    formData.append("answers", JSON.stringify(answers));
+    formData.append("timestamps", JSON.stringify(timestampsRef.current));
+    formData.append("questions", JSON.stringify(questions));
+
+    try {
+      const res = await axios.post(
+        "http://localhost:8080/api/aiInterview/terminate",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      console.log("✅ Terminated interview uploaded:", res.data);
+
+      const reportId = res.data?.reportId || res.data?.sessionId;
+      if (reportId) {
+        setAnalyzing(true);
+        setStep("analyzing"); // ✅ Show analyzing screen immediately
+        pollForReport(reportId);
+      } else {
+        console.warn("⚠️ No reportId returned from backend, cannot poll.");
       }
     } catch (err) {
-      console.error("Error stopping recording:", err);
+      console.error("❌ Terminated upload failed:", err.response?.data || err);
     }
+  };
+  const stopRecording = async (isTerminated = false) => {
+    return new Promise((resolve) => {
+      try {
+        if (
+          mediaRecorderRef.current &&
+          mediaRecorderRef.current.state !== "inactive"
+        ) {
+          mediaRecorderRef.current.onstop = async () => {
+            const fullBlob = new Blob(chunksRef.current, {
+              type: "video/webm",
+            });
+            setVideoBlob(fullBlob);
+            console.log("🎥 Recording stopped. Final blob ready:", fullBlob);
+
+            if (isTerminated) {
+              await uploadTerminatedInterview(fullBlob);
+            }
+            resolve();
+          };
+          mediaRecorderRef.current.stop();
+        } else {
+          resolve();
+        }
+
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+      } catch (err) {
+        console.error("Error stopping recording:", err);
+        resolve();
+      }
+    });
   };
 
   const processingRef = useRef(false);
@@ -302,12 +441,13 @@ const AIInterview = () => {
           toast.error(
             "Interview terminated due to repeated critical violations."
           );
-          stopRecording();
           clearInterval(timerRef.current);
           clearInterval(frameIntervalRef.current);
           setWarningMessage(
             "Interview terminated due to repeated critical violations."
           );
+
+          await stopRecording(true); // ✅ waits for video blob and uploads
           setStep("terminated");
           processingRef.current = false;
           return;
@@ -382,6 +522,7 @@ const AIInterview = () => {
           },
         }
       );
+timestampsRef.current = [{ question: 0, start: Date.now() }];
 
       const question = res.data.question;
       const token = localStorage.getItem("token");
@@ -391,9 +532,11 @@ const AIInterview = () => {
       setStep("interview");
       setQuestionIndex(0);
       setAnswers([]);
-      setTimeLeft(QUESTION_TIME);
+      // 🎥 Start recording once — will continue till interview ends or terminates
       startRecording();
       startCheatingDetection();
+      // 🕒 Start first reading phase (20s)
+      startPhaseTimer("reading");
     } catch (err) {
       alert("Failed to start interview.");
       console.error(err);
@@ -453,12 +596,15 @@ const AIInterview = () => {
           setCurrentQuestion(res.data.question);
           setQuestionIndex(nextIndex);
           setSkipDisabled(!!res.data.disableSkip);
-          setTimeLeft(QUESTION_TIME);
+
+          // FIX: start READING phase for the next question instead of jumping to answering
+          resetTranscript();
+          startPhaseTimer("reading");
+
           timestampsRef.current.push({
             question: nextIndex,
             start: Date.now(),
           });
-          startRecording();
         }
         return;
       }
@@ -469,7 +615,10 @@ const AIInterview = () => {
         return;
       }
 
-      timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
+     if (timestampsRef.current.length > 0) {
+  timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
+}
+
 
       // ✅ Save answer or skip
       await axios.post(
@@ -515,9 +664,12 @@ const AIInterview = () => {
         setCurrentQuestion(res.data.question);
         setQuestionIndex(nextIndex);
         setSkipDisabled(!!res.data.disableSkip);
-        setTimeLeft(QUESTION_TIME);
+
+        // FIX: start READING phase for the next question (20s) and reset transcript
+        resetTranscript();
+        startPhaseTimer("reading");
+
         timestampsRef.current.push({ question: nextIndex, start: Date.now() });
-        startRecording();
       }
     } catch (err) {
       console.error(
@@ -531,12 +683,16 @@ const AIInterview = () => {
   };
 
   const uploadFinalInterview = async () => {
-    if (!videoBlob) return alert("Video not ready");
-
+    if (!videoBlob) {
+      console.log("⏳ Waiting for videoBlob...");
+      setTimeout(uploadFinalInterview, 500); // retry until blob ready
+      return;
+    }
     const formData = new FormData();
     formData.append("video", videoBlob, "interview.webm");
     formData.append("answers", JSON.stringify(answers));
     formData.append("timestamps", JSON.stringify(timestampsRef.current));
+    formData.append("questions", JSON.stringify(questions)); // ✅ add this
 
     try {
       const res = await axios.post(
@@ -550,8 +706,11 @@ const AIInterview = () => {
         }
       );
       console.log("Interview complete:", res.data);
+      setAnalyzing(true);
+      setStep("analyzing");
+      pollForReport();
     } catch (err) {
-      console.error("Upload failed", err);
+      console.error("Upload failed", err.response?.data || err);
       alert("Failed to upload interview.");
     }
   };
@@ -577,6 +736,7 @@ const AIInterview = () => {
                 className="w-full h-full object-cover"
               />
             </div>
+            
             <button
               onClick={handleStart}
               className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition text-lg"
@@ -708,7 +868,17 @@ const AIInterview = () => {
             </button>
           </>
         )}
-
+        {step === "analyzing" && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="animate-spin h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full mb-6"></div>
+            <h3 className="text-2xl font-bold text-blue-700 mb-2">
+              Analyzing your interview...
+            </h3>
+            <p className="text-gray-600 text-center">
+              Please wait while we process your video and generate your report.
+            </p>
+          </div>
+        )}
         {step === "complete" && (
           <div className="text-center py-24">
             <h3 className="text-2xl font-bold text-blue-700 mb-4">

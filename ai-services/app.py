@@ -337,12 +337,24 @@ def reset_cheating_session():
 def final_interview_analysis():
     try:
         data = request.get_json()
+
         video_url = data.get("videoUrl")
         answers = data.get("answers", [])
-        timestamps = data.get("timestamps", [])
-        report = analyze_interview(video_url, answers, timestamps)
+        student_id = data.get("studentId")
+
+        if not video_url:
+            return jsonify({"error": "Missing videoUrl"}), 400
+        if not student_id:
+            return jsonify({"error": "Missing studentId"}), 400
+
+        print(f"[PY] 🎥 Running interview analysis for student={student_id}")
+        report = analyze_interview(video_url, answers, student_id)
+
+        # Return structured data that Node.js expects
         return jsonify(report)
+
     except Exception as e:
+        print(f"❌ Error in /analyze-session: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
 @app.route("/reset/<session_id>", methods=["POST"])

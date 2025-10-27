@@ -113,33 +113,97 @@ def analyze_face_visibility(video_path):
 
 def analyze_interview(video_url, answers, student_id):
     """
-    Main callable function to analyze student AI interview.
+    Full AI interview analysis pipeline.
+    Returns data structured for InterviewReport model.
     """
     video_path = "temp_interview_video.mp4"
     audio_path = "temp_interview_audio.wav"
 
     try:
-        # Download and process video/audio
+        print(f"[AI Interview] Starting analysis for student={student_id}")
+        
+        # 1️⃣ Download & process video/audio
         download_video(video_url, video_path)
         extract_audio(video_path, audio_path)
+
+        # 2️⃣ Transcribe
+        print("[AI Interview] Transcribing audio...")
         transcript = transcribe_audio(audio_path)
+
+        # 3️⃣ NLP-based analysis
+        print("[AI Interview] Analyzing transcript via Gemini...")
         ai_feedback = analyze_transcript(transcript)
+
+        # 4️⃣ Facial analysis
+        print("[AI Interview] Analyzing face visibility...")
         face_stats = analyze_face_visibility(video_path)
 
-        return {
-            "studentId": student_id,
-            "answers": answers,
-            "transcript": transcript,
-            "ai_feedback": ai_feedback,
-            "face_stats": face_stats,
-            "cheating_detected": (
-                face_stats.get("multipleFaceFrames", 0) > 5
-                or face_stats.get("faceVisiblePercent", 0) < 60
-            )
+        # === 5️⃣ Compute normalized scores ===
+        def safe_num(val, default=5):
+            try:
+                if isinstance(val, (int, float)):
+                    return float(val)
+                if isinstance(val, str) and val.isdigit():
+                    return float(val)
+                match = re.search(r'\d+', str(val))
+                return float(match.group()) if match else default
+            except:
+                return default
+
+        tone_conf = min(100, safe_num(ai_feedback.get("confidence", 5)) * 10)
+        communication = min(100, safe_num(ai_feedback.get("clarity", 5)) * 10)
+        technical = min(100, safe_num(ai_feedback.get("subjectKnowledgeScore", 5)) * 10)
+        soft_skills = 80 if str(ai_feedback.get("careerFocused", "")).lower().startswith("yes") else 50
+        eye_contact = face_stats.get("faceVisiblePercent", 0)
+        total = round((tone_conf + communication + technical + soft_skills + eye_contact) / 5, 2)
+
+        overall_scores = {
+            "toneConfidence": tone_conf,
+            "communication": communication,
+            "technical": technical,
+            "softSkills": soft_skills,
+            "eyeContact": eye_contact,
+            "total": total
         }
 
+        # === 6️⃣ Per-question breakdown ===
+        per_question = []
+        for i, ans in enumerate(answers or []):
+            per_question.append({
+                "index": i,
+                "question": ans.get("question", ""),
+                "answer": ans.get("answer", ""),
+                "scores": {
+                    "toneConfidence": tone_conf,
+                    "communication": communication,
+                    "technical": technical,
+                    "softSkills": soft_skills,
+                    "eyeContact": eye_contact,
+                },
+                "feedback": f"Answer {i+1}: Good effort with clear communication."
+            })
+
+        # === 7️⃣ Return structured analysis ===
+        result = {
+            "studentId": student_id,
+            "overallScores": overall_scores,
+            "perQuestion": per_question,
+            "ai_feedback": ai_feedback,
+            "face_stats": face_stats,
+            "transcript": transcript,
+            "cheating_detected": (
+                face_stats.get("multipleFaceFrames", 0) > 5 or
+                face_stats.get("faceVisiblePercent", 0) < 60
+            ),
+        }
+
+        print("[AI Interview] ✅ Analysis complete.")
+        return result
+
+    except Exception as e:
+        print("❌ [AI Interview] Error:", str(e))
+        return {"error": str(e)}
+
     finally:
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        if os.path.exists(audio_path):
-            os.remove(audio_path)
+        if os.path.exists(video_path): os.remove(video_path)
+        if os.path.exists(audio_path): os.remove(audio_path)
