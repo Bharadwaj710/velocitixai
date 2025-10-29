@@ -47,10 +47,10 @@ const MyLearning = () => {
                 }
               }
               if (!found) lastFlatIdx = 0; // If all completed, start from first
-              const completed = completedLessons.length;
+              const completed = Math.min(completedLessons.length, totalLessons);
               const progressPercent =
                 totalLessons > 0
-                  ? Math.round((completed / totalLessons) * 100)
+                  ? Math.min(100, Math.round((completed / totalLessons) * 100))
                   : 0;
               return { ...course, progressPercent, lastFlatIdx };
             } catch {
@@ -93,9 +93,9 @@ const MyLearning = () => {
 
   const getCourseProgress = (course) => {
     if (course && typeof course.progressPercent === "number") {
-      return course.progressPercent;
+      return Math.min(100, course.progressPercent);
     }
-    return course && course.started ? 50 : 0; // placeholder logic
+    return course && course.started ? Math.min(50, 100) : 0; // placeholder logic
   };
 
   const getCourseStatus = (course) => {
@@ -144,63 +144,67 @@ const MyLearning = () => {
                 </span>
               </div>
 
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2 overflow-hidden">
                 <div
                   className="h-2.5 rounded-full bg-gradient-to-r from-green-400 to-blue-500"
-                  style={{ width: `${getCourseProgress(course)}%` }}
+                  style={{
+                    width: `${Math.min(100, getCourseProgress(course))}%`,
+                  }}
                 ></div>
               </div>
 
               {/* Main Course Action Button */}
-<button
-  className={`mt-auto px-5 py-2 rounded-lg shadow font-semibold transition ${
-    getCourseProgress(course) === 100
-      ? "bg-green-600 hover:bg-green-700 text-white"
-      : "bg-blue-600 hover:bg-blue-700 text-white"
-  }`}
-  onClick={() =>
-    navigate(`/course-player/${course._id}`, {
-      state: {
-        flatIdx:
-          getCourseProgress(course) === 100
-            ? 0 // restart from start after completion
-            : course.lastFlatIdx,
-      },
-    })
-  }
->
-  {getCourseProgress(course) === 100
-    ? "Go to Course"
-    : getCourseProgress(course) > 0
-    ? "Resume"
-    : "Get Started"}
-</button>
+              <button
+                className={`mt-auto px-5 py-2 rounded-lg shadow font-semibold transition ${
+                  getCourseProgress(course) === 100
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+                onClick={() =>
+                  navigate(`/course-player/${course._id}`, {
+                    state: {
+                      flatIdx:
+                        getCourseProgress(course) === 100
+                          ? 0 // restart from start after completion
+                          : course.lastFlatIdx,
+                    },
+                  })
+                }
+              >
+                {getCourseProgress(course) === 100
+                  ? "Go to Course"
+                  : getCourseProgress(course) > 0
+                  ? "Resume"
+                  : "Get Started"}
+              </button>
 
-{/* AI Interview Button */}
-{course.aiInterviewEnabled &&
-  getCourseProgress(course) === 100 &&
-  (course.interviewStatus === "completed" ||
-    course.interviewStatus === "terminated" ? (
-    <button
-      className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition"
-      onClick={() => navigate(`/ai-interview-analysis/${course._id}`)}
-    >
-      View Analysis
-    </button>
-  ) : (
-    <button
-      className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
-      onClick={() =>
-        navigate(`/ai-interview-instructions?courseId=${course._id}`)
-      }
-    >
-      Start AI Interview
-    </button>
-  ))}
-
-        </div>
+              {/* AI Interview Button */}
+              {course.aiInterviewEnabled &&
+                getCourseProgress(course) === 100 &&
+                (course.interviewStatus === "completed" ||
+                course.interviewStatus === "terminated" ? (
+                  <button
+                    className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition"
+                    onClick={() =>
+                      navigate(`/ai-interview-analysis/${course._id}`)
+                    }
+                  >
+                    View Analysis
+                  </button>
+                ) : (
+                  <button
+                    className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+                    onClick={() =>
+                      navigate(
+                        `/ai-interview-instructions?courseId=${course._id}`
+                      )
+                    }
+                  >
+                    Start AI Interview
+                  </button>
+                ))}
+            </div>
           ))}
-
         </div>
       )}
     </div>

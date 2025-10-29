@@ -60,7 +60,11 @@ const StudentDashboard = () => {
             let flatIdx = 0;
             for (let w = 0; w < weeks.length; w++) {
               for (let m = 0; m < (weeks[w].modules || []).length; m++) {
-                for (let l = 0; l < (weeks[w].modules[m].lessons || []).length; l++) {
+                for (
+                  let l = 0;
+                  l < (weeks[w].modules[m].lessons || []).length;
+                  l++
+                ) {
                   totalLessons++;
                   const lesson = weeks[w].modules[m].lessons[l];
                   if (!found && !completedLessons.includes(lesson.title)) {
@@ -72,10 +76,10 @@ const StudentDashboard = () => {
               }
             }
             if (!found) lastIdx = 0; // If all completed, start from first
-            const completed = completedLessons.length;
+            const completed = Math.min(completedLessons.length, totalLessons);
             progress =
               totalLessons > 0
-                ? Math.round((completed / totalLessons) * 100)
+                ? Math.min(100, Math.round((completed / totalLessons) * 100))
                 : 0;
           } catch {}
         }
@@ -90,17 +94,17 @@ const StudentDashboard = () => {
         } else {
           setShowAssessmentBtn(true);
         }
-     } catch (err) {
-  console.error("Dashboard data fetch failed:", err);
-  if (err.response && err.response.status === 401) {
-    // Token expired or unauthorized - log the user out
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    navigate("/login");
-  } else {
-    setShowAssessmentBtn(true);
-  }
-}finally {
+      } catch (err) {
+        console.error("Dashboard data fetch failed:", err);
+        if (err.response && err.response.status === 401) {
+          // Token expired or unauthorized - log the user out
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+          navigate("/login");
+        } else {
+          setShowAssessmentBtn(true);
+        }
+      } finally {
         setLoading(false);
       }
     };
@@ -150,12 +154,11 @@ const StudentDashboard = () => {
       </div>
     );
   }
-  
 
   // Helper to get progress percent for a course (simulate for now)
   const getCourseProgress = (course) => {
     if (course && typeof progressPercent === "number") {
-      return progressPercent;
+      return Math.min(100, progressPercent);
     }
     return 0;
   };
@@ -236,26 +239,27 @@ const StudentDashboard = () => {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-40 bg-gray-200 rounded-full h-2.5">
+                    <div className="w-40 bg-gray-200 rounded-full h-2.5 overflow-hidden">
                       <div
                         className="h-2.5 rounded-full bg-gradient-to-r from-green-400 to-blue-500"
-                        style={{ width: `${getCourseProgress(recentCourse)}%` }}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            getCourseProgress(recentCourse)
+                          )}%`,
+                        }}
                       ></div>
                     </div>
                     <span className="text-sm font-semibold text-blue-700">
-                      {getCourseProgress(recentCourse)}%
+                      {Math.min(100, getCourseProgress(recentCourse))}%
                     </span>
                   </div>
                   <button
                     className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
                     onClick={() => {
-                      if (
-                        getCourseStatus(recentCourse) === "Get Started"
-                      ) {
+                      if (getCourseStatus(recentCourse) === "Get Started") {
                         navigate(`/course-player/${recentCourse._id}`);
-                      } else if (
-                        getCourseStatus(recentCourse) === "Resume"
-                      ) {
+                      } else if (getCourseStatus(recentCourse) === "Resume") {
                         // Resume from last incomplete lesson
                         navigate(`/course-player/${recentCourse._id}`, {
                           state: { flatIdx: lastFlatIdx },

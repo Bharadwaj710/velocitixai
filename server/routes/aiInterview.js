@@ -26,5 +26,7 @@ router.get("/report/:sessionId", auth, controller.getReport);
 router.get("/latest-session/:studentId", auth, controller.getLatestSession);
 router.get("/session/:studentId/:courseId", auth, controller.getSessionByCourse);
 
+router.get("/all-reports", auth, controller.getAllReports);
+
 
 module.exports = router;

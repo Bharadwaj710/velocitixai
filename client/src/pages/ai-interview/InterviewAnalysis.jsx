@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate,useLocation } from "react-router-dom";
 import axios from "axios";
+
 
 const InterviewAnalysis = () => {
   const { courseId } = useParams();
   const [report, setReport] = useState(null);
   const navigate = useNavigate();
-
+const location = useLocation();
+const params = new URLSearchParams(location.search);
+const isHRView = params.get("view") === "hr";
   useEffect(() => {
     const fetchReport = async () => {
       try {
@@ -40,12 +43,30 @@ const InterviewAnalysis = () => {
     const found = (session.answers || []).find((a) => a.index === index);
     return found ? found.answer : "No answer provided";
   };
+const handleReattemptInterview = async () => {
+  try {
+    const confirm = window.confirm(
+      "Are you sure you want to reattempt this interview?"
+    );
+    if (!confirm) return;
+
+    // Redirect student to AI Interview page for the same course
+    navigate(`/ai-interview?courseId=${courseId}`);
+  } catch (error) {
+    console.error("Error while reattempting interview:", error);
+  }
+};
 
   return (
     <div className="max-w-5xl mx-auto py-10">
       <h2 className="text-3xl font-bold text-blue-700 mb-6">
         Interview Report — {report.course?.title || "Course"}
       </h2>
+{isHRView && (
+  <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-3 rounded">
+    <strong>HR View:</strong> This is a read-only report.
+  </div>
+)}
 
       {/* Video */}
       <div className="mb-6">
@@ -144,12 +165,14 @@ const InterviewAnalysis = () => {
 
       {/* Reattempt Button */}
       <div className="mt-10 text-center">
-        <button
-          onClick={() => navigate(`/ai-interview?courseId=${courseId}`)}
-          className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
-        >
-          Reattempt Interview
-        </button>
+        {!isHRView && (
+  <button
+    onClick={handleReattemptInterview}
+    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+  >
+    Reattempt Interview
+  </button>
+)}
       </div>
     </div>
   );

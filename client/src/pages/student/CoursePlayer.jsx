@@ -22,6 +22,45 @@ import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
 import { saveNote, fetchNotes, deleteNote, updateNote } from "../../api/notes";
 import { ChatProvider } from "../../context/ChatContext";
 import QuizSection from "./QuizSection";
+// Poll helper: repeatedly call GET /api/aiInterview/report/:id until it returns 200 with data.
+// returns the report object or throws after maxAttempts.
+async function pollForReportById(id, { intervalMs = 3000, maxAttempts = 40, token } = {}) {
+  if (!id) throw new Error("No id to poll for report");
+  let attempts = 0;
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+  // small exponential backoff helper (optional)
+  const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+
+  while (attempts < maxAttempts) {
+    attempts++;
+    try {
+      const res = await axios.get(`/api/aiInterview/report/${id}`, headers ? { headers } : {});
+      // successful report
+      if (res && res.status === 200 && res.data) return res.data;
+      // if backend returned 202 but axios treats 202 as success, continue to next iteration
+      if (res && res.status === 202) {
+        await wait(intervalMs);
+        continue;
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      // treat 202 or 404 as "still processing" and retry
+      if (status === 202 || status === 404) {
+        await wait(intervalMs);
+        continue;
+      }
+      // network error or 401/500: retry a few times as well (could bail early on 401)
+      if (status === 401) {
+        throw new Error("Unauthorized while polling report");
+      }
+      // fallback wait and retry
+      await wait(intervalMs);
+    }
+  }
+
+  throw new Error("Report polling timed out");
+}
 
 // Helper: flatten all lessons and PDFs for navigation and progress
 function flattenItems(weeks) {
@@ -163,6 +202,7 @@ const CoursePlayer = () => {
   const [quizModalOpen, setQuizModalOpen] = useState(false);
   const [interviewStatus, setInterviewStatus] = useState(null);
   const [loadingInterviewStatus, setLoadingInterviewStatus] = useState(true);
+const [sessionData, setSessionData] = useState(null);
 
   const navigate = useNavigate();
   // quizPassedLessons is now derived from quizResults
@@ -695,7 +735,11 @@ const CoursePlayer = () => {
       allLessonIds.every((id) => completedLessons.includes(id))
     );
   }, [courseData, completedLessons, quizResults]);
-    useEffect(() => {
+   const [reportId, setReportId] = useState(null);
+
+useEffect(() => {
+  let cancelled = false;
+
   const fetchInterviewSession = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -706,32 +750,78 @@ const CoursePlayer = () => {
         return;
       }
 
+      // get session by course
       const res = await axios.get(
-        `http://localhost:8080/api/aiInterview/session/${userId}/${courseId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // ✅ required for your auth middleware
-          },
-        }
+        `/api/aiInterview/session/${userId}/${courseId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setInterviewStatus(res.data.status || "not-started");
+      if (cancelled) return;
+
+      const session = res.data;
+      setInterviewStatus(session.status || "not-started");
+      setSessionData(session);
+
+      // If session already has a report flag true -> fetch the actual report to obtain reportId
+      if (session.hasReport) {
+        try {
+          const report = await axios.get(`/api/aiInterview/report/${session._id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!cancelled) {
+            setReportId(report.data._id || report.data.report?._id || report.data?.session || session._id);
+            // this will cause UI to show 'View Report' button (sessionData.hasReport true already)
+          }
+        } catch (err) {
+          // If fetching report fails, we can still try polling below -- continue.
+          console.warn("Could not fetch report immediately:", err?.response?.status, err?.message);
+        }
+      } else if (session.status === "completed" || session.status === "terminated") {
+        // session finished but report not yet produced -> poll for it
+        (async () => {
+          try {
+            // attempt to poll the backend for report using session._id
+            const report = await pollForReportById(session._id, {
+              intervalMs: 3000,
+              maxAttempts: 40, // ~2 minutes by default
+              token,
+            });
+            if (!cancelled) {
+              setSessionData((prev) => ({ ...(prev || {}), hasReport: true }));
+              setReportId(report._id || report.report?._id || report.session || session._id);
+              // optionally auto navigate to report page:
+              // navigate(`/ai-interview-analysis/${report._id || session._id}`);
+            }
+          } catch (err) {
+            // Polling timed out or failed
+            console.warn("Report polling failed or timed out:", err.message);
+            if (!cancelled) {
+              // Optionally mark interviewStatus to a custom value to show a Retry button
+              setInterviewStatus("analyzing-timeout");
+            }
+          }
+        })();
+      }
+
     } catch (err) {
-      console.error(
-        "❌ Error fetching interview session:",
-        err.response?.status,
-        err.response?.data || err.message
-      );
+      console.error("❌ Error fetching interview session:", err?.response?.status, err?.response?.data || err.message);
       setInterviewStatus("not-started");
     } finally {
-      setLoadingInterviewStatus(false);
+      if (!cancelled) setLoadingInterviewStatus(false);
     }
   };
 
   if (aiInterviewEnabled && allLessonsCompleted && userId) {
     fetchInterviewSession();
+  } else {
+    // if not enabled or not completed, make sure loading flag isn't left on
+    setLoadingInterviewStatus(false);
   }
-}, [aiInterviewEnabled, allLessonsCompleted, userId, courseId]);  
+
+  return () => {
+    cancelled = true;
+  };
+}, [aiInterviewEnabled, allLessonsCompleted, userId, courseId]);
 
   if (!courseData || !courseData.weeks)
     return <div className="p-6 text-gray-600">Loading course...</div>;
@@ -929,19 +1019,39 @@ const CoursePlayer = () => {
                 </div>
               ))}
             </div>
-            {aiInterviewEnabled && (
+         {aiInterviewEnabled && (
   <div className="mt-8 w-full px-2">
     {loadingInterviewStatus ? (
       <div className="text-center text-sm text-gray-500">
         Checking interview status...
       </div>
     ) : interviewStatus === "completed" || interviewStatus === "terminated" ? (
-      <button
-        onClick={() => navigate(`/ai-interview-analysis/${courseId}`)}
-        className="w-full text-sm px-4 py-2 rounded font-semibold bg-green-600 text-white hover:bg-green-700 transition-all"
-      >
-        View Report
-      </button>
+      sessionData?.hasReport ? (
+        <button
+         onClick={() =>
+  navigate(
+    `/ai-interview-analysis/${courseId || sessionData?._id || courseId}`
+  )
+}
+          className="w-full text-sm px-4 py-2 rounded font-semibold bg-green-600 text-white hover:bg-green-700 transition-all"
+        >
+          View Report
+        </button>
+      ) : interviewStatus === "analyzing-timeout" ? (
+        <button
+          onClick={() => window.location.reload()}
+          className="w-full text-sm px-4 py-2 rounded font-semibold bg-red-500 text-white hover:bg-red-600 transition-all"
+        >
+          Analysis taking longer than expected. Retry
+        </button>
+      ) : (
+        <button
+          disabled
+          className="w-full text-sm px-4 py-2 rounded font-semibold bg-yellow-400 text-white cursor-wait"
+        >
+          Analyzing Interview...
+        </button>
+      )
     ) : (
       <button
         onClick={() => {

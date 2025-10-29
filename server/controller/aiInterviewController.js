@@ -592,8 +592,7 @@ exports.checkCheating = async (req, res) => {
 
 exports.terminateInterview = async (req, res) => {
   try {
-    if (!req.file)
-      return res.status(400).json({ error: "No video uploaded" });
+    if (!req.file) return res.status(400).json({ error: "No video uploaded" });
 
     const studentId = req.user.id;
     const uploadResult = await uploadToCloudinary(req.file, {
@@ -618,14 +617,17 @@ exports.terminateInterview = async (req, res) => {
     // Analyze
     let analysisResult = {};
     try {
-      const { data } = await axios.post("http://localhost:5001/analyze-session", {
-        videoUrl,
-        answers: session.answers,
-        timestamps: session.timestamps,
-        questions: session.questions,
-        studentId,
-        terminated: true,
-      });
+      const { data } = await axios.post(
+        "http://localhost:5001/analyze-session",
+        {
+          videoUrl,
+          answers: session.answers,
+          timestamps: session.timestamps,
+          questions: session.questions,
+          studentId,
+          terminated: true,
+        }
+      );
       analysisResult = data;
     } catch (err) {
       console.warn("⚠️ Python analysis failed (terminate):", err.message);
@@ -639,7 +641,7 @@ exports.terminateInterview = async (req, res) => {
     }, {});
 
     const transcriptsToSave =
-      (analysisResult.transcripts && analysisResult.transcripts.length > 0)
+      analysisResult.transcripts && analysisResult.transcripts.length > 0
         ? analysisResult.transcripts.map((t) => ({
             question: t.question,
             start: t.start,
@@ -666,7 +668,8 @@ exports.terminateInterview = async (req, res) => {
 
     res.json({
       message: "Interview terminated and analyzed successfully.",
-      report,
+      reportId: report._id,
+      sessionId: session._id,
     });
   } catch (err) {
     console.error("❌ terminateInterview failed:", err.message || err);
@@ -676,8 +679,7 @@ exports.terminateInterview = async (req, res) => {
 
 exports.completeInterview = async (req, res) => {
   try {
-    if (!req.file)
-      return res.status(400).json({ error: "No video uploaded" });
+    if (!req.file) return res.status(400).json({ error: "No video uploaded" });
 
     const studentId = req.user.id;
     const { answers, timestamps, questions } = req.body;
@@ -713,13 +715,16 @@ exports.completeInterview = async (req, res) => {
     // Analyze via Python service
     let analysis = {};
     try {
-      const { data } = await axios.post("http://localhost:5001/analyze-session", {
-        videoUrl,
-        answers: JSON.parse(answers),
-        timestamps: JSON.parse(timestamps),
-        questions: JSON.parse(questions),
-        studentId,
-      });
+      const { data } = await axios.post(
+        "http://localhost:5001/analyze-session",
+        {
+          videoUrl,
+          answers: JSON.parse(answers),
+          timestamps: JSON.parse(timestamps),
+          questions: JSON.parse(questions),
+          studentId,
+        }
+      );
       analysis = data;
     } catch (err) {
       console.warn("⚠️ Python analysis failed:", err.message);
@@ -733,7 +738,7 @@ exports.completeInterview = async (req, res) => {
     }, {});
 
     const transcriptsToSave =
-      (analysis.transcripts && analysis.transcripts.length > 0)
+      analysis.transcripts && analysis.transcripts.length > 0
         ? analysis.transcripts.map((t) => ({
             question: t.question,
             start: t.start,
@@ -777,7 +782,8 @@ exports.completeInterview = async (req, res) => {
 
     res.json({
       message: "Interview completed and analyzed successfully.",
-      report,
+      reportId: report._id,
+      sessionId: session._id,
     });
   } catch (err) {
     console.error("❌ Interview completion failed:", err.message || err);
@@ -798,22 +804,35 @@ exports.getReport = async (req, res) => {
 
     // 2️⃣ Try finding by Session ID
     if (!report) {
-      report = await InterviewReport.findOne({ session: sessionId }).populate("session");
+      report = await InterviewReport.findOne({ session: sessionId }).populate(
+        "session"
+      );
     }
 
     // 3️⃣ Try finding by Course ID
     if (!report) {
-      report = await InterviewReport.findOne({ course: sessionId }).populate("session");
+      report = await InterviewReport.findOne({ course: sessionId }).populate(
+        "session"
+      );
     }
 
     if (!report) {
-      return res.status(404).json({ error: "Report not found for given ID" });
+      // Instead of 404, return 202 Accepted to indicate report is still processing
+      return res.status(202).json({
+        status: "processing",
+        message: "Report is still being generated. Please retry.",
+        sessionId,
+      });
     }
 
     // 4️⃣ Fetch the actual interview session
     const session =
-      (report.session?._id && (await InterviewSession.findById(report.session._id))) ||
-      (await InterviewSession.findOne({ course: report.course, student: report.student }));
+      (report.session?._id &&
+        (await InterviewSession.findById(report.session._id))) ||
+      (await InterviewSession.findOne({
+        course: report.course,
+        student: report.student,
+      }));
 
     // 5️⃣ Merge session data into response for frontend
     if (session) {
@@ -835,6 +854,17 @@ exports.getReport = async (req, res) => {
   } catch (err) {
     console.error("getReport error:", err);
     res.status(500).json({ error: "Failed to fetch report" });
+  }
+};
+
+
+exports.getAllReports = async (req, res) => {
+  try {
+    const reports = await InterviewReport.find({}, "student course createdAt");
+    res.json(reports);
+  } catch (err) {
+    console.error("❌ Error fetching reports:", err);
+    res.status(500).json({ message: "Failed to fetch reports" });
   }
 };
 
@@ -868,12 +898,18 @@ exports.getSessionByCourse = async (req, res) => {
     });
 
     if (!session) {
-      return res.status(200).json({ status: "not-started" }); // instead of 404
+      return res.status(404).json({ message: "No session found" });
     }
 
-    res.json({ status: session.status });
+    // ✅ Check if a report exists for this session
+    const reportExists = await InterviewReport.exists({ session: session._id });
+
+    res.json({
+      ...session.toObject(),
+      hasReport: !!reportExists,
+    });
   } catch (err) {
-    console.error("getSessionByCourse error:", err);
-    res.status(500).json({ error: "Failed to fetch session" });
+    console.error("❌ Error fetching session:", err);
+    res.status(500).json({ message: "Failed to fetch session" });
   }
 };

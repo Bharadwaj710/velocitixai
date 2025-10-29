@@ -91,6 +91,21 @@ const Dashboard = () => {
   const [filterSkills, setFilterSkills] = useState("");
 
   const user = JSON.parse(localStorage.getItem("user"));
+  const [reports, setReports] = useState([]);
+
+  const fetchReports = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:8080/api/aiInterview/all-reports",
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
+      setReports(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch reports", err);
+    }
+  };
 
   // Helper function to calculate average progress based on courseProgressMap
   const calculateAverageProgress = (courseProgressMap, courses) => {
@@ -189,15 +204,13 @@ const Dashboard = () => {
   useEffect(() => {
     const initializeDashboard = async () => {
       setLoading(true);
-      // Use Promise.allSettled to allow all fetches to attempt, even if one fails
-      const [studentsRes, invitedRes, hrRes] = await Promise.allSettled([
-        fetchStudents(),
-        fetchInvitedStudents(),
-        fetchHRDetails(),
-      ]);
-
-      // You can add more granular error handling here if needed,
-      // but the individual fetch functions already show toasts.
+      const [studentsRes, invitedRes, hrRes, reportsRes] =
+        await Promise.allSettled([
+          fetchStudents(),
+          fetchInvitedStudents(),
+          fetchHRDetails(),
+          fetchReports(),
+        ]);
       setLoading(false);
     };
     initializeDashboard();
@@ -335,11 +348,48 @@ const Dashboard = () => {
           },
           courseProgressMap: studentData.courseProgressMap,
         });
+        // Fetch reports for this student to determine which courses have reports
+        try {
+          const repRes = await axios.get("/api/aiInterview/all-reports", {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          const allReports = Array.isArray(repRes.data) ? repRes.data : [];
+          // Normalize to strings for easy comparison
+          setReports(
+            allReports.map((r) => ({
+              student: String(r.student),
+              course: String(r.course),
+            }))
+          );
+        } catch (e) {
+          console.warn("Failed to fetch reports for HR modal", e);
+          setReports([]);
+        }
         setShowModal(true);
       } else {
         // Fallback: if for some reason data isn't in state, fetch it
         const res = await axios.get(`/api/hr/student-details/${studentId}`);
         setStudentDetails(res.data);
+        // fetch reports for this student
+        try {
+          const repRes = await axios.get("/api/aiInterview/all-reports", {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          const allReports = Array.isArray(repRes.data) ? repRes.data : [];
+          setReports(
+            allReports.map((r) => ({
+              student: String(r.student),
+              course: String(r.course),
+            }))
+          );
+        } catch (e) {
+          console.warn("Failed to fetch reports for HR modal", e);
+          setReports([]);
+        }
         setShowModal(true);
       }
     } catch (err) {
@@ -641,21 +691,62 @@ const Dashboard = () => {
                         <div className="text-sm text-gray-600 mb-1">
                           {course.description}
                         </div>
+
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
                             className="bg-blue-500 h-2 rounded-full"
                             style={{
-                              width: `${
-                                studentDetails.courseProgressMap[course._id] ||
-                                0
-                              }%`,
+                              width: `${Math.min(
+                                Math.max(
+                                  studentDetails.courseProgressMap[
+                                    course._id
+                                  ] || 0,
+                                  0
+                                ),
+                                100
+                              )}%`,
                             }}
                           ></div>
                         </div>
                         <div className="text-xs text-right text-gray-500 mt-1">
-                          {studentDetails.courseProgressMap[course._id] || 0}%
-                          completed
+                          {Math.min(
+                            Math.max(
+                              studentDetails.courseProgressMap[course._id] || 0,
+                              0
+                            ),
+                            100
+                          )}
+                          % completed
                         </div>
+
+                        {/* ✅ View Report Button only if progress is exactly 100% and a report exists */}
+                        {Math.round(
+                          studentDetails.courseProgressMap[course._id] || 0
+                        ) === 100 &&
+                          reports.some((r) => {
+                            const studentUserId = String(
+                              studentDetails.student.user?._id ||
+                                studentDetails.student.user
+                            );
+                            return (
+                              r.student === studentUserId &&
+                              r.course === String(course._id)
+                            );
+                          }) && (
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition"
+                                onClick={() =>
+                                  window.open(
+                                    `/ai-interview-analysis/${course._id}?view=hr`,
+                                    "_blank"
+                                  )
+                                }
+                              >
+                                View Report
+                              </button>
+                            </div>
+                          )}
                       </div>
                     ))
                   ) : (

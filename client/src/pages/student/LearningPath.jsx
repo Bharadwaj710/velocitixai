@@ -213,7 +213,7 @@ const LearningPath = () => {
     const lessons = mod.lessons || [];
     if (!lessons.length) return 0;
     const completed = lessons.filter((l) => isLessonCompleted(l.title)).length;
-    return completed / lessons.length;
+    return Math.min(1, completed / lessons.length);
   };
 
   // Helper: button label for module
@@ -372,7 +372,7 @@ const LearningPath = () => {
                   </span>
                   <span className="truncate font-medium">{`Week ${week.weekNumber}`}</span>
                   <span className="ml-auto text-xs text-gray-500">
-                    {Math.round(progress * 100)}%
+                    {Math.min(100, Math.round(progress * 100))}%
                   </span>
                 </li>
               );
