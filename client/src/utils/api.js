@@ -1,8 +1,8 @@
 import axios from 'axios';
-import {toast} from 'react-toastify';
+import { toast } from 'react-toastify';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8080/api',
+    baseURL: `${import.meta.env.VITE_API_BASE_URL}/api`,
     headers: {
         'Content-Type': 'application/json'
     }
@@ -17,9 +17,7 @@ api.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 // Add response interceptor for consistent error handling
@@ -34,15 +32,11 @@ api.interceptors.response.use(
 );
 
 export const handleSuccess = (msg) => {
-    toast.success(msg, {
-        position: "top-right",
-    });
+    toast.success(msg, { position: "top-right" });
 };
 
 export const handleError = (msg) => {
-    toast.error(msg, {
-        position: "top-right",
-    });
+    toast.error(msg, { position: "top-right" });
 };
 
 export default api;
