@@ -64,7 +64,6 @@ const CourseManager = () => {
   const fileInputRefs = useRef([]);
   const [pendingPdfs, setPendingPdfs] = useState({}); // { [modIdx-lessonIdx]: File }
 
-
   const [aiInterviewEnabled, setAiInterviewEnabled] = useState(false);
 
   // Load courses
@@ -215,7 +214,10 @@ const CourseManager = () => {
             formData.append("pdf", pendingPdfs[pendingKey]);
             pdfUploads.push(
               axios
-                .post("http://localhost:8080/api/upload/pdf", formData)
+                .post(
+                  `${process.env.REACT_APP_API_BASE_URL}/api/upload/pdf`,
+                  formData
+                )
                 .then((res) => ({
                   modIdx,
                   lessonIdx,
@@ -320,7 +322,7 @@ const CourseManager = () => {
     const formData = new FormData();
     formData.append("pdf", file);
     try {
-      const API_BASE = "http://localhost:8080";
+      const API_BASE = `${process.env.REACT_APP_API_BASE_URL}`;
       const uploadRes = await axios.post(
         `${API_BASE}/api/upload/pdf`,
         formData

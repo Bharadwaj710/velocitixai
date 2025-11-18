@@ -15,23 +15,34 @@ const notificationRoutes = require("./routes/notifications");
 const hrRoutes = require("./routes/hr");
 const transcriptRoutes = require("./routes/transcriptRoutes");
 
+// Create express app
 const app = express();
 
 // -----------------------------------------------------
-// 1️⃣  CORS CONFIG
+// 1️⃣ CORS CONFIG (FULLY PRODUCTION SAFE)
 // -----------------------------------------------------
+const allowedOrigins = [
+  "http://localhost:5173",                                 // Local DEV
+  "http://localhost:3000",                                 // CRA Local DEV
+  process.env.FRONTEND_URL                                 // Production Frontend
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",                       // Local
-      "https://velocitixai-sao9.vercel.app"          // Production Frontend (NO trailing slash)
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log("❌ BLOCKED ORIGIN:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
 
 // -----------------------------------------------------
 // 2️⃣ Multer Setup
@@ -39,7 +50,7 @@ app.use(express.json());
 const upload = multer({ dest: "uploads/" });
 
 // -----------------------------------------------------
-// 3️⃣ API Routes
+// 3️⃣ Express Routes
 // -----------------------------------------------------
 app.use("/admin", require("./routes/admin"));
 app.use("/api/users", require("./routes/user"));
@@ -54,25 +65,25 @@ app.use("/api/career-assessment", require("./routes/careerAssessment"));
 app.use("/api/assessments", require("./routes/careerAssessment"));
 app.use("/api/hr", hrRoutes);
 app.use("/api/chat", require("./routes/chat"));
-app.use("/api/transcripts", require("./routes/transcript"));
+app.use("/api/transcripts", transcriptRoutes);
 app.use("/api/notes", require("./routes/notes"));
 app.use("/api/quiz", require("./routes/quizRoutes"));
 app.use("/api/lessons", require("./routes/lessonRoutes"));
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/aiInterview", require("./routes/aiInterview"));
-app.use("/api/transcripts", transcriptRoutes);
+
 app.use("/uploads", express.static("uploads"));
 
 // -----------------------------------------------------
-// 4️⃣ Whisper / AI Microservice Route (NEW)
+// 4️⃣ Whisper / Python AI Microservice Proxy
 // -----------------------------------------------------
 app.post("/transcribe", upload.single("audio"), async (req, res) => {
   try {
     const filePath = req.file.path;
-    const aiURL = process.env.AI_SERVICE_URL; // Example: https://velocitix-ai.onrender.com
+    const aiURL = process.env.AI_SERVICE_URL;
 
     if (!aiURL) {
-      return res.status(500).json({ error: "AI Service URL not configured" });
+      return res.status(500).json({ error: "AI_SERVICE_URL missing in .env" });
     }
 
     const formData = new FormData();
@@ -84,26 +95,26 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
       maxContentLength: Infinity,
     });
 
-    fs.unlinkSync(filePath); // delete uploaded file
+    fs.unlinkSync(filePath);
 
     return res.json(response.data);
   } catch (error) {
-    console.error("AI Error:", error?.response?.data || error.message);
-    res.status(500).json({ error: "AI processing failed" });
+    console.error("🔴 AI-ERROR:", error?.response?.data || error.message);
+    res.status(500).json({ error: "AI Service Failure" });
   }
 });
 
 // -----------------------------------------------------
-// 5️⃣ Overview Stats
+// 5️⃣ Overview Stats Endpoint
 // -----------------------------------------------------
 const { getOverviewStats } = require("./controller/userController");
 app.get("/api/stats/overview", getOverviewStats);
 
 // -----------------------------------------------------
-// 6️⃣ Root Route
+// 6️⃣ Root Health Check
 // -----------------------------------------------------
 app.get("/", (req, res) => {
-  res.send("Velocitix AI Backend is Running");
+  res.send("🚀 Velocitix AI Backend Running Successfully!");
 });
 
 // -----------------------------------------------------
@@ -111,5 +122,6 @@ app.get("/", (req, res) => {
 // -----------------------------------------------------
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port: ${PORT}`);
+  console.log(`🟢 BACKEND LIVE on PORT: ${PORT}`);
+  console.log("Allowed CORS Origins =>", allowedOrigins);
 });

@@ -1,25 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 
 const HRProfile = () => {
-  const [companyName, setCompanyName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [address, setAddress] = useState('');
-  const [designation, setDesignation] = useState('');
+  const [companyName, setCompanyName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [designation, setDesignation] = useState("");
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     const fetchHRDetails = async () => {
       try {
-        const loggedUser = JSON.parse(localStorage.getItem('user'));
-        const res = await axios.get(`http://localhost:8080/api/hr/${loggedUser._id}/details`);
+        const loggedUser = JSON.parse(localStorage.getItem("user"));
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_BASE_URL}/api/hr/${loggedUser._id}/details`
+        );
         const hr = res.data.hr;
-        setCompanyName(hr.company || '');
-        setPhoneNumber(hr.phoneNumber || '');
-        setAddress(hr.address || '');
-        setDesignation(hr.designation || '');
+        setCompanyName(hr.company || "");
+        setPhoneNumber(hr.phoneNumber || "");
+        setAddress(hr.address || "");
+        setDesignation(hr.designation || "");
       } catch (error) {
-        console.error('Error fetching HR profile:', error);
+        console.error("Error fetching HR profile:", error);
       }
     };
     fetchHRDetails();
@@ -34,43 +36,53 @@ const HRProfile = () => {
 
   return (
     <div className="max-w-xl mx-auto mt-12 bg-white p-8 rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-6 text-blue-700">Edit Company Profile</h2>
+      <h2 className="text-2xl font-bold mb-6 text-blue-700">
+        Edit Company Profile
+      </h2>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Company Name</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Company Name
+          </label>
           <input
             type="text"
             className="w-full border border-gray-300 rounded px-3 py-2"
             value={companyName}
-            onChange={e => setCompanyName(e.target.value)}
+            onChange={(e) => setCompanyName(e.target.value)}
             required
           />
         </div>
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Designation</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Designation
+          </label>
           <input
             type="text"
             className="w-full border border-gray-300 rounded px-3 py-2"
             value={designation}
-            onChange={e => setDesignation(e.target.value)}
+            onChange={(e) => setDesignation(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Phone Number</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Phone Number
+          </label>
           <input
             type="tel"
             className="w-full border border-gray-300 rounded px-3 py-2"
             value={phoneNumber}
-            onChange={e => setPhoneNumber(e.target.value)}
+            onChange={(e) => setPhoneNumber(e.target.value)}
             required
           />
         </div>
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Address</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Address
+          </label>
           <textarea
             className="w-full border border-gray-300 rounded px-3 py-2"
             value={address}
-            onChange={e => setAddress(e.target.value)}
+            onChange={(e) => setAddress(e.target.value)}
             required
           />
         </div>
@@ -80,7 +92,11 @@ const HRProfile = () => {
         >
           Save Changes
         </button>
-        {success && <div className="text-green-600 font-medium mt-2">Profile updated!</div>}
+        {success && (
+          <div className="text-green-600 font-medium mt-2">
+            Profile updated!
+          </div>
+        )}
       </form>
     </div>
   );

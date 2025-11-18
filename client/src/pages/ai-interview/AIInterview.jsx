@@ -46,79 +46,92 @@ const AIInterview = () => {
   const [videoBlob, setVideoBlob] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [reportId, setReportId] = useState(null);
-const [analysisMessage, setAnalysisMessage] = useState("Analyzing your interview...");
-const [progress, setProgress] = useState(10);
+  const [analysisMessage, setAnalysisMessage] = useState(
+    "Analyzing your interview..."
+  );
+  const [progress, setProgress] = useState(10);
 
   const navigate = useNavigate();
 
-// place inside AIInterview component (replace existing pollForReport)
-const pollForReport = async (sessionId) => {
-  if (!sessionId) {
-    console.error("❌ No sessionId provided for polling");
-    setAnalyzing(false);
-    toast.error("Error: Invalid session ID");
-    return;
-  }
-
-  console.log("⏳ Polling for report for session:", sessionId);
-  let attempts = 0;
-  const maxAttempts = 40; // ≈ 2 minutes
-  const pollInterval = 3000;
-
-  // set some progress UI
-  setProgress(30);
-  setAnalyzing(true);
-  setStep("analyzing");
-
-  const poll = async () => {
-    if (attempts >= maxAttempts) {
+  // place inside AIInterview component (replace existing pollForReport)
+  const pollForReport = async (sessionId) => {
+    if (!sessionId) {
+      console.error("❌ No sessionId provided for polling");
       setAnalyzing(false);
-      toast.error("Report generation is taking longer than expected. Try again later.");
-      // Still navigate to analysis page so user can see results later (match your route)
-      navigate(`/ai-interview-analysis/${courseId}`);
+      toast.error("Error: Invalid session ID");
       return;
     }
-    attempts++;
 
-    try {
-      const res = await axios.get(
-        `http://localhost:8080/api/aiInterview/report/${sessionId}`,
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
+    console.log("⏳ Polling for report for session:", sessionId);
+    let attempts = 0;
+    const maxAttempts = 40; // ≈ 2 minutes
+    const pollInterval = 3000;
 
-      // progress bump
-      setProgress(Math.min(95, 30 + Math.floor((attempts / maxAttempts) * 65)));
+    // set some progress UI
+    setProgress(30);
+    setAnalyzing(true);
+    setStep("analyzing");
 
-      // Adjust this check to whatever the backend actually returns:
-      // If backend returns { report: {...} } keep `res.data.report`,
-      // otherwise check `res.data._id` or `res.data.finished` etc.
-      if (res.data && (res.data.report || res.data._id || res.data.finished)) {
-        console.log("✅ Report ready:", res.data);
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
         setAnalyzing(false);
-
-        // Navigate to the analysis page using courseId (the route your app declares)
-        // This keeps route param semantics consistent.
+        toast.error(
+          "Report generation is taking longer than expected. Try again later."
+        );
+        // Still navigate to analysis page so user can see results later (match your route)
         navigate(`/ai-interview-analysis/${courseId}`);
         return;
-      } else {
-        console.log("⌛ Report not ready yet...");
       }
-    } catch (err) {
-      if (err.response?.status === 404) {
-        // not ready yet
-        console.log("⌛ Report not found yet (404) — keep polling");
-      } else {
-        // non-404 errors are logged and we keep polling unless you want to abort
-        console.warn("⚠️ poll error:", err.message || err);
-      }
-    }
+      attempts++;
 
-    setTimeout(poll, pollInterval);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/report/${sessionId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        // progress bump
+        setProgress(
+          Math.min(95, 30 + Math.floor((attempts / maxAttempts) * 65))
+        );
+
+        // Adjust this check to whatever the backend actually returns:
+        // If backend returns { report: {...} } keep `res.data.report`,
+        // otherwise check `res.data._id` or `res.data.finished` etc.
+        if (
+          res.data &&
+          (res.data.report || res.data._id || res.data.finished)
+        ) {
+          console.log("✅ Report ready:", res.data);
+          setAnalyzing(false);
+
+          // Navigate to the analysis page using courseId (the route your app declares)
+          // This keeps route param semantics consistent.
+          navigate(`/ai-interview-analysis/${courseId}`);
+          return;
+        } else {
+          console.log("⌛ Report not ready yet...");
+        }
+      } catch (err) {
+        if (err.response?.status === 404) {
+          // not ready yet
+          console.log("⌛ Report not found yet (404) — keep polling");
+        } else {
+          // non-404 errors are logged and we keep polling unless you want to abort
+          console.warn("⚠️ poll error:", err.message || err);
+        }
+      }
+
+      setTimeout(poll, pollInterval);
+    };
+
+    // start first poll
+    poll();
   };
-
-  // start first poll
-  poll();
-};
 
   // NEW: keep a ref copy of current phase to avoid stale closures in interval
   const phaseRef = useRef(phase);
@@ -128,7 +141,7 @@ const pollForReport = async (sessionId) => {
       if (!courseId) return;
       try {
         const res = await axios.get(
-          `http://localhost:8080/api/aiInterview/report/course/${courseId}`,
+          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/report/course/${courseId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -143,31 +156,30 @@ const pollForReport = async (sessionId) => {
     checkIfCompleted();
   }, [courseId]);
 
-useEffect(() => {
-  if (step === "analyzing") {
-    const messages = [
-      "Analyzing your responses...",
-      "Evaluating tone and clarity...",
-      "Detecting facial confidence...",
-      "Assessing eye contact and expression...",
-      "Generating your performance report...",
-      "Almost done... preparing results!",
-    ];
+  useEffect(() => {
+    if (step === "analyzing") {
+      const messages = [
+        "Analyzing your responses...",
+        "Evaluating tone and clarity...",
+        "Detecting facial confidence...",
+        "Assessing eye contact and expression...",
+        "Generating your performance report...",
+        "Almost done... preparing results!",
+      ];
 
-    let index = 0;
-    let pct = 10;
+      let index = 0;
+      let pct = 10;
 
-    const interval = setInterval(() => {
-      setAnalysisMessage(messages[index]);
-      pct = Math.min(pct + 15, 95); // stops at 95% until real report ready
-      setProgress(pct);
-      index = (index + 1) % messages.length;
-    }, 3000);
+      const interval = setInterval(() => {
+        setAnalysisMessage(messages[index]);
+        pct = Math.min(pct + 15, 95); // stops at 95% until real report ready
+        setProgress(pct);
+        index = (index + 1) % messages.length;
+      }, 3000);
 
-    return () => clearInterval(interval);
-  }
-}, [step]);
-
+      return () => clearInterval(interval);
+    }
+  }, [step]);
 
   useEffect(() => {
     async function getWebcam() {
@@ -278,7 +290,7 @@ useEffect(() => {
 
     try {
       await axios.post(
-        "http://localhost:8080/api/aiInterview/save-answer",
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/save-answer`,
         {
           question: currentQuestion,
           answer: "",
@@ -293,7 +305,7 @@ useEffect(() => {
       );
 
       const res = await axios.post(
-        `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/next-question?courseId=${courseId}`,
         {
           answer: "",
           question: currentQuestion,
@@ -359,58 +371,58 @@ useEffect(() => {
     setRecording(true);
   };
 
-const uploadTerminatedInterview = async (finalBlob) => {
-  if (!finalBlob) {
-    console.error("❌ No video blob available to upload for termination.");
-    return;
-  }
-
-  setAnalyzing(true);
-  setStep("analyzing");
-  setProgress(10);
-  cleanupMediaAndTimers();
-
-  const formData = new FormData();
-  formData.append("video", finalBlob, "terminated.webm");
-  formData.append("answers", JSON.stringify(answers));
-  formData.append("timestamps", JSON.stringify(timestampsRef.current));
-  formData.append("questions", JSON.stringify(questions));
-  if (courseId) formData.append("courseId", courseId);
-
-  const token = localStorage.getItem("token");
-  if (token) {
-    try {
-      const decoded = jwtDecode(token);
-      if (decoded?.userId) formData.append("studentId", decoded.userId);
-    } catch {}
-  }
-
-  try {
-    const res = await axios.post(
-      "http://localhost:8080/api/aiInterview/terminate",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    const { reportId, sessionId } = res.data || {};
-    if (!reportId && !sessionId) {
-      console.warn("Terminate response missing session/report id:", res.data);
+  const uploadTerminatedInterview = async (finalBlob) => {
+    if (!finalBlob) {
+      console.error("❌ No video blob available to upload for termination.");
+      return;
     }
 
-    console.log("✅ Terminated interview uploaded:", res.data);
-    // poll for whichever id the server returned
-    pollForReport(reportId || sessionId);
-  } catch (err) {
-    console.error("❌ Terminated upload failed:", err.response?.data || err);
-    setAnalyzing(false);
-    toast.error("Upload failed during termination.");
-  }
-};
+    setAnalyzing(true);
+    setStep("analyzing");
+    setProgress(10);
+    cleanupMediaAndTimers();
+
+    const formData = new FormData();
+    formData.append("video", finalBlob, "terminated.webm");
+    formData.append("answers", JSON.stringify(answers));
+    formData.append("timestamps", JSON.stringify(timestampsRef.current));
+    formData.append("questions", JSON.stringify(questions));
+    if (courseId) formData.append("courseId", courseId);
+
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        if (decoded?.userId) formData.append("studentId", decoded.userId);
+      } catch {}
+    }
+
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/terminate`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const { reportId, sessionId } = res.data || {};
+      if (!reportId && !sessionId) {
+        console.warn("Terminate response missing session/report id:", res.data);
+      }
+
+      console.log("✅ Terminated interview uploaded:", res.data);
+      // poll for whichever id the server returned
+      pollForReport(reportId || sessionId);
+    } catch (err) {
+      console.error("❌ Terminated upload failed:", err.response?.data || err);
+      setAnalyzing(false);
+      toast.error("Upload failed during termination.");
+    }
+  };
 
   const stopRecording = async (isTerminated = false) => {
     return new Promise((resolve) => {
@@ -482,7 +494,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
 
         const token = localStorage.getItem("token");
         const res = await axios.post(
-          "http://localhost:8080/api/aiInterview/check-frame",
+          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/check-frame`,
           formData,
           {
             headers: {
@@ -519,7 +531,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
           // Show analyzing UI immediately before termination
           setAnalyzing(true);
           setStep("analyzing");
-          
+
           toast.error(
             "Interview terminated due to repeated critical violations."
           );
@@ -534,7 +546,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
           // the user sees analysis progress. uploadTerminatedInterview will
           // also set analyzing state and navigate when appropriate, but
           // navigate here immediately for faster feedback.
-         
+
           processingRef.current = false;
           return;
         }
@@ -600,7 +612,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
       setLoadingNextQuestion(false);
 
       const res = await axios.post(
-        `http://localhost:8080/api/aiInterview/start-interview?courseId=${courseId}`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/start-interview?courseId=${courseId}`,
         {},
         {
           headers: {
@@ -654,7 +666,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
           Date.now();
 
         const res = await axios.post(
-          `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
+          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/next-question?courseId=${courseId}`,
           {
             answer: "",
             question: currentQuestion,
@@ -673,7 +685,6 @@ const uploadTerminatedInterview = async (finalBlob) => {
           stopRecording();
           clearInterval(frameIntervalRef.current);
           uploadFinalInterview();
-         
         } else {
           const nextIndex = res.data.isRevisit
             ? res.data.revisitIndex
@@ -708,7 +719,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
 
       // ✅ Save answer or skip
       await axios.post(
-        "http://localhost:8080/api/aiInterview/save-answer",
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/save-answer`,
         {
           answer: skip ? "" : finalAnswer,
           question: currentQuestion,
@@ -725,7 +736,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
 
       // ✅ Fetch next question
       const res = await axios.post(
-        `http://localhost:8080/api/aiInterview/next-question?courseId=${courseId}`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/next-question?courseId=${courseId}`,
         {
           answer: skip ? "" : finalAnswer,
           question: currentQuestion,
@@ -741,7 +752,7 @@ const uploadTerminatedInterview = async (finalBlob) => {
         // Show analyzing UI immediately before stopping recording
         setAnalyzing(true);
         setStep("analyzing");
-        
+
         stopRecording();
         clearInterval(frameIntervalRef.current);
         uploadFinalInterview();
@@ -771,86 +782,92 @@ const uploadTerminatedInterview = async (finalBlob) => {
     }
   };
 
-const cleanupMediaAndTimers = () => {
-  // Stop all media tracks
-  if (streamRef.current) {
-    streamRef.current.getTracks().forEach(track => track.stop());
-  }
-  // Clear all intervals
-  if (timerRef.current) clearInterval(timerRef.current);
-  if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
-  // Clear recording state
-  if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-    mediaRecorderRef.current.stop();
-  }
-};
+  const cleanupMediaAndTimers = () => {
+    // Stop all media tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    // Clear all intervals
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+    // Clear recording state
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
+  };
 
-const uploadFinalInterview = async () => {
-  // wait until we have a video blob (but avoid unbounded recursion)
-  if (!videoBlob) {
-    console.log("⏳ Waiting for videoBlob...");
-    // try again after a short delay
-    setTimeout(uploadFinalInterview, 500);
-    return;
-  }
+  const uploadFinalInterview = async () => {
+    // wait until we have a video blob (but avoid unbounded recursion)
+    if (!videoBlob) {
+      console.log("⏳ Waiting for videoBlob...");
+      // try again after a short delay
+      setTimeout(uploadFinalInterview, 500);
+      return;
+    }
 
-  // Make sure analyzing UI is visible BEFORE upload so user sees spinner immediately
-  setAnalyzing(true);
-  setStep("analyzing");
-  setProgress(10);
+    // Make sure analyzing UI is visible BEFORE upload so user sees spinner immediately
+    setAnalyzing(true);
+    setStep("analyzing");
+    setProgress(10);
 
-  // stop camera/timers to free resources and avoid race
-  cleanupMediaAndTimers();
+    // stop camera/timers to free resources and avoid race
+    cleanupMediaAndTimers();
 
-  const formData = new FormData();
-  formData.append("video", videoBlob, "interview.webm");
-  formData.append("answers", JSON.stringify(answers));
-  formData.append("timestamps", JSON.stringify(timestampsRef.current));
-  formData.append("questions", JSON.stringify(questions));
+    const formData = new FormData();
+    formData.append("video", videoBlob, "interview.webm");
+    formData.append("answers", JSON.stringify(answers));
+    formData.append("timestamps", JSON.stringify(timestampsRef.current));
+    formData.append("questions", JSON.stringify(questions));
 
-  const token = localStorage.getItem("token");
-  if (token) {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        // MOST apps use `userId` in JWT — adapt if your token uses different key
+        if (decoded?.userId) {
+          formData.append("studentId", decoded.userId);
+        }
+        // include courseId so server can link session to the course reliably
+        if (courseId) formData.append("courseId", courseId);
+      } catch (err) {
+        console.warn("Failed to decode token:", err);
+      }
+    }
+
     try {
-      const decoded = jwtDecode(token);
-      // MOST apps use `userId` in JWT — adapt if your token uses different key
-      if (decoded?.userId) {
-        formData.append("studentId", decoded.userId);
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/complete-interview`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // ensure backend returns one of these — sessionId preferred for polling
+      const { reportId, sessionId } = res.data || {};
+      if (!reportId && !sessionId) {
+        throw new Error("Server did not return reportId or sessionId");
       }
-      // include courseId so server can link session to the course reliably
-      if (courseId) formData.append("courseId", courseId);
+
+      console.log("✅ Interview upload completed:", res.data);
+
+      // Kick off polling for the returned session id (reportId or sessionId)
+      pollForReport(reportId || sessionId);
     } catch (err) {
-      console.warn("Failed to decode token:", err);
+      console.error(
+        "❌ Upload failed:",
+        err.response?.data || err.message || err
+      );
+      setAnalyzing(false);
+      toast.error("Failed to upload interview. Please try again.");
     }
-  }
-
-  try {
-    const res = await axios.post(
-      "http://localhost:8080/api/aiInterview/complete-interview",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    // ensure backend returns one of these — sessionId preferred for polling
-    const { reportId, sessionId } = res.data || {};
-    if (!reportId && !sessionId) {
-      throw new Error("Server did not return reportId or sessionId");
-    }
-
-    console.log("✅ Interview upload completed:", res.data);
-
-    // Kick off polling for the returned session id (reportId or sessionId)
-    pollForReport(reportId || sessionId);
-  } catch (err) {
-    console.error("❌ Upload failed:", err.response?.data || err.message || err);
-    setAnalyzing(false);
-    toast.error("Failed to upload interview. Please try again.");
-  }
-};
+  };
 
   const trimmedTranscript = liveTranscript?.trim() || "";
   const isEmptyAnswer = !trimmedTranscript;
@@ -1006,36 +1023,38 @@ const uploadFinalInterview = async () => {
             </button>
           </>
         )}
-       {step === "analyzing" && (
-  <div className="flex flex-col items-center justify-center h-screen bg-gray-50 text-center px-6">
-    {/* Animated spinner */}
-    <div className="relative mb-6">
-      <div className="animate-spin h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-blue-500 font-bold text-xl">AI</span>
-      </div>
-    </div>
+        {step === "analyzing" && (
+          <div className="flex flex-col items-center justify-center h-screen bg-gray-50 text-center px-6">
+            {/* Animated spinner */}
+            <div className="relative mb-6">
+              <div className="animate-spin h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-blue-500 font-bold text-xl">AI</span>
+              </div>
+            </div>
 
-    {/* Dynamic AI progress messages */}
-    <p className="text-xl font-semibold text-gray-800 mb-4 animate-pulse">
-      {analysisMessage}
-    </p>
+            {/* Dynamic AI progress messages */}
+            <p className="text-xl font-semibold text-gray-800 mb-4 animate-pulse">
+              {analysisMessage}
+            </p>
 
-    {/* Subtext */}
-    <p className="text-gray-500 text-sm max-w-md">
-      Our AI is processing your video, analyzing your performance, and generating your personalized interview report.
-      <br />Please stay patient for a few moments.
-    </p>
+            {/* Subtext */}
+            <p className="text-gray-500 text-sm max-w-md">
+              Our AI is processing your video, analyzing your performance, and
+              generating your personalized interview report.
+              <br />
+              Please stay patient for a few moments.
+            </p>
 
-    {/* Optional subtle progress bar */}
-    <div className="mt-8 w-64 bg-gray-200 rounded-full h-3 overflow-hidden">
-      <div
-        className="bg-blue-500 h-full transition-all duration-700 ease-in-out"
-        style={{ width: `${progress}%` }}
-      ></div>
-    </div>
-  </div>
-)}
+            {/* Optional subtle progress bar */}
+            <div className="mt-8 w-64 bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-blue-500 h-full transition-all duration-700 ease-in-out"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
 
         {step === "complete" && (
           <div className="text-center py-24">

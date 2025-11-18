@@ -96,7 +96,7 @@ const Dashboard = () => {
   const fetchReports = async () => {
     try {
       const res = await axios.get(
-        "http://localhost:8080/api/aiInterview/all-reports",
+        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/all-reports`,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }

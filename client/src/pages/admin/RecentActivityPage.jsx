@@ -32,7 +32,7 @@ const RecentActivityPage = () => {
     if (!window.confirm("Are you sure you want to clear all notifications?"))
       return;
     try {
-      await axios.delete("http://localhost:8080/admin/notifications/clear", {
+      await axios.delete(`${process.env.REACT_APP_API_BASE_URL}/admin/notifications/clear`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -51,7 +51,7 @@ const RecentActivityPage = () => {
 
   const handleDeleteNotification = async (id) => {
     try {
-      await axios.delete(`http://localhost:8080/api/notifications/${id}`);
+      await axios.delete(`${process.env.REACT_APP_API_BASE_URL}/api/notifications/${id}`);
       toast.success("Notification removed");
       setNotifications((prev) => prev.filter((n) => n._id !== id));
     } catch (error) {

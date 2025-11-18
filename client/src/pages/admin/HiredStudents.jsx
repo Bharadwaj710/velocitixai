@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 
 const HiredStudents = () => {
   const [students, setStudents] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:8080/admin/hired-students')
-      .then(res => setStudents(res.data))
-      .catch(err => console.error("Failed to load hired students", err));
+    axios
+      .get(`${process.env.REACT_APP_API_BASE_URL}/admin/hired-students`)
+      .then((res) => setStudents(res.data))
+      .catch((err) => console.error("Failed to load hired students", err));
   }, []);
 
   return (
@@ -26,7 +27,11 @@ const HiredStudents = () => {
           </thead>
           <tbody>
             {students.length === 0 ? (
-              <tr><td className="p-4 text-center text-gray-500" colSpan="6">No hired students</td></tr>
+              <tr>
+                <td className="p-4 text-center text-gray-500" colSpan="6">
+                  No hired students
+                </td>
+              </tr>
             ) : (
               students.map((s, i) => (
                 <tr key={i} className="border-t hover:bg-gray-50">

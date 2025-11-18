@@ -21,7 +21,6 @@ const Register = () => {
   const passwordRegex =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%?#&^_-])[A-Za-z\d@$!%?#&^_-]{4,}$/;
 
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -75,14 +74,15 @@ const Register = () => {
     }
 
     try {
-
       const { name, email, password } = formData;
-      const res = await fetch("http://localhost:8080/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role: "student" }),
-      });
-
+      const res = await fetch(
+        `${process.env.REACT_APP_API_BASE_URL}/auth/signup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password, role: "student" }),
+        }
+      );
 
       const result = await res.json();
       if (!res.ok) {
@@ -93,7 +93,10 @@ const Register = () => {
       if (result.success) {
         // Save imageUrl if present
         if (result.user && result.user.imageUrl) {
-          localStorage.setItem("user", JSON.stringify({ ...result.user, imageUrl: result.user.imageUrl }));
+          localStorage.setItem(
+            "user",
+            JSON.stringify({ ...result.user, imageUrl: result.user.imageUrl })
+          );
         } else {
           localStorage.setItem("user", JSON.stringify(result.user));
         }
@@ -111,11 +114,14 @@ const Register = () => {
     const token = credentialResponse.credential;
 
     try {
-      const res = await fetch("http://localhost:8080/auth/google-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
+      const res = await fetch(
+        `${process.env.REACT_APP_API_BASE_URL}/auth/google-signup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        }
+      );
 
       const data = await res.json();
       if (data.success) {

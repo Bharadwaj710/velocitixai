@@ -103,9 +103,9 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
   const [transcriptMap, setTranscriptMap] = useState({});
   const [quizMap, setQuizMap] = useState({});
 
-const [aiInterviewEnabled, setAiInterviewEnabled] = useState(
-  course.aiInterviewEnabled || false
-);
+  const [aiInterviewEnabled, setAiInterviewEnabled] = useState(
+    course.aiInterviewEnabled || false
+  );
 
   (editedCourse.weeks || []).forEach((week) => {
     (week.modules || []).forEach((mod) => {
@@ -307,7 +307,10 @@ const [aiInterviewEnabled, setAiInterviewEnabled] = useState(
             formData.append("pdf", pendingPdfs[pendingKey]);
             pdfUploads.push(
               axios
-                .post("http://localhost:8080/api/upload/pdf", formData)
+                .post(
+                  `${process.env.REACT_APP_API_BASE_URL}/api/upload/pdf`,
+                  formData
+                )
                 .then((res) => ({
                   weekIdx,
                   modIdx,
@@ -541,7 +544,7 @@ const [aiInterviewEnabled, setAiInterviewEnabled] = useState(
     formData.append("pdf", file);
     try {
       // Always use backend API base URL for all PDF-related endpoints
-      const API_BASE = "http://localhost:8080";
+      const API_BASE = `${process.env.REACT_APP_API_BASE_URL}`;
       // Upload PDF to backend (Cloudinary)
       const uploadRes = await axios.post(
         `${API_BASE}/api/upload/pdf`,
