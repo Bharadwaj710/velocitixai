@@ -15,16 +15,15 @@ const notificationRoutes = require("./routes/notifications");
 const hrRoutes = require("./routes/hr");
 const transcriptRoutes = require("./routes/transcriptRoutes");
 
-// Create express app
 const app = express();
 
-// -----------------------------------------------------
-// 1️⃣ CORS CONFIG (FULLY PRODUCTION SAFE)
-// -----------------------------------------------------
+/* -----------------------------------------------------
+   1️⃣ CORS CONFIG (PRODUCTION SAFE)
+------------------------------------------------------ */
 const allowedOrigins = [
-  "http://localhost:5173",                                 // Local DEV
-  "http://localhost:3000",                                 // CRA Local DEV
-  process.env.FRONTEND_URL                                 // Production Frontend
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
 app.use(
@@ -33,8 +32,8 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.log("❌ BLOCKED ORIGIN:", origin);
-        callback(new Error("Not allowed by CORS"));
+        console.log("❌ CORS BLOCKED:", origin);
+        callback(new Error("CORS Not Allowed"));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -42,16 +41,20 @@ app.use(
   })
 );
 
+// 🔧 REQUIRED: allow browser preflight OPTIONS calls
+app.options("*", cors());
+
 app.use(express.json({ limit: "50mb" }));
 
-// -----------------------------------------------------
-// 2️⃣ Multer Setup
-// -----------------------------------------------------
+/* -----------------------------------------------------
+   2️⃣ Multer Setup (File Uploads)
+------------------------------------------------------ */
 const upload = multer({ dest: "uploads/" });
 
-// -----------------------------------------------------
-// 3️⃣ Express Routes
-// -----------------------------------------------------
+/* -----------------------------------------------------
+   3️⃣ Express Routes
+------------------------------------------------------ */
+app.use("/auth", AuthRouter); // 🔧 IMPORTANT: add missing route mount
 app.use("/admin", require("./routes/admin"));
 app.use("/api/users", require("./routes/user"));
 app.use("/api/courses", require("./routes/courseRoutes"));
@@ -72,11 +75,12 @@ app.use("/api/lessons", require("./routes/lessonRoutes"));
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/aiInterview", require("./routes/aiInterview"));
 
+// static files
 app.use("/uploads", express.static("uploads"));
 
-// -----------------------------------------------------
-// 4️⃣ Whisper / Python AI Microservice Proxy
-// -----------------------------------------------------
+/* -----------------------------------------------------
+   4️⃣ Whisper / Python AI Microservice Proxy
+------------------------------------------------------ */
 app.post("/transcribe", upload.single("audio"), async (req, res) => {
   try {
     const filePath = req.file.path;
@@ -98,30 +102,30 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
     fs.unlinkSync(filePath);
 
     return res.json(response.data);
-  } catch (error) {
-    console.error("🔴 AI-ERROR:", error?.response?.data || error.message);
-    res.status(500).json({ error: "AI Service Failure" });
+  } catch (err) {
+    console.error("🔴 AI_ERROR:", err?.response?.data || err.message);
+    res.status(500).json({ error: "AI service failed" });
   }
 });
 
-// -----------------------------------------------------
-// 5️⃣ Overview Stats Endpoint
-// -----------------------------------------------------
+/* -----------------------------------------------------
+   5️⃣ Overview Stats
+------------------------------------------------------ */
 const { getOverviewStats } = require("./controller/userController");
 app.get("/api/stats/overview", getOverviewStats);
 
-// -----------------------------------------------------
-// 6️⃣ Root Health Check
-// -----------------------------------------------------
+/* -----------------------------------------------------
+   6️⃣ Health Check Endpoint
+------------------------------------------------------ */
 app.get("/", (req, res) => {
   res.send("🚀 Velocitix AI Backend Running Successfully!");
 });
 
-// -----------------------------------------------------
-// 7️⃣ Start Server
-// -----------------------------------------------------
+/* -----------------------------------------------------
+   7️⃣ Start Server
+------------------------------------------------------ */
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`🟢 BACKEND LIVE on PORT: ${PORT}`);
-  console.log("Allowed CORS Origins =>", allowedOrigins);
+  console.log(`🟢 BACKEND LIVE on PORT ${PORT}`);
+  console.log("Allowed Origins:", allowedOrigins);
 });
