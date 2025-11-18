@@ -1,6 +1,6 @@
 const ChatLog = require("../models/ChatLog");
 const Student = require("../models/Student");
-const CareerAssessment = require("../models/careerAssessment");
+const CareerAssessment = require("../models/CareerAssessment");
 const Course = require("../models/Course");
 const axios = require("axios");
 
