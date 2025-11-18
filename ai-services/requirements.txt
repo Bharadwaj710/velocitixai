@@ -1,0 +1,12 @@
+flask
+flask-cors
+python-dotenv
+pymongo
+bson
+google-generativeai
+yt-dlp
+whisper
+opencv-python
+mediapipe
+numpy
+requests
