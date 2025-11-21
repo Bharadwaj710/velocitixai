@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { useNavigate, useLocation } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 import { useNotification } from "../../context/NotificationContext";
@@ -50,7 +50,7 @@ const StudentCourses = () => {
 
   const removeNotificationByCourseId = async (courseId) => {
     try {
-      await axios.delete(`/api/notifications/remove/${studentId}/${courseId}`);
+      await apiClient.delete(`/api/notifications/remove/${studentId}/${courseId}`);
       // No need to update context as your navbar fetches directly from backend on mount
     } catch (err) {
       console.error("Error removing notification", err);
@@ -75,7 +75,7 @@ const StudentCourses = () => {
     setError("");
     try {
       // Fetch current recommendations
-      const recRes = await axios.get(
+      const recRes = await apiClient.get(
         `/api/recommendations/${studentId}${
           triggerNotifications ? "?refresh=1" : ""
         }`
@@ -83,9 +83,7 @@ const StudentCourses = () => {
       setProfile(recRes.data.profile_analysis || null);
 
       // Fetch currently enrolled courses
-      const enrollRes = await axios.get(
-        `/api/students/enrollments/${studentId}`
-      );
+      const enrollRes = await apiClient.get(`/api/students/enrollments/${studentId}`);
       const enrolled = enrollRes.data || [];
       setEnrolledCourses(enrolled);
 
@@ -106,9 +104,9 @@ const StudentCourses = () => {
 
         if (newCourses.length > 0) {
           newCourses.forEach(async (course) => {
-            try {
+              try {
               // Send notification for each genuinely new course
-              await axios.post("/api/notifications", {
+              await apiClient.post("/api/notifications", {
                 type: "new_course",
                 message: `New course added: ${course.title}`,
                 userId: studentId,
@@ -137,7 +135,7 @@ const StudentCourses = () => {
 
       setIsProcessed(recRes.data.isProcessed !== false);
 
-      const studentRes = await axios.get(`/api/students/details/${studentId}`);
+      const studentRes = await apiClient.get(`/api/students/details/${studentId}`);
       setStudentDoc(studentRes.data || null);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to fetch courses.");
@@ -240,7 +238,7 @@ const StudentCourses = () => {
   const handleEnroll = async (course) => {
     setEnrollLoading(course._id);
     try {
-      await axios.post("/api/students/enroll", {
+      await apiClient.post("/api/students/enroll", {
         userId: studentId,
         courseId: course._id,
       });
@@ -269,7 +267,7 @@ const StudentCourses = () => {
   const handleUnenroll = async (course) => {
     setEnrollLoading(course._id);
     try {
-      await axios.post("/api/students/unenroll", {
+      await apiClient.post("/api/students/unenroll", {
         userId: studentId,
         courseId: course._id,
       });

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import {
   Play,
   CheckCircle,
@@ -38,10 +38,7 @@ async function pollForReportById(
   while (attempts < maxAttempts) {
     attempts++;
     try {
-      const res = await axios.get(
-        `/api/aiInterview/report/${id}`,
-        headers ? { headers } : {}
-      );
+      const res = await apiClient.get(`/api/aiInterview/report/${id}`, headers ? { headers } : {});
       // successful report
       if (res && res.status === 200 && res.data) return res.data;
       // if backend returned 202 but axios treats 202 as success, continue to next iteration
@@ -494,10 +491,8 @@ const CoursePlayer = () => {
     const fetchData = async () => {
       try {
         const [courseRes, progressRes] = await Promise.all([
-          axios.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/courses/${courseId}`
-          ),
-          axios.get(`/api/progress/${userId}/${courseId}`),
+          apiClient.get(`/api/courses/${courseId}`),
+          apiClient.get(`/api/progress/${userId}/${courseId}`),
         ]);
         setCourseData(courseRes.data);
         console.log(
@@ -574,7 +569,7 @@ const CoursePlayer = () => {
     const lessonObj = flatItems[currentFlatIdx]?.lesson;
     if (!lessonObj?._id) return;
     try {
-      await axios.post(`/api/progress/complete`, {
+      await apiClient.post(`/api/progress/complete`, {
         userId,
         courseId,
         lessonId: lessonObj._id,
@@ -616,11 +611,9 @@ const CoursePlayer = () => {
     setTranscriptLoading(true);
     setTranscript([]);
     setActiveTranscriptIdx(-1);
-    // Use the correct endpoint and pass only valid ObjectId
-    axios
-      .get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/transcripts/by-lesson/${lessonId}`
-      )
+    // Use the centralized apiClient for internal transcripts endpoint
+    apiClient
+      .get(`/api/transcripts/by-lesson/${lessonId}`)
       .then((res) => {
         if (Array.isArray(res.data.transcript)) {
           setTranscript(res.data.transcript);
@@ -761,10 +754,7 @@ const CoursePlayer = () => {
         }
 
         // get session by course
-        const res = await axios.get(
-          `/api/aiInterview/session/${userId}/${courseId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const res = await apiClient.get(`/api/aiInterview/session/${userId}/${courseId}`);
 
         if (cancelled) return;
 
@@ -775,12 +765,7 @@ const CoursePlayer = () => {
         // If session already has a report flag true -> fetch the actual report to obtain reportId
         if (session.hasReport) {
           try {
-            const report = await axios.get(
-              `/api/aiInterview/report/${session._id}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              }
-            );
+            const report = await apiClient.get(`/api/aiInterview/report/${session._id}`);
             if (!cancelled) {
               setReportId(
                 report.data._id ||
@@ -1474,9 +1459,7 @@ const CoursePlayer = () => {
             }}
             onComplete={async () => {
               try {
-                const res = await axios.get(
-                  `/api/progress/${userId}/${courseId}`
-                );
+                const res = await apiClient.get(`/api/progress/${userId}/${courseId}`);
                 setCompletedLessons(res.data.completedLessons || []);
                 setQuizResults(res.data.quizResults || []);
               } catch (err) {

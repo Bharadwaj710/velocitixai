@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import apiClient from '../../api/apiClient';
 import { useNavigate } from "react-router-dom";
 
 const CollegeOnboarding = () => {
@@ -44,14 +44,14 @@ const CollegeOnboarding = () => {
     }
 
     try {
-      const res = await axios.post("/api/college/onboard", {
+      const res = await apiClient.post("/api/college/onboard", {
         userId: user._id,
         ...form,
       });
 
       if (res.data.success && res.data.slug) {
         // ✅ Now fetch updated user from backend instead of mutating localStorage manually
-        const updatedUser = await axios.get(`/api/users/${user._id}`);
+        const updatedUser = await apiClient.get(`/api/users/${user._id}`);
         if (updatedUser.data && updatedUser.data.user) {
           localStorage.setItem("user", JSON.stringify(updatedUser.data.user));
           navigate(`/college-dashboard/${res.data.slug}`);

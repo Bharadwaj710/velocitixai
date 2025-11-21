@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import toast, { Toaster } from "react-hot-toast";
 
 // HR Navbar Component (No changes needed here)
@@ -95,13 +95,8 @@ const Dashboard = () => {
 
   const fetchReports = async () => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/all-reports`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-      setReports(res.data || []);
+      const res = await apiClient.get(`/api/aiInterview/all-reports`);
+      setReports(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Failed to fetch reports", err);
     }
@@ -131,19 +126,19 @@ const Dashboard = () => {
 
   const fetchStudents = async () => {
     try {
-      const res = await axios.get("/api/hr/students");
-      const studentsData = res.data.students;
+      const res = await apiClient.get("/api/hr/students");
+      const studentsData = Array.isArray(res.data?.students) ? res.data.students : [];
 
       // --- START OF WORKAROUND FOR N+1 PROBLEM ---
       // Fetch detailed progress for each student
       const studentsWithDetailedProgress = await Promise.all(
         studentsData.map(async (student) => {
           try {
-            const detailRes = await axios.get(
+            const detailRes = await apiClient.get(
               `/api/hr/student-details/${student._id}`
             );
             const { student: detailedStudent, courseProgressMap } =
-              detailRes.data;
+              detailRes.data || {};
 
             // Calculate average progress using the detailed data
             const calculatedProgress = calculateAverageProgress(
@@ -183,8 +178,8 @@ const Dashboard = () => {
 
   const fetchInvitedStudents = async () => {
     try {
-      const res = await axios.get("/api/hr/invited");
-      setInvitedStudents(res.data.students);
+      const res = await apiClient.get("/api/hr/invited");
+      setInvitedStudents(Array.isArray(res.data?.students) ? res.data.students : []);
     } catch (err) {
       console.error("Error fetching invited students:", err);
       toast.error("Failed to fetch invited students list.");
@@ -193,8 +188,8 @@ const Dashboard = () => {
 
   const fetchHRDetails = async () => {
     try {
-      const res = await axios.get(`/api/hr/${user._id}/details`);
-      setHrInfo(res.data.hr);
+      const res = await apiClient.get(`/api/hr/${user._id}/details`);
+      setHrInfo(res.data?.hr || null);
     } catch (err) {
       console.error("Error fetching HR details:", err);
       toast.error("Failed to fetch HR profile details.");
@@ -244,7 +239,7 @@ const Dashboard = () => {
     }
 
     try {
-      const res = await axios.post("/api/hr/send-invite", {
+      const res = await apiClient.post("/api/hr/send-invite", {
         studentId: student._id,
         companyName: hrInfo.company,
         hrId: hrInfo._id,
@@ -349,12 +344,8 @@ const Dashboard = () => {
           courseProgressMap: studentData.courseProgressMap,
         });
         // Fetch reports for this student to determine which courses have reports
-        try {
-          const repRes = await axios.get("/api/aiInterview/all-reports", {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          });
+          try {
+          const repRes = await apiClient.get("/api/aiInterview/all-reports");
           const allReports = Array.isArray(repRes.data) ? repRes.data : [];
           // Normalize to strings for easy comparison
           setReports(
@@ -370,15 +361,11 @@ const Dashboard = () => {
         setShowModal(true);
       } else {
         // Fallback: if for some reason data isn't in state, fetch it
-        const res = await axios.get(`/api/hr/student-details/${studentId}`);
+        const res = await apiClient.get(`/api/hr/student-details/${studentId}`);
         setStudentDetails(res.data);
         // fetch reports for this student
         try {
-          const repRes = await axios.get("/api/aiInterview/all-reports", {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          });
+          const repRes = await apiClient.get("/api/aiInterview/all-reports");
           const allReports = Array.isArray(repRes.data) ? repRes.data : [];
           setReports(
             allReports.map((r) => ({

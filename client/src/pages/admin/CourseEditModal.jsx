@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { toast } from "react-toastify";
 import { XCircle } from "lucide-react";
 
@@ -135,7 +136,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
           for (const lesson of mod.lessons || []) {
             if (lesson._id) {
               try {
-                const res = await axios.get(
+                const res = await apiClient.get(
                   `/api/transcripts/by-lesson/${lesson._id}`
                 );
                 status[lesson._id] =
@@ -177,7 +178,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
         lessons.map(async (lessonId) => {
           // Transcript
           try {
-            const res = await axios.get(
+            const res = await apiClient.get(
               `/api/transcripts/by-lesson/${lessonId}`
             );
             if (
@@ -195,7 +196,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
           }
           // Quiz
           try {
-            const res = await axios.get(`/api/quiz/${lessonId}`);
+            const res = await apiClient.get(`/api/quiz/${lessonId}`);
             if (res.status === 200 && res.data && res.data.questions?.length) {
               qStatus[lessonId] = true;
               qCompleted++;
@@ -546,24 +547,18 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
       // Always use backend API base URL for all PDF-related endpoints
       const API_BASE = `${process.env.REACT_APP_API_BASE_URL}`;
       // Upload PDF to backend (Cloudinary)
-      const uploadRes = await axios.post(
-        `${API_BASE}/api/upload/pdf`,
-        formData
-      );
+      const uploadRes = await apiClient.post(`/api/upload/pdf`, formData);
       const { url, name } = uploadRes.data;
       // Save PDF to lesson in backend (persist in DB)
       const lessonId =
         editedCourse.weeks[weekIdx].modules[modIdx].lessons[lessonIdx]._id;
       const courseId = editedCourse._id;
-      await axios.put(
-        `${API_BASE}/api/courses/${courseId}/lessons/${lessonId}/add-pdf`,
-        {
-          pdfName: name,
-          pdfUrl: url,
-        }
-      );
+      await apiClient.put(`/api/courses/${courseId}/lessons/${lessonId}/add-pdf`, {
+        pdfName: name,
+        pdfUrl: url,
+      });
       // Fetch updated course to get new resources array
-      const updated = await axios.get(`${API_BASE}/api/courses/${courseId}`);
+      const updated = await apiClient.get(`/api/courses/${courseId}`);
       setEditedCourse(updated.data);
       toast.success("PDF uploaded and attached!");
     } catch (err) {

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 
 const HiredStudents = () => {
   const [students, setStudents] = useState([]);
 
   useEffect(() => {
-    axios
-      .get(`${process.env.REACT_APP_API_BASE_URL}/admin/hired-students`)
-      .then((res) => setStudents(res.data))
+    apiClient
+      .get(`/admin/hired-students`)
+      .then((res) => setStudents(res.data || []))
       .catch((err) => console.error("Failed to load hired students", err));
   }, []);
 

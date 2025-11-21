@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { ArrowRight } from "lucide-react";
 
 const StudentDashboard = () => {
@@ -22,12 +22,12 @@ const StudentDashboard = () => {
         const userId = user.id || user._id;
 
         // 1. Check if career assessment is completed
-        const assessmentRes = await axios.get(`/api/assessments/${userId}`);
+        const assessmentRes = await apiClient.get(`/api/assessments/${userId}`);
         const assessmentExists =
           assessmentRes.data && Object.keys(assessmentRes.data).length > 0;
 
         // 2. Check if student details are filled
-        const detailsRes = await axios.get(`/api/students/details/${userId}`);
+        const detailsRes = await apiClient.get(`/api/students/details/${userId}`);
         const details = detailsRes.data;
         const hasFilledDetails =
           details?.rollNumber && details?.college && details?.collegecourse;
@@ -48,10 +48,8 @@ const StudentDashboard = () => {
         if (courses.length > 0) {
           recent = courses[courses.length - 1];
           try {
-            const progressRes = await axios.get(
-              `/api/progress/${userId}/${recent._id}`
-            );
-            const courseRes = await axios.get(`/api/courses/${recent._id}`);
+            const progressRes = await apiClient.get(`/api/progress/${userId}/${recent._id}`);
+            const courseRes = await apiClient.get(`/api/courses/${recent._id}`);
             // Count all lessons in all weeks
             const weeks = courseRes.data.weeks || [];
             let totalLessons = 0;

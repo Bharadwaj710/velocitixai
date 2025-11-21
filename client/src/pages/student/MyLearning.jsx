@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { useNavigate } from "react-router-dom";
 
 const MyLearning = () => {
@@ -12,20 +12,24 @@ const MyLearning = () => {
   useEffect(() => {
     const fetchEnrolled = async () => {
       try {
-        const detailsRes = await axios.get(`/api/students/details/${userId}`);
-        let courses = detailsRes.data.course || [];
+        const detailsRes = await apiClient.get(`/api/students/details/${userId}`);
+        let courses = detailsRes.data?.course || [];
         if (!Array.isArray(courses)) courses = courses ? [courses] : [];
         // Fetch progress for each course
         const coursesWithProgress = await Promise.all(
           courses.map(async (course) => {
-            try {
-              const progressRes = await axios.get(
+              try {
+              const progressRes = await apiClient.get(
                 `/api/progress/${userId}/${course._id}`
               );
-              const courseRes = await axios.get(`/api/courses/${course._id}`);
+              const courseRes = await apiClient.get(`/api/courses/${course._id}`);
               const weeks = courseRes.data.weeks || [];
               let totalLessons = 0;
-              let completedLessons = progressRes.data.completedLessons || [];
+              const completedLessons = Array.isArray(
+                progressRes.data?.completedLessons
+              )
+                ? progressRes.data.completedLessons
+                : [];
               let found = false;
               let flatIdx = 0;
               let lastFlatIdx = 0;
@@ -59,20 +63,15 @@ const MyLearning = () => {
           })
         );
         // Fetch interview session status for each course (if AI Interview enabled)
-        const token = localStorage.getItem("token");
         const coursesWithStatus = await Promise.all(
           coursesWithProgress.map(async (c) => {
             try {
               // Only query if course supports AI interview (property present)
               if (!c.aiInterviewEnabled) return { ...c, interviewStatus: null };
-              const opts = token
-                ? { headers: { Authorization: `Bearer ${token}` } }
-                : {};
-              const res = await axios.get(
-                `/api/aiInterview/session/${userId}/${c._id}`,
-                opts
+              const res = await apiClient.get(
+                `/api/aiInterview/session/${userId}/${c._id}`
               );
-              return { ...c, interviewStatus: res.data.status || null };
+              return { ...c, interviewStatus: res.data?.status || null };
             } catch (err) {
               // on any error, don't block—set null status
               return { ...c, interviewStatus: null };

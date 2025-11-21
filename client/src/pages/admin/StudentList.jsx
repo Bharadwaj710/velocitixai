@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -20,11 +20,11 @@ const Student = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const studentRes = await axios.get("/admin/students");
+        const studentRes = await apiClient.get("/admin/students");
         setStudents(studentRes.data);
 
-        const filterRes = await axios.get("/admin/students/filters");
-        setFilters(filterRes.data);
+        const filterRes = await apiClient.get("/admin/students/filters");
+        setFilters(filterRes.data || { courses: [], colleges: [] });
       } catch (err) {
         console.error("Error loading data:", err);
       }
@@ -32,7 +32,9 @@ const Student = () => {
     load();
   }, []);
 
-  const filtered = students.filter(
+  const safeStudents = Array.isArray(students) ? students : [];
+
+  const filtered = safeStudents.filter(
     (std) =>
       (std.name?.toLowerCase().includes(filter.toLowerCase()) ||
         std.college?.toLowerCase().includes(filter.toLowerCase())) &&
@@ -107,9 +109,9 @@ const Student = () => {
                   <td className="p-3">{s.scorecard || "Not updated"}</td>
                   <td className="p-3">
                     <button
-                      onClick={async () => {
+                          onClick={async () => {
                         try {
-                          const res = await axios.get(
+                          const res = await apiClient.get(
                             `/admin/student/${s._id}`
                           );
 

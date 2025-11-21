@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Bell, ChevronDown, LogOut, Menu, X } from "lucide-react";
+import apiClient from "../api/apiClient";
 
 const StudentNavbar = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -61,7 +62,7 @@ const StudentNavbar = () => {
 
   const handleRemoveNotification = async (id) => {
     try {
-      await fetch(`/api/notifications/${id}`, { method: "DELETE" });
+      await apiClient.delete(`/api/notifications/${id}`);
       setBackendNotifications((prev) => prev.filter((n) => n._id !== id));
     } catch (error) {
       console.error("Error removing notification:", error);
@@ -77,9 +78,7 @@ const StudentNavbar = () => {
         return;
       }
       // Assuming an API endpoint to clear all notifications for a student
-      await fetch(`/api/notifications/clear/${studentId}`, {
-        method: "DELETE",
-      });
+      await apiClient.delete(`/api/notifications/clear/${studentId}`);
       setBackendNotifications([]); // Clear all notifications from state
       setShowNotifications(false); // Close the dropdown after clearing
     } catch (error) {
@@ -100,20 +99,12 @@ const StudentNavbar = () => {
           console.warn("Student ID not found for fetching notifications.");
           return;
         }
-        const res = await fetch(`/api/notifications/user/${studentId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const filteredNotifications = data.filter(
-            (n) => n.type === "new_course"
-          );
-          setBackendNotifications(filteredNotifications);
-        } else {
-          console.error(
-            "Failed to fetch notifications:",
-            res.status,
-            res.statusText
-          );
-        }
+        const res = await apiClient.get(`/api/notifications/user/${studentId}`);
+        const data = res.data;
+        const filteredNotifications = Array.isArray(data)
+          ? data.filter((n) => n.type === "new_course")
+          : [];
+        setBackendNotifications(filteredNotifications);
       } catch (error) {
         console.error("Error fetching notifications:", error);
       }
@@ -135,13 +126,8 @@ const StudentNavbar = () => {
         return;
       }
       try {
-        const res = await fetch(`/api/students/details/${userId}`);
-        if (!res.ok) {
-          setShowNavLinks(false);
-          setCheckingDetails(false);
-          return;
-        }
-        const data = await res.json();
+        const res = await apiClient.get(`/api/students/details/${userId}`);
+        const data = res.data;
         if (data && data.rollNumber && data.college && data.collegecourse) {
           setShowNavLinks(true);
         } else {

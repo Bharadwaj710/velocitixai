@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '../../api/apiClient';
 import { fetchHRs } from '../../services/api';
 
 const HRList = () => {
@@ -13,10 +13,10 @@ const HRList = () => {
     const load = async () => {
       try {
         const hrRes = await fetchHRs();
-        setHRs(hrRes.data);
+        setHRs(Array.isArray(hrRes.data) ? hrRes.data : []);
 
-        const companyRes = await axios.get('admin/hrs/filters');
-        setCompanies(companyRes.data.companies);
+        const companyRes = await apiClient.get('/admin/hrs/filters');
+        setCompanies(companyRes.data.companies || []);
       } catch (err) {
         console.error("HR or filter fetch failed:", err);
       }

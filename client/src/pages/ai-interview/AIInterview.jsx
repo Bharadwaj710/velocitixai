@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { useLocation, useNavigate } from "react-router-dom";
 import SpeechRecognition, {
   useSpeechRecognition,
@@ -85,14 +85,7 @@ const AIInterview = () => {
       attempts++;
 
       try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/report/${sessionId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
+        const res = await apiClient.get(`/api/aiInterview/report/${sessionId}`);
 
         // progress bump
         setProgress(
@@ -140,12 +133,7 @@ const AIInterview = () => {
     const checkIfCompleted = async () => {
       if (!courseId) return;
       try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/report/course/${courseId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const res = await apiClient.get(`/api/aiInterview/report/course/${courseId}`);
         if (res.data && res.data._id) {
           setStep("completed-report");
         }
@@ -288,34 +276,26 @@ const AIInterview = () => {
       timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
     }
 
-    try {
-      await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/save-answer`,
-        {
-          question: currentQuestion,
-          answer: "",
-          transcript: "",
-          index: questionIndex,
-          studentId: decoded.userId,
-          skip: true,
-          timedOut,
-          courseId: courseId,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      try {
+      await apiClient.post(`/api/aiInterview/save-answer`, {
+        question: currentQuestion,
+        answer: "",
+        transcript: "",
+        index: questionIndex,
+        studentId: decoded.userId,
+        skip: true,
+        timedOut,
+        courseId: courseId,
+      });
 
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/next-question?courseId=${courseId}`,
-        {
-          answer: "",
-          question: currentQuestion,
-          transcript: "",
-          studentId: decoded.userId,
-          skip: true,
-          timedOut,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.post(`/api/aiInterview/next-question?courseId=${courseId}`, {
+        answer: "",
+        question: currentQuestion,
+        transcript: "",
+        studentId: decoded.userId,
+        skip: true,
+        timedOut,
+      });
 
       if (res.data.finished) {
         stopRecording();
@@ -397,17 +377,8 @@ const AIInterview = () => {
       } catch {}
     }
 
-    try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/terminate`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      try {
+        const res = await apiClient.post(`/api/aiInterview/terminate`, formData);
 
       const { reportId, sessionId } = res.data || {};
       if (!reportId && !sessionId) {
@@ -493,17 +464,9 @@ const AIInterview = () => {
         formData.append("frame", blob);
 
         const token = localStorage.getItem("token");
-        const res = await axios.post(
-          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/check-frame`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "multipart/form-data",
-            },
-            timeout: 8000,
-          }
-        );
+        const res = await apiClient.post(`/api/aiInterview/check-frame`, formData, {
+          timeout: 8000,
+        });
 
         const data = res.data || {};
         console.debug("Cheat detector response:", data);
@@ -611,15 +574,7 @@ const AIInterview = () => {
       setTranscript([]);
       setLoadingNextQuestion(false);
 
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/start-interview?courseId=${courseId}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const res = await apiClient.post(`/api/aiInterview/start-interview?courseId=${courseId}`, {});
       timestampsRef.current = [{ question: 0, start: Date.now() }];
 
       const question = res.data.question;
@@ -665,19 +620,15 @@ const AIInterview = () => {
         timestampsRef.current[timestampsRef.current.length - 1].end =
           Date.now();
 
-        const res = await axios.post(
-          `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/next-question?courseId=${courseId}`,
-          {
-            answer: "",
-            question: currentQuestion,
-            transcript: "",
-            studentId: decoded.userId,
-            skip: false,
-            timedOut: true, // ✅ will be true for revisit no answer as well
-            courseId: courseId,
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const res = await apiClient.post(`/api/aiInterview/next-question?courseId=${courseId}`, {
+          answer: "",
+          question: currentQuestion,
+          transcript: "",
+          studentId: decoded.userId,
+          skip: false,
+          timedOut: true,
+          courseId: courseId,
+        });
 
         timedOutTriggeredRef.current = false;
 
@@ -718,35 +669,27 @@ const AIInterview = () => {
       }
 
       // ✅ Save answer or skip
-      await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/save-answer`,
-        {
-          answer: skip ? "" : finalAnswer,
-          question: currentQuestion,
-          transcript: skip ? "" : finalAnswer,
-          index,
-          studentId: decoded.userId,
-          timedOut: false,
-          skip,
-          courseId: courseId,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await apiClient.post(`/api/aiInterview/save-answer`, {
+        answer: skip ? "" : finalAnswer,
+        question: currentQuestion,
+        transcript: skip ? "" : finalAnswer,
+        index,
+        studentId: decoded.userId,
+        timedOut: false,
+        skip,
+        courseId: courseId,
+      });
       setSkipped((prev) => prev.filter((i) => i !== questionIndex));
 
       // ✅ Fetch next question
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/next-question?courseId=${courseId}`,
-        {
-          answer: skip ? "" : finalAnswer,
-          question: currentQuestion,
-          transcript: skip ? "" : finalAnswer,
-          studentId: decoded.userId,
-          skip,
-          timedOut: false,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.post(`/api/aiInterview/next-question?courseId=${courseId}`, {
+        answer: skip ? "" : finalAnswer,
+        question: currentQuestion,
+        transcript: skip ? "" : finalAnswer,
+        studentId: decoded.userId,
+        skip,
+        timedOut: false,
+      });
 
       if (res.data.finished) {
         // Show analyzing UI immediately before stopping recording
@@ -838,16 +781,7 @@ const AIInterview = () => {
     }
 
     try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/complete-interview`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await apiClient.post(`/api/aiInterview/complete-interview`, formData);
 
       // ensure backend returns one of these — sessionId preferred for polling
       const { reportId, sessionId } = res.data || {};

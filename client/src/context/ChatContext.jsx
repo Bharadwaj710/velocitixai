@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import useChatBot from "../hooks/useChatBot";
 import { useAuth } from "./AuthContext";
-import axios from "axios";
+import apiClient from "../api/apiClient";
 
 const ChatContext = createContext();
 
@@ -24,13 +24,14 @@ export const ChatProvider = ({ children, courseId }) => {
 
   const fetchSuggestions = async () => {
     try {
-      const res = await axios.post("/api/chat/suggestions", {
+      const res = await apiClient.post("/api/chat/suggestions", {
         userId: user?._id || user?.id,
         courseId, // <- received from props to ChatProvider
       });
-      console.log("Fetched suggestions:", res.data.questions);
-      if (res.data.questions?.length) {
-        setSuggestions(res.data.questions);
+      const questions = Array.isArray(res.data.questions) ? res.data.questions : [];
+      console.log("Fetched suggestions:", questions);
+      if (questions.length) {
+        setSuggestions(questions);
         setSuggestionsVisible(true);
       }
     } catch (err) {

@@ -14,7 +14,7 @@ import { fetchOverviewStats, fetchRecentNotifications } from '../../services/api
 import RecentActivityPage from './RecentActivityPage';
 import CourseManager from './CourseManager';
 import HiredStudents from './HiredStudents';
-import axios from 'axios';
+import apiClient from '../../api/apiClient';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -50,11 +50,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchRecentActivity = async () => {
       try {
-        const res = await axios.get("/admin/recent-activity", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
+        const res = await apiClient.get(`/admin/recent-activity`);
         setRecentActivity(res.data);
       } catch (err) {
         // Optionally handle error

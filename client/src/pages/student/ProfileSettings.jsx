@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -18,11 +18,7 @@ const ProfileSettings = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`/api/users/${userId}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
+        const res = await apiClient.get(`/api/users/${userId}`);
        setProfile(res.data.user);
         // Use imageUrl if available, else fallback to profilePicture
         if (res.data.user?.imageUrl) {
@@ -45,16 +41,7 @@ const ProfileSettings = () => {
     const formData = new FormData();
     formData.append("profilePicture", file);
     try {
-      const res = await axios.put(
-        `/api/users/upload-profile/${userId}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const res = await apiClient.put(`/api/users/upload-profile/${userId}`, formData);
       setProfile({ ...profile, newImage: file, imageUrl: res.data.imageUrl });
       // Update localStorage with new imageUrl
       const userObj = JSON.parse(localStorage.getItem("user")) || {};
@@ -84,12 +71,7 @@ const ProfileSettings = () => {
         formData.append("password", passwords.newPassword);
       }
 
-      const res = await axios.put(`/api/users/profile/${userId}`, formData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const res = await apiClient.put(`/api/users/profile/${userId}`, formData);
 
       toast.success("Profile updated!");
 
@@ -122,11 +104,7 @@ const ProfileSettings = () => {
     ) return;
 
     try {
-      await axios.delete(`/api/users/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      await apiClient.delete(`/api/users/${userId}`);
       toast.success("Account deleted");
       localStorage.clear();
       window.location.href = "/login";

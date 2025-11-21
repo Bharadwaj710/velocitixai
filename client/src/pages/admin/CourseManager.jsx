@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import axios from "axios"; // keep axios for external services (SUGGEST_API_URL)
+import apiClient from '../../api/apiClient';
 import {
   fetchCourses,
   createCourse,
@@ -213,11 +214,8 @@ const CourseManager = () => {
             const formData = new FormData();
             formData.append("pdf", pendingPdfs[pendingKey]);
             pdfUploads.push(
-              axios
-                .post(
-                  `${process.env.REACT_APP_API_BASE_URL}/api/upload/pdf`,
-                  formData
-                )
+              apiClient
+                .post(`/api/upload/pdf`, formData)
                 .then((res) => ({
                   modIdx,
                   lessonIdx,
@@ -276,7 +274,7 @@ const CourseManager = () => {
       toast.success("Course created!");
 
       // 7. Notify Admin and show second toast
-      await axios.post("/api/notifications", {
+      await apiClient.post("/api/notifications", {
         type: "admin_course_add",
         message: `New course added: ${submissionForm.title}. Please generate quiz and transcript.`,
         forRole: "admin",
@@ -322,11 +320,7 @@ const CourseManager = () => {
     const formData = new FormData();
     formData.append("pdf", file);
     try {
-      const API_BASE = `${process.env.REACT_APP_API_BASE_URL}`;
-      const uploadRes = await axios.post(
-        `${API_BASE}/api/upload/pdf`,
-        formData
-      );
+      const uploadRes = await apiClient.post(`/api/upload/pdf`, formData);
       const { url, name } = uploadRes.data;
 
       setForm((prev) => {

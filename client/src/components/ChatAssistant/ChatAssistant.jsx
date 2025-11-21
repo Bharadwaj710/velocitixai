@@ -4,7 +4,7 @@ import { Bot } from "lucide-react";
 import { useChat } from "../../context/ChatContext";
 import Message from "./Message";
 import ChatInput from "./ChatInput";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 
 const ChatAssistant = ({ courseId }) => {
   const {
@@ -42,7 +42,7 @@ const ChatAssistant = ({ courseId }) => {
     setLoading(true);
 
     try {
-      const res = await axios.post("/api/chat/message", {
+      const res = await apiClient.post("/api/chat/message", {
         userId,
         courseId,
         messages: [...messages, userMsg],
@@ -109,7 +109,7 @@ const ChatAssistant = ({ courseId }) => {
                   Here are some course-related questions you can ask:
                 </div>
                 <div className="flex flex-col gap-2 items-start">
-                  {suggestionsVisible && suggestions.length > 0 ? (
+                  {suggestionsVisible && Array.isArray(suggestions) && suggestions.length > 0 ? (
                     suggestions.map((rawQuestion, idx) => {
                       const question = rawQuestion
                         .replace(/^\s*[\*\-]?\s*\d*\.?\s*/, "")

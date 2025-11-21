@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -15,14 +15,7 @@ const ProfileSettings = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(
-          "${process.env.REACT_APP_API_BASE_URL}/admin/profile",
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
+        const res = await apiClient.get(`/admin/profile`);
 
         setProfile(res.data);
         // ✅ Cloudinary URL is public and stored directly
@@ -64,16 +57,7 @@ const ProfileSettings = () => {
         formData.append("password", passwords.newPassword);
       }
 
-      const res = await axios.put(
-        `${process.env.REACT_APP_API_BASE_URL}/admin/profile`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const res = await apiClient.put(`/admin/profile`, formData);
 
       toast.success("Profile updated!");
 
@@ -106,14 +90,7 @@ const ProfileSettings = () => {
       return;
 
     try {
-      await axios.delete(
-        `${process.env.REACT_APP_API_BASE_URL}/admin/profile`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      await apiClient.delete(`/admin/profile`);
       toast.success("Account deleted");
       localStorage.clear();
       window.location.href = "/login";

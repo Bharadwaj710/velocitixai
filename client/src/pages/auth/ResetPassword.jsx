@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { handleError, handleSuccess } from "../../utils/api";
+import apiClient from "../../api/apiClient";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -40,17 +41,8 @@ const ResetPassword = () => {
     }
 
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/auth/reset-password/${token}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ newPassword: formData.newPassword }),
-        }
-      );
-      const data = await response.json();
+      const response = await apiClient.post(`/auth/reset-password/${token}`, { newPassword: formData.newPassword });
+      const data = response.data;
 
       if (!response.ok) {
         // Check specifically for same password error

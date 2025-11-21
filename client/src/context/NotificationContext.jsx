@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../api/apiClient";
 
 const NotificationContext = createContext();
 
@@ -19,12 +19,14 @@ export const NotificationProvider = ({ children }) => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get(`/api/notifications/user/${studentId}`); // ✅ FIXED PATH
-      const formatted = res.data.map((n) => ({
+      const res = await apiClient.get(`/api/notifications/user/${studentId}`); // ✅ FIXED PATH
+      const formatted = Array.isArray(res.data)
+        ? res.data.map((n) => ({
         ...n,
         link: n.meta?.link || "/student/courses",
         courseId: n.meta?.courseId || null,
-      }));
+      }))
+        : [];
       setNotifications(formatted);
     } catch (error) {
       console.error("Error fetching notifications", error);
@@ -33,7 +35,7 @@ export const NotificationProvider = ({ children }) => {
 
   const addNotification = async (notification) => {
     try {
-      await axios.post("/api/notifications", notification);
+      await apiClient.post("/api/notifications", notification);
       fetchNotifications();
     } catch (error) {
       console.error("Error adding notification", error);
@@ -42,7 +44,7 @@ export const NotificationProvider = ({ children }) => {
 
   const removeNotification = async (id) => {
     try {
-      await axios.delete(`/api/notifications/${id}`);
+      await apiClient.delete(`/api/notifications/${id}`);
       setNotifications((prev) => prev.filter((n) => n._id !== id));
     } catch (error) {
       console.error("Error removing notification", error);
@@ -51,7 +53,7 @@ export const NotificationProvider = ({ children }) => {
 
   const clearNotifications = async () => {
     try {
-      await axios.delete(`/api/notifications/clear/${studentId}`);
+      await apiClient.delete(`/api/notifications/clear/${studentId}`);
       setNotifications([]);
     } catch (error) {
       console.error("Error clearing notifications", error);

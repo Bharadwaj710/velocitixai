@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from '../../api/apiClient';
 
 const HRProfile = () => {
   const [companyName, setCompanyName] = useState("");
@@ -12,9 +12,7 @@ const HRProfile = () => {
     const fetchHRDetails = async () => {
       try {
         const loggedUser = JSON.parse(localStorage.getItem("user"));
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/hr/${loggedUser._id}/details`
-        );
+        const res = await apiClient.get(`/api/hr/${loggedUser._id}/details`);
         const hr = res.data.hr;
         setCompanyName(hr.company || "");
         setPhoneNumber(hr.phoneNumber || "");

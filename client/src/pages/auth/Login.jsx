@@ -6,6 +6,7 @@ import { GoogleLogin } from "@react-oauth/google";
 import "react-toastify/dist/ReactToastify.css";
 
 import { handleError, handleSuccess } from "../../utils/api";
+import apiClient from "../../api/apiClient";
 import { useAuth } from "../../context/AuthContext";
 
 const Login = () => {
@@ -26,18 +27,8 @@ const Login = () => {
     }
 
     try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/auth/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        }
-      );
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message || "Login failed");
-
+      const response = await apiClient.post(`/auth/login`, formData);
+      const result = response.data;
       const { user, token, hrInfo } = result;
 
       // Save user and hrInfo (if present) in localStorage
@@ -51,17 +42,9 @@ const Login = () => {
       // --- Admin-specific: fetch full admin profile and store in localStorage ---
       if (user.isAdmin) {
         // Fetch admin profile from backend (ensure token is set)
-        try {
-          const adminRes = await fetch(
-            `${process.env.REACT_APP_API_BASE_URL}/admin/profile`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          if (adminRes.ok) {
-            const adminProfile = await adminRes.json();
+          try {
+            const adminRes = await apiClient.get(`/admin/profile`);
+            const adminProfile = adminRes.data;
             localStorage.setItem(
               "admin",
               JSON.stringify({
@@ -71,7 +54,7 @@ const Login = () => {
                 imageUrl: adminProfile.imageUrl || "",
               })
             );
-          } else {
+          } catch {
             // fallback: store basic info
             localStorage.setItem(
               "admin",
@@ -83,18 +66,6 @@ const Login = () => {
               })
             );
           }
-        } catch {
-          // fallback: store basic info
-          localStorage.setItem(
-            "admin",
-            JSON.stringify({
-              name: user.name,
-              email: user.email,
-              id: user._id,
-              imageUrl: user.imageUrl || "",
-            })
-          );
-        }
       }
 
       login(userToStore);
@@ -107,16 +78,8 @@ const Login = () => {
   const handleGoogleLogin = async (credentialResponse) => {
     const token = credentialResponse.credential;
     try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/auth/google`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        }
-      );
-
-      const result = await res.json();
+      const response = await apiClient.post(`/auth/google`, { token });
+      const result = response.data;
       const { success, jwtToken, user } = result;
 
       if (success) {

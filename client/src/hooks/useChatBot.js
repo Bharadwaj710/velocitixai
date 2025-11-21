@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import axios from "axios";
+import apiClient from "../api/apiClient";
 
 const useChatBot = () => {
   // Returns a function to send a message to the backend
   return useCallback(async ({ userId, courseId, messages }) => {
-    const res = await axios.post("/api/chat/message", {
+    const res = await apiClient.post("/api/chat/message", {
       userId,
       courseId,
       messages,

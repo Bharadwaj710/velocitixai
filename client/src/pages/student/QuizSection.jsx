@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "axios"; // kept for external scoring service
+import apiClient from "../../api/apiClient";
 import { Lock, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -34,16 +35,16 @@ const QuizSection = ({
       setLoading(true);
       try {
         const [quizRes, progressRes] = await Promise.all([
-          axios.get(`/api/quiz/${lessonId}`),
-          axios.get(`/api/progress/${userId}/${courseId}`),
+          apiClient.get(`/api/quiz/${lessonId}`),
+          apiClient.get(`/api/progress/${userId}/${courseId}`),
         ]);
 
         const quizData = quizRes.data;
         setQuiz(quizData);
-        setAnswers(quizData.questions.map(() => ({ answer: "" })));
-        setTimeLeft(quizData.questions.length * 60);
+        setAnswers(Array.isArray(quizData.questions) ? quizData.questions.map(() => ({ answer: "" })) : []);
+        setTimeLeft(Array.isArray(quizData.questions) ? quizData.questions.length * 60 : 0);
 
-        const existingAttempt = progressRes.data.quizResults.find(
+        const existingAttempt = (Array.isArray(progressRes.data.quizResults) ? progressRes.data.quizResults : []).find(
           (q) => q.lessonId === lessonId || q.lessonId?._id === lessonId
         );
 
@@ -133,7 +134,7 @@ const QuizSection = ({
         questions: quiz.questions,
       });
 
-      await axios.post("/api/progress/submit-quiz", {
+      await apiClient.post("/api/progress/submit-quiz", {
         studentId: userId,
         courseId,
         lessonId,

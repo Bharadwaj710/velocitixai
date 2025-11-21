@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { handleError, handleSuccess } from "../../utils/api";
+import apiClient from "../../api/apiClient";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../../context/AuthContext";
@@ -58,16 +59,8 @@ const ForgotPassword = () => {
 
     try {
       setIsLoading(true);
-      const url = "${process.env.REACT_APP_API_BASE_URL}/auth/forgot-password";
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
+      const response = await apiClient.post(`/auth/forgot-password`, formData);
+      const data = response.data;
 
       if (!response.ok) {
         handleError(data.message || "Failed to process request");

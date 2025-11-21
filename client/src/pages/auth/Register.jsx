@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { handleError, handleSuccess } from "../../utils/api";
+import apiClient from "../../api/apiClient";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { GoogleLogin } from "@react-oauth/google";
@@ -75,20 +76,8 @@ const Register = () => {
 
     try {
       const { name, email, password } = formData;
-      const res = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/auth/signup`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password, role: "student" }),
-        }
-      );
-
-      const result = await res.json();
-      if (!res.ok) {
-        handleError(result.message || "Registration failed");
-        return;
-      }
+      const response = await apiClient.post(`/auth/signup`, { name, email, password, role: "student" });
+      const result = response.data;
 
       if (result.success) {
         // Save imageUrl if present
@@ -114,16 +103,8 @@ const Register = () => {
     const token = credentialResponse.credential;
 
     try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/auth/google-signup`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        }
-      );
-
-      const data = await res.json();
+      const response = await apiClient.post(`/auth/google-signup`, { token });
+      const data = response.data;
       if (data.success) {
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("token", data.jwtToken);

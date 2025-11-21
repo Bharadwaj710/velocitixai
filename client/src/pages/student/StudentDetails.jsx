@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
@@ -38,14 +38,7 @@ const StudentDetails = () => {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
         if (!user?.id && !user?._id) return setLoading(false);
-        const res = await axios.get(
-          `/api/students/details/${user.id || user._id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
+        const res = await apiClient.get(`/api/students/details/${user.id || user._id}`);
         if (res.data && Object.keys(res.data).length > 0) {
           setForm({
             rollNumber: res.data.rollNumber || "",
@@ -93,18 +86,10 @@ console.log("🎓 College:", form.college);
 console.log("🧠 Slug Generated:", slug);
 console.log("👤 User ID Used:", user?.id || user?._id);
 
-    await axios.post("/api/students/details", payload, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
+    await apiClient.post("/api/students/details", payload);
 
     // 👉 Refetch updated student and update localStorage
-    const refetchRes = await axios.get(`/api/students/details/${user.id || user._id}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
+    const refetchRes = await apiClient.get(`/api/students/details/${user.id || user._id}`);
     localStorage.setItem("student", JSON.stringify(refetchRes.data));
 
     toast.success("Details saved successfully");
