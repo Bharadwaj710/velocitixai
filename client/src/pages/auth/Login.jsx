@@ -42,30 +42,30 @@ const Login = () => {
       // --- Admin-specific: fetch full admin profile and store in localStorage ---
       if (user.isAdmin) {
         // Fetch admin profile from backend (ensure token is set)
-          try {
-            const adminRes = await apiClient.get(`/admin/profile`);
-            const adminProfile = adminRes.data;
-            localStorage.setItem(
-              "admin",
-              JSON.stringify({
-                name: adminProfile.name,
-                email: adminProfile.email,
-                id: adminProfile._id,
-                imageUrl: adminProfile.imageUrl || "",
-              })
-            );
-          } catch {
-            // fallback: store basic info
-            localStorage.setItem(
-              "admin",
-              JSON.stringify({
-                name: user.name,
-                email: user.email,
-                id: user._id,
-                imageUrl: user.imageUrl || "",
-              })
-            );
-          }
+        try {
+          const adminRes = await apiClient.get(`/admin/profile`);
+          const adminProfile = adminRes.data;
+          localStorage.setItem(
+            "admin",
+            JSON.stringify({
+              name: adminProfile.name,
+              email: adminProfile.email,
+              id: adminProfile._id,
+              imageUrl: adminProfile.imageUrl || "",
+            })
+          );
+        } catch {
+          // fallback: store basic info
+          localStorage.setItem(
+            "admin",
+            JSON.stringify({
+              name: user.name,
+              email: user.email,
+              id: user._id,
+              imageUrl: user.imageUrl || "",
+            })
+          );
+        }
       }
 
       login(userToStore);

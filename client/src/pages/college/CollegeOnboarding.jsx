@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import apiClient from '../../api/apiClient';
+import apiClient from "../../api/apiClient";
 import { useNavigate } from "react-router-dom";
 
 const CollegeOnboarding = () => {
@@ -17,9 +17,15 @@ const CollegeOnboarding = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name.startsWith("address.")) {
-      setForm({ ...form, address: { ...form.address, [name.split(".")[1]]: value } });
+      setForm({
+        ...form,
+        address: { ...form.address, [name.split(".")[1]]: value },
+      });
     } else if (name.startsWith("contact.")) {
-      setForm({ ...form, contact: { ...form.contact, [name.split(".")[1]]: value } });
+      setForm({
+        ...form,
+        contact: { ...form.contact, [name.split(".")[1]]: value },
+      });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -56,7 +62,9 @@ const CollegeOnboarding = () => {
           localStorage.setItem("user", JSON.stringify(updatedUser.data.user));
           navigate(`/college-dashboard/${res.data.slug}`);
         } else {
-          alert("College onboarded but failed to refresh user. Try logging in again.");
+          alert(
+            "College onboarded but failed to refresh user. Try logging in again."
+          );
         }
       } else {
         alert("Onboarding failed: " + res.data.message);

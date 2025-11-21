@@ -1,17 +1,18 @@
-/**
- * QUICK START GUIDE: Using apiClient.js
- * 
- * Location: src/api/apiClient.js
- * 
- * The centralized apiClient is ready to use. It handles:
- * ✓ Automatic JWT token injection from localStorage
- * ✓ Multipart/form-data support for file uploads
- * ✓ Consistent error responses
- * ✓ Base URL from environment variables
- * 
- * NO refactoring of existing calls has been done yet.
- * Migrate components one by one using this guide.
- */
+/\*\*
+
+- QUICK START GUIDE: Using apiClient.js
+-
+- Location: src/api/apiClient.js
+-
+- The centralized apiClient is ready to use. It handles:
+- ✓ Automatic JWT token injection from localStorage
+- ✓ Multipart/form-data support for file uploads
+- ✓ Consistent error responses
+- ✓ Base URL from environment variables
+-
+- NO refactoring of existing calls has been done yet.
+- Migrate components one by one using this guide.
+  \*/
 
 // ============================================================
 // BASIC USAGE
@@ -24,13 +25,13 @@ const data = await apiClient.get('/api/courses');
 
 // POST request
 const result = await apiClient.post('/api/students/enroll', {
-  courseId: 'abc123',
-  studentId: 'def456'
+courseId: 'abc123',
+studentId: 'def456'
 });
 
 // PUT request
 const updated = await apiClient.put('/api/users/123', {
-  name: 'John Doe'
+name: 'John Doe'
 });
 
 // DELETE request
@@ -42,7 +43,7 @@ await apiClient.delete('/api/notifications/456');
 
 // Method 1: Using params object
 apiClient.get('/api/progress', {
-  params: { userId: '123', courseId: '456' }
+params: { userId: '123', courseId: '456' }
 });
 
 // Method 2: In URL (also works)
@@ -76,14 +77,14 @@ await apiClient.post('/api/aiInterview/complete-interview', interviewData);
 
 // Add custom headers
 apiClient.get('/api/data', {
-  headers: {
-    'X-Custom-Header': 'value'
-  }
+headers: {
+'X-Custom-Header': 'value'
+}
 });
 
 // Override timeout for specific request
 apiClient.post('/api/long-operation', data, {
-  timeout: 60000 // 60 seconds
+timeout: 60000 // 60 seconds
 });
 
 // ============================================================
@@ -94,22 +95,22 @@ apiClient.post('/api/long-operation', data, {
 // { message: string, status: number, data: any }
 
 try {
-  const response = await apiClient.get('/api/courses');
-  // Handle success
+const response = await apiClient.get('/api/courses');
+// Handle success
 } catch (error) {
-  console.error(error.message);  // "Unauthorized"
-  console.error(error.status);   // 401
-  console.error(error.data);     // { error: "Invalid token" }
-  
-  // Handle specific errors
-  if (error.status === 401) {
-    // Token expired - user is already logged out by interceptor
-    // Redirect to login if needed
-  } else if (error.status === 404) {
-    // Resource not found
-  } else if (error.status >= 500) {
-    // Server error
-  }
+console.error(error.message); // "Unauthorized"
+console.error(error.status); // 401
+console.error(error.data); // { error: "Invalid token" }
+
+// Handle specific errors
+if (error.status === 401) {
+// Token expired - user is already logged out by interceptor
+// Redirect to login if needed
+} else if (error.status === 404) {
+// Resource not found
+} else if (error.status >= 500) {
+// Server error
+}
 }
 
 // ============================================================
@@ -118,12 +119,12 @@ try {
 
 // BEFORE (current scattered implementation):
 const response = await axios.get(
-  `${process.env.REACT_APP_API_BASE_URL}/api/courses`,
-  {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-  }
+`${process.env.REACT_APP_API_BASE_URL}/api/courses`,
+{
+headers: {
+Authorization: `Bearer ${localStorage.getItem('token')}`
+}
+}
 );
 
 // AFTER (using apiClient):
@@ -138,8 +139,8 @@ const response = await apiClient.get('/api/courses');
 // 1. Interview Report Polling (AIInterview.jsx)
 // BEFORE:
 const res = await axios.get(
-  `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/report/${sessionId}`,
-  { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+`${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/report/${sessionId}`,
+{ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
 );
 
 // AFTER:
@@ -152,9 +153,9 @@ formData.append('sessionId', sessionId);
 formData.append('video', videoBlob);
 formData.append('studentId', studentId);
 const res = await axios.post(
-  `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/complete-interview`,
-  formData,
-  { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+`${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/complete-interview`,
+formData,
+{ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
 );
 
 // AFTER (exactly the same, but shorter):
@@ -167,8 +168,8 @@ const res = await apiClient.post('/api/aiInterview/complete-interview', formData
 // 3. Get all reports (HR Dashboard.jsx)
 // BEFORE:
 const repRes = await axios.get(
-  `${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/all-reports`,
-  { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+`${process.env.REACT_APP_API_BASE_URL}/api/aiInterview/all-reports`,
+{ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
 );
 
 // AFTER:
@@ -179,9 +180,9 @@ const repRes = await apiClient.get('/api/aiInterview/all-reports');
 const formData = new FormData();
 formData.append('file', pdfFile);
 const uploadRes = await axios.post(
-  `${process.env.REACT_APP_API_BASE_URL}/api/upload/pdf`,
-  formData,
-  { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+`${process.env.REACT_APP_API_BASE_URL}/api/upload/pdf`,
+formData,
+{ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
 );
 
 // AFTER:

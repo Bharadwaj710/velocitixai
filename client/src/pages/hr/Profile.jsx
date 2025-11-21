@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import apiClient from '../../api/apiClient';
+import apiClient from "../../api/apiClient";
 
 const HRProfile = () => {
   const [companyName, setCompanyName] = useState("");

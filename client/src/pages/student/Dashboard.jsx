@@ -27,7 +27,9 @@ const StudentDashboard = () => {
           assessmentRes.data && Object.keys(assessmentRes.data).length > 0;
 
         // 2. Check if student details are filled
-        const detailsRes = await apiClient.get(`/api/students/details/${userId}`);
+        const detailsRes = await apiClient.get(
+          `/api/students/details/${userId}`
+        );
         const details = detailsRes.data;
         const hasFilledDetails =
           details?.rollNumber && details?.college && details?.collegecourse;
@@ -48,7 +50,9 @@ const StudentDashboard = () => {
         if (courses.length > 0) {
           recent = courses[courses.length - 1];
           try {
-            const progressRes = await apiClient.get(`/api/progress/${userId}/${recent._id}`);
+            const progressRes = await apiClient.get(
+              `/api/progress/${userId}/${recent._id}`
+            );
             const courseRes = await apiClient.get(`/api/courses/${recent._id}`);
             // Count all lessons in all weeks
             const weeks = courseRes.data.weeks || [];

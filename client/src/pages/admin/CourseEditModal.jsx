@@ -553,10 +553,13 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
       const lessonId =
         editedCourse.weeks[weekIdx].modules[modIdx].lessons[lessonIdx]._id;
       const courseId = editedCourse._id;
-      await apiClient.put(`/api/courses/${courseId}/lessons/${lessonId}/add-pdf`, {
-        pdfName: name,
-        pdfUrl: url,
-      });
+      await apiClient.put(
+        `/api/courses/${courseId}/lessons/${lessonId}/add-pdf`,
+        {
+          pdfName: name,
+          pdfUrl: url,
+        }
+      );
       // Fetch updated course to get new resources array
       const updated = await apiClient.get(`/api/courses/${courseId}`);
       setEditedCourse(updated.data);

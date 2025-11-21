@@ -30,16 +30,22 @@ export const updateProfile = (formData) =>
 export const deleteProfile = () => apiClient.delete(`/admin/profile`);
 
 // ==================== Notifications ====================
-export const fetchRecentNotifications = () => apiClient.get(`/admin/notifications/recent`);
+export const fetchRecentNotifications = () =>
+  apiClient.get(`/admin/notifications/recent`);
 
-export const fetchAllNotifications = () => apiClient.get(`/admin/notifications/all`);
+export const fetchAllNotifications = () =>
+  apiClient.get(`/admin/notifications/all`);
 
-export const markNotificationAsRead = (id) => apiClient.put(`/admin/notifications/${id}/read`);
+export const markNotificationAsRead = (id) =>
+  apiClient.put(`/admin/notifications/${id}/read`);
 
-export const clearAllNotifications = () => apiClient.delete(`/admin/notifications/clear`);
+export const clearAllNotifications = () =>
+  apiClient.delete(`/admin/notifications/clear`);
 
 // ==================== Courses ====================
 export const fetchCourses = () => apiClient.get(`/api/courses`);
-export const createCourse = (courseData) => apiClient.post(`/api/courses`, courseData);
-export const updateCourse = (id, data) => apiClient.put(`/api/courses/${id}`, data);
+export const createCourse = (courseData) =>
+  apiClient.post(`/api/courses`, courseData);
+export const updateCourse = (id, data) =>
+  apiClient.put(`/api/courses/${id}`, data);
 export const deleteCourse = (id) => apiClient.delete(`/api/courses/${id}`);

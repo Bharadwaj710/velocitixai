@@ -38,7 +38,10 @@ async function pollForReportById(
   while (attempts < maxAttempts) {
     attempts++;
     try {
-      const res = await apiClient.get(`/api/aiInterview/report/${id}`, headers ? { headers } : {});
+      const res = await apiClient.get(
+        `/api/aiInterview/report/${id}`,
+        headers ? { headers } : {}
+      );
       // successful report
       if (res && res.status === 200 && res.data) return res.data;
       // if backend returned 202 but axios treats 202 as success, continue to next iteration
@@ -754,7 +757,9 @@ const CoursePlayer = () => {
         }
 
         // get session by course
-        const res = await apiClient.get(`/api/aiInterview/session/${userId}/${courseId}`);
+        const res = await apiClient.get(
+          `/api/aiInterview/session/${userId}/${courseId}`
+        );
 
         if (cancelled) return;
 
@@ -765,7 +770,9 @@ const CoursePlayer = () => {
         // If session already has a report flag true -> fetch the actual report to obtain reportId
         if (session.hasReport) {
           try {
-            const report = await apiClient.get(`/api/aiInterview/report/${session._id}`);
+            const report = await apiClient.get(
+              `/api/aiInterview/report/${session._id}`
+            );
             if (!cancelled) {
               setReportId(
                 report.data._id ||
@@ -1459,7 +1466,9 @@ const CoursePlayer = () => {
             }}
             onComplete={async () => {
               try {
-                const res = await apiClient.get(`/api/progress/${userId}/${courseId}`);
+                const res = await apiClient.get(
+                  `/api/progress/${userId}/${courseId}`
+                );
                 setCompletedLessons(res.data.completedLessons || []);
                 setQuizResults(res.data.quizResults || []);
               } catch (err) {

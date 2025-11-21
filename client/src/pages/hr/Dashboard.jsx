@@ -127,7 +127,9 @@ const Dashboard = () => {
   const fetchStudents = async () => {
     try {
       const res = await apiClient.get("/api/hr/students");
-      const studentsData = Array.isArray(res.data?.students) ? res.data.students : [];
+      const studentsData = Array.isArray(res.data?.students)
+        ? res.data.students
+        : [];
 
       // --- START OF WORKAROUND FOR N+1 PROBLEM ---
       // Fetch detailed progress for each student
@@ -179,7 +181,9 @@ const Dashboard = () => {
   const fetchInvitedStudents = async () => {
     try {
       const res = await apiClient.get("/api/hr/invited");
-      setInvitedStudents(Array.isArray(res.data?.students) ? res.data.students : []);
+      setInvitedStudents(
+        Array.isArray(res.data?.students) ? res.data.students : []
+      );
     } catch (err) {
       console.error("Error fetching invited students:", err);
       toast.error("Failed to fetch invited students list.");
@@ -344,7 +348,7 @@ const Dashboard = () => {
           courseProgressMap: studentData.courseProgressMap,
         });
         // Fetch reports for this student to determine which courses have reports
-          try {
+        try {
           const repRes = await apiClient.get("/api/aiInterview/all-reports");
           const allReports = Array.isArray(repRes.data) ? repRes.data : [];
           // Normalize to strings for easy comparison

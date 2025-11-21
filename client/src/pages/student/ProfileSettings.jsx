@@ -9,7 +9,7 @@ const ProfileSettings = () => {
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [passwords, setPasswords] = useState({
     newPassword: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
 
   const user = JSON.parse(localStorage.getItem("user")) || {};
@@ -19,13 +19,13 @@ const ProfileSettings = () => {
     const fetchProfile = async () => {
       try {
         const res = await apiClient.get(`/api/users/${userId}`);
-       setProfile(res.data.user);
+        setProfile(res.data.user);
         // Use imageUrl if available, else fallback to profilePicture
         if (res.data.user?.imageUrl) {
           setImagePreview(res.data.user.imageUrl);
         } else if (res.data.user?.profilePicture) {
           setImagePreview(res.data.user.profilePicture);
-        }
+        }
       } catch (err) {
         toast.error("Failed to load profile");
       }
@@ -41,7 +41,10 @@ const ProfileSettings = () => {
     const formData = new FormData();
     formData.append("profilePicture", file);
     try {
-      const res = await apiClient.put(`/api/users/upload-profile/${userId}`, formData);
+      const res = await apiClient.put(
+        `/api/users/upload-profile/${userId}`,
+        formData
+      );
       setProfile({ ...profile, newImage: file, imageUrl: res.data.imageUrl });
       // Update localStorage with new imageUrl
       const userObj = JSON.parse(localStorage.getItem("user")) || {};
@@ -87,7 +90,8 @@ const ProfileSettings = () => {
       const studentObj = JSON.parse(localStorage.getItem("student")) || {};
       studentObj.name = res.data.name;
       studentObj.email = res.data.email;
-      studentObj.imageUrl = res.data.imageUrl || res.data.profilePicture || null;
+      studentObj.imageUrl =
+        res.data.imageUrl || res.data.profilePicture || null;
       localStorage.setItem("student", JSON.stringify(studentObj));
       // Always redirect to dashboard after save
       setTimeout(() => {
@@ -99,9 +103,8 @@ const ProfileSettings = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (
-      !window.confirm("Are you sure you want to delete your account?")
-    ) return;
+    if (!window.confirm("Are you sure you want to delete your account?"))
+      return;
 
     try {
       await apiClient.delete(`/api/users/${userId}`);

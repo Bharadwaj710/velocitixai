@@ -1,48 +1,49 @@
-/**
- * VELOTEXAI - CENTRALIZED AXIOS CLIENT COMPLETION SUMMARY
- * Date: November 21, 2025
- * 
- * Status: ✓ COMPLETE - apiClient.js created and ready for component migration
- * DO NOT refactor existing calls yet - only prepare the client
- */
+/\*\*
+
+- VELOTEXAI - CENTRALIZED AXIOS CLIENT COMPLETION SUMMARY
+- Date: November 21, 2025
+-
+- Status: ✓ COMPLETE - apiClient.js created and ready for component migration
+- DO NOT refactor existing calls yet - only prepare the client
+  \*/
 
 // ============================================================
 // DELIVERABLES
 // ============================================================
 
 // 1. src/api/apiClient.js (CREATED ✓)
-//    - Centralized axios instance with automatic JWT injection
-//    - Request interceptor: attaches Bearer token from localStorage
-//    - Response interceptor: consistent error handling
-//    - Multipart/form-data support (auto-removes Content-Type header)
-//    - Error object format: { message, status, data }
-//    - 30-second timeout
-//    - withCredentials: true for cookie handling
-//    - Base URL: REACT_APP_API_BASE_URL or http://localhost:8080
+// - Centralized axios instance with automatic JWT injection
+// - Request interceptor: attaches Bearer token from localStorage
+// - Response interceptor: consistent error handling
+// - Multipart/form-data support (auto-removes Content-Type header)
+// - Error object format: { message, status, data }
+// - 30-second timeout
+// - withCredentials: true for cookie handling
+// - Base URL: REACT_APP_API_BASE_URL or http://localhost:8080
 
 // 2. src/api/API_PATTERNS.md (CREATED ✓)
-//    - Complete catalog of all 93+ axios calls across the app
-//    - Breakdown by component/page with exact endpoints
-//    - Existing axios instances documented (utils/api.js, services/api.js, notes.js)
-//    - All 11 fetch() calls in auth pages cataloged
-//    - Multipart endpoints identified
-//    - Bearer token requirements documented
-//    - Query parameter patterns identified
-//    - Environment configuration documented
-//    - Migration priority recommendations provided
-//    - External service (Python localhost:5001) noted
+// - Complete catalog of all 93+ axios calls across the app
+// - Breakdown by component/page with exact endpoints
+// - Existing axios instances documented (utils/api.js, services/api.js, notes.js)
+// - All 11 fetch() calls in auth pages cataloged
+// - Multipart endpoints identified
+// - Bearer token requirements documented
+// - Query parameter patterns identified
+// - Environment configuration documented
+// - Migration priority recommendations provided
+// - External service (Python localhost:5001) noted
 
 // 3. src/api/APILIENT_GUIDE.md (CREATED ✓)
-//    - Quick start guide with real examples
-//    - Basic usage patterns (GET, POST, PUT, DELETE)
-//    - Query parameters usage
-//    - Multipart/form-data upload examples
-//    - Custom headers and config examples
-//    - Error handling patterns with specific error codes
-//    - Before/after code comparison for actual components
-//    - Use cases specific to VeloAI (interview flow, uploads, etc.)
-//    - Migration plan with 4 phases
-//    - Important notes and gotchas
+// - Quick start guide with real examples
+// - Basic usage patterns (GET, POST, PUT, DELETE)
+// - Query parameters usage
+// - Multipart/form-data upload examples
+// - Custom headers and config examples
+// - Error handling patterns with specific error codes
+// - Before/after code comparison for actual components
+// - Use cases specific to VeloAI (interview flow, uploads, etc.)
+// - Migration plan with 4 phases
+// - Important notes and gotchas
 
 // ============================================================
 // PROJECT ANALYSIS RESULTS
@@ -105,25 +106,25 @@
 // ============================================================
 
 // 1. src/utils/api.js
-//    - Status: DEPRECATED - should be removed after migration
-//    - Features: Has request/response interceptors (similar to new apiClient)
-//    - Import path: @/utils/api
-//    - Used by: Minimal usage currently
-//    - Action: Remove after all components migrated to apiClient
+// - Status: DEPRECATED - should be removed after migration
+// - Features: Has request/response interceptors (similar to new apiClient)
+// - Import path: @/utils/api
+// - Used by: Minimal usage currently
+// - Action: Remove after all components migrated to apiClient
 
 // 2. src/services/api.js
-//    - Status: DEPRECATED - functions should migrate to apiClient-based modules
-//    - Features: Wrapper functions for common endpoints
-//    - Imports: axios directly, uses BASE URL variable
-//    - Functions: fetchUsers, updateUser, updateProfile, fetchCourses, etc.
-//    - Action: Migrate functions or use apiClient directly in components
+// - Status: DEPRECATED - functions should migrate to apiClient-based modules
+// - Features: Wrapper functions for common endpoints
+// - Imports: axios directly, uses BASE URL variable
+// - Functions: fetchUsers, updateUser, updateProfile, fetchCourses, etc.
+// - Action: Migrate functions or use apiClient directly in components
 
 // 3. src/api/notes.js
-//    - Status: DEPRECATED - endpoints should use apiClient
-//    - Issue: Hardcoded 'http://localhost:8080'
-//    - Should use: process.env.REACT_APP_API_BASE_URL or apiClient
-//    - Functions: fetchNotes, saveNote, deleteNote, updateNote
-//    - Action: Update to use apiClient or environment variable
+// - Status: DEPRECATED - endpoints should use apiClient
+// - Issue: Hardcoded 'http://localhost:8080'
+// - Should use: process.env.REACT_APP_API_BASE_URL or apiClient
+// - Functions: fetchNotes, saveNote, deleteNote, updateNote
+// - Action: Update to use apiClient or environment variable
 
 // ============================================================
 // MIGRATION RECOMMENDATIONS
@@ -168,43 +169,43 @@
 // ============================================================
 
 // 1. NO REFACTORING YET
-//    This phase only created the centralized client.
-//    Existing calls are NOT modified.
-//    Each component migration is a separate task.
+// This phase only created the centralized client.
+// Existing calls are NOT modified.
+// Each component migration is a separate task.
 
 // 2. TOKEN MANAGEMENT
-//    - apiClient automatically reads token from localStorage['token']
-//    - Do NOT manually add Authorization headers after migration
-//    - On 401, token is cleared automatically
-//    - Components should handle redirect to login gracefully
+// - apiClient automatically reads token from localStorage['token']
+// - Do NOT manually add Authorization headers after migration
+// - On 401, token is cleared automatically
+// - Components should handle redirect to login gracefully
 
 // 3. BASE URL HANDLING
-//    - apiClient has base URL set (REACT_APP_API_BASE_URL)
-//    - Use relative URLs: /api/courses (not full URL)
-//    - If you need absolute URL for external service, use axios directly
+// - apiClient has base URL set (REACT_APP_API_BASE_URL)
+// - Use relative URLs: /api/courses (not full URL)
+// - If you need absolute URL for external service, use axios directly
 
 // 4. MULTIPART UPLOADS
-//    - Create FormData object as normal
-//    - Pass to apiClient.post(url, formData)
-//    - apiClient removes Content-Type header automatically
-//    - Works for video, image, PDF uploads
+// - Create FormData object as normal
+// - Pass to apiClient.post(url, formData)
+// - apiClient removes Content-Type header automatically
+// - Works for video, image, PDF uploads
 
 // 5. ERROR HANDLING
-//    - catch block receives: { message, status, data }
-//    - message: user-friendly error message
-//    - status: HTTP status code (401, 404, 500, etc.)
-//    - data: full error response from server
-//    - Example: if (error.status === 401) { redirect to login }
+// - catch block receives: { message, status, data }
+// - message: user-friendly error message
+// - status: HTTP status code (401, 404, 500, etc.)
+// - data: full error response from server
+// - Example: if (error.status === 401) { redirect to login }
 
 // 6. EXTERNAL SERVICES
-//    - Python service at localhost:5001 needs special handling
-//    - Consider proxying through main API or creating separate instance
-//    - CourseEditModal.jsx currently calls http://localhost:5001/generate-transcript
+// - Python service at localhost:5001 needs special handling
+// - Consider proxying through main API or creating separate instance
+// - CourseEditModal.jsx currently calls http://localhost:5001/generate-transcript
 
 // 7. QUERY PARAMETERS
-//    - Use params object: { params: { id: '123', filter: 'active' } }
-//    - Or in URL: `/api/data?id=123&filter=active`
-//    - Both work with apiClient
+// - Use params object: { params: { id: '123', filter: 'active' } }
+// - Or in URL: `/api/data?id=123&filter=active`
+// - Both work with apiClient
 
 // ============================================================
 // FILES CREATED/MODIFIED
@@ -212,22 +213,22 @@
 
 // Created:
 // ✓ /client/src/api/apiClient.js (128 lines)
-//   - Centralized axios instance
-//   - Request/response interceptors
-//   - JWT authentication
-//   - Error handling
+// - Centralized axios instance
+// - Request/response interceptors
+// - JWT authentication
+// - Error handling
 
 // ✓ /client/src/api/API_PATTERNS.md (comprehensive reference)
-//   - All 93+ API calls cataloged
-//   - Component-by-component breakdown
-//   - Endpoint patterns documented
-//   - Migration priority recommendations
+// - All 93+ API calls cataloged
+// - Component-by-component breakdown
+// - Endpoint patterns documented
+// - Migration priority recommendations
 
 // ✓ /client/src/api/APILIENT_GUIDE.md (developer guide)
-//   - Quick start examples
-//   - Real code examples from VeloAI
-//   - Before/after comparisons
-//   - Use case documentation
+// - Quick start examples
+// - Real code examples from VeloAI
+// - Before/after comparisons
+// - Use case documentation
 
 // Not Modified (no refactoring yet):
 // - All existing component files
@@ -273,16 +274,16 @@
 
 // Questions to Answer:
 // - Q: How do I migrate a component?
-//   A: See APILIENT_GUIDE.md "BEFORE/AFTER" section
-// 
+// A: See APILIENT_GUIDE.md "BEFORE/AFTER" section
+//
 // - Q: Where are all the API calls?
-//   A: See API_PATTERNS.md for complete inventory
+// A: See API_PATTERNS.md for complete inventory
 //
 // - Q: How do I handle errors?
-//   A: See APILIENT_GUIDE.md "ERROR HANDLING" section
+// A: See APILIENT_GUIDE.md "ERROR HANDLING" section
 //
 // - Q: What about multipart uploads?
-//   A: See APILIENT_GUIDE.md "MULTIPART/FORM-DATA" section
+// A: See APILIENT_GUIDE.md "MULTIPART/FORM-DATA" section
 
 // ============================================================
 // PROJECT STATUS SUMMARY
@@ -300,9 +301,9 @@
 // ✓ Multipart upload support verified
 //
 // ⏳ PENDING: Component refactoring (separate tasks)
-//    Start with Phase 1 (AIInterview.jsx, HR Dashboard, InterviewAnalysis)
-//    Use provided guides and reference documents
-//    Test each component after migration
+// Start with Phase 1 (AIInterview.jsx, HR Dashboard, InterviewAnalysis)
+// Use provided guides and reference documents
+// Test each component after migration
 //
 // Total Time to Centralize: ~11-15 hours (distributed over 3 weeks)
 // High-Priority (Phase 1-2): ~6-8 hours

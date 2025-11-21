@@ -22,10 +22,10 @@ export const NotificationProvider = ({ children }) => {
       const res = await apiClient.get(`/api/notifications/user/${studentId}`); // ✅ FIXED PATH
       const formatted = Array.isArray(res.data)
         ? res.data.map((n) => ({
-        ...n,
-        link: n.meta?.link || "/student/courses",
-        courseId: n.meta?.courseId || null,
-      }))
+            ...n,
+            link: n.meta?.link || "/student/courses",
+            courseId: n.meta?.courseId || null,
+          }))
         : [];
       setNotifications(formatted);
     } catch (error) {

@@ -50,7 +50,9 @@ const StudentCourses = () => {
 
   const removeNotificationByCourseId = async (courseId) => {
     try {
-      await apiClient.delete(`/api/notifications/remove/${studentId}/${courseId}`);
+      await apiClient.delete(
+        `/api/notifications/remove/${studentId}/${courseId}`
+      );
       // No need to update context as your navbar fetches directly from backend on mount
     } catch (err) {
       console.error("Error removing notification", err);
@@ -83,7 +85,9 @@ const StudentCourses = () => {
       setProfile(recRes.data.profile_analysis || null);
 
       // Fetch currently enrolled courses
-      const enrollRes = await apiClient.get(`/api/students/enrollments/${studentId}`);
+      const enrollRes = await apiClient.get(
+        `/api/students/enrollments/${studentId}`
+      );
       const enrolled = enrollRes.data || [];
       setEnrolledCourses(enrolled);
 
@@ -104,7 +108,7 @@ const StudentCourses = () => {
 
         if (newCourses.length > 0) {
           newCourses.forEach(async (course) => {
-              try {
+            try {
               // Send notification for each genuinely new course
               await apiClient.post("/api/notifications", {
                 type: "new_course",
@@ -135,7 +139,9 @@ const StudentCourses = () => {
 
       setIsProcessed(recRes.data.isProcessed !== false);
 
-      const studentRes = await apiClient.get(`/api/students/details/${studentId}`);
+      const studentRes = await apiClient.get(
+        `/api/students/details/${studentId}`
+      );
       setStudentDoc(studentRes.data || null);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to fetch courses.");

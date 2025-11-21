@@ -12,17 +12,21 @@ const MyLearning = () => {
   useEffect(() => {
     const fetchEnrolled = async () => {
       try {
-        const detailsRes = await apiClient.get(`/api/students/details/${userId}`);
+        const detailsRes = await apiClient.get(
+          `/api/students/details/${userId}`
+        );
         let courses = detailsRes.data?.course || [];
         if (!Array.isArray(courses)) courses = courses ? [courses] : [];
         // Fetch progress for each course
         const coursesWithProgress = await Promise.all(
           courses.map(async (course) => {
-              try {
+            try {
               const progressRes = await apiClient.get(
                 `/api/progress/${userId}/${course._id}`
               );
-              const courseRes = await apiClient.get(`/api/courses/${course._id}`);
+              const courseRes = await apiClient.get(
+                `/api/courses/${course._id}`
+              );
               const weeks = courseRes.data.weeks || [];
               let totalLessons = 0;
               const completedLessons = Array.isArray(

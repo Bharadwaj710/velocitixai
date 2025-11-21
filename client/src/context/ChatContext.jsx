@@ -28,7 +28,9 @@ export const ChatProvider = ({ children, courseId }) => {
         userId: user?._id || user?.id,
         courseId, // <- received from props to ChatProvider
       });
-      const questions = Array.isArray(res.data.questions) ? res.data.questions : [];
+      const questions = Array.isArray(res.data.questions)
+        ? res.data.questions
+        : [];
       console.log("Fetched suggestions:", questions);
       if (questions.length) {
         setSuggestions(questions);
@@ -90,7 +92,6 @@ export const ChatProvider = ({ children, courseId }) => {
       setLoading(false);
     }
   };
-
 
   const clearChat = () => setMessages([]);
 

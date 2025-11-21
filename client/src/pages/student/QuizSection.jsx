@@ -41,12 +41,20 @@ const QuizSection = ({
 
         const quizData = quizRes.data;
         setQuiz(quizData);
-        setAnswers(Array.isArray(quizData.questions) ? quizData.questions.map(() => ({ answer: "" })) : []);
-        setTimeLeft(Array.isArray(quizData.questions) ? quizData.questions.length * 60 : 0);
-
-        const existingAttempt = (Array.isArray(progressRes.data.quizResults) ? progressRes.data.quizResults : []).find(
-          (q) => q.lessonId === lessonId || q.lessonId?._id === lessonId
+        setAnswers(
+          Array.isArray(quizData.questions)
+            ? quizData.questions.map(() => ({ answer: "" }))
+            : []
         );
+        setTimeLeft(
+          Array.isArray(quizData.questions) ? quizData.questions.length * 60 : 0
+        );
+
+        const existingAttempt = (
+          Array.isArray(progressRes.data.quizResults)
+            ? progressRes.data.quizResults
+            : []
+        ).find((q) => q.lessonId === lessonId || q.lessonId?._id === lessonId);
 
         if (existingAttempt) {
           const feedback = quizData.questions.map((q, idx) => {

@@ -109,7 +109,7 @@ const Student = () => {
                   <td className="p-3">{s.scorecard || "Not updated"}</td>
                   <td className="p-3">
                     <button
-                          onClick={async () => {
+                      onClick={async () => {
                         try {
                           const res = await apiClient.get(
                             `/admin/student/${s._id}`

@@ -76,7 +76,12 @@ const Register = () => {
 
     try {
       const { name, email, password } = formData;
-      const response = await apiClient.post(`/auth/signup`, { name, email, password, role: "student" });
+      const response = await apiClient.post(`/auth/signup`, {
+        name,
+        email,
+        password,
+        role: "student",
+      });
       const result = response.data;
 
       if (result.success) {

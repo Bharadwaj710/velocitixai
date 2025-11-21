@@ -152,20 +152,20 @@ const LearningPath = () => {
     const fetchCourseAndProgress = async () => {
       setLoading(true);
       try {
-          const [courseRes, progressRes] = await Promise.all([
-            apiClient.get(`/api/courses/${courseId}`),
-            apiClient.get(`/api/progress/${userId}/${courseId}`),
-          ]);
-          const courseData = Array.isArray(courseRes.data)
-            ? courseRes.data[0]
-            : courseRes.data;
-          setCourse(courseData);
-          setWeeks(courseData?.weeks || []);
-          setCompletedLessons(
-            Array.isArray(progressRes.data?.completedLessons)
-              ? progressRes.data.completedLessons
-              : []
-          );
+        const [courseRes, progressRes] = await Promise.all([
+          apiClient.get(`/api/courses/${courseId}`),
+          apiClient.get(`/api/progress/${userId}/${courseId}`),
+        ]);
+        const courseData = Array.isArray(courseRes.data)
+          ? courseRes.data[0]
+          : courseRes.data;
+        setCourse(courseData);
+        setWeeks(courseData?.weeks || []);
+        setCompletedLessons(
+          Array.isArray(progressRes.data?.completedLessons)
+            ? progressRes.data.completedLessons
+            : []
+        );
       } catch (err) {
         setCourse(null);
         setWeeks([]);

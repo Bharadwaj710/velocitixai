@@ -109,7 +109,9 @@ const ChatAssistant = ({ courseId }) => {
                   Here are some course-related questions you can ask:
                 </div>
                 <div className="flex flex-col gap-2 items-start">
-                  {suggestionsVisible && Array.isArray(suggestions) && suggestions.length > 0 ? (
+                  {suggestionsVisible &&
+                  Array.isArray(suggestions) &&
+                  suggestions.length > 0 ? (
                     suggestions.map((rawQuestion, idx) => {
                       const question = rawQuestion
                         .replace(/^\s*[\*\-]?\s*\d*\.?\s*/, "")

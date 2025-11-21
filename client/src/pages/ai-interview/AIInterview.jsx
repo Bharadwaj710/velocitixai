@@ -133,7 +133,9 @@ const AIInterview = () => {
     const checkIfCompleted = async () => {
       if (!courseId) return;
       try {
-        const res = await apiClient.get(`/api/aiInterview/report/course/${courseId}`);
+        const res = await apiClient.get(
+          `/api/aiInterview/report/course/${courseId}`
+        );
         if (res.data && res.data._id) {
           setStep("completed-report");
         }
@@ -276,7 +278,7 @@ const AIInterview = () => {
       timestampsRef.current[timestampsRef.current.length - 1].end = Date.now();
     }
 
-      try {
+    try {
       await apiClient.post(`/api/aiInterview/save-answer`, {
         question: currentQuestion,
         answer: "",
@@ -288,14 +290,17 @@ const AIInterview = () => {
         courseId: courseId,
       });
 
-      const res = await apiClient.post(`/api/aiInterview/next-question?courseId=${courseId}`, {
-        answer: "",
-        question: currentQuestion,
-        transcript: "",
-        studentId: decoded.userId,
-        skip: true,
-        timedOut,
-      });
+      const res = await apiClient.post(
+        `/api/aiInterview/next-question?courseId=${courseId}`,
+        {
+          answer: "",
+          question: currentQuestion,
+          transcript: "",
+          studentId: decoded.userId,
+          skip: true,
+          timedOut,
+        }
+      );
 
       if (res.data.finished) {
         stopRecording();
@@ -377,8 +382,8 @@ const AIInterview = () => {
       } catch {}
     }
 
-      try {
-        const res = await apiClient.post(`/api/aiInterview/terminate`, formData);
+    try {
+      const res = await apiClient.post(`/api/aiInterview/terminate`, formData);
 
       const { reportId, sessionId } = res.data || {};
       if (!reportId && !sessionId) {
@@ -464,9 +469,13 @@ const AIInterview = () => {
         formData.append("frame", blob);
 
         const token = localStorage.getItem("token");
-        const res = await apiClient.post(`/api/aiInterview/check-frame`, formData, {
-          timeout: 8000,
-        });
+        const res = await apiClient.post(
+          `/api/aiInterview/check-frame`,
+          formData,
+          {
+            timeout: 8000,
+          }
+        );
 
         const data = res.data || {};
         console.debug("Cheat detector response:", data);
@@ -574,7 +583,10 @@ const AIInterview = () => {
       setTranscript([]);
       setLoadingNextQuestion(false);
 
-      const res = await apiClient.post(`/api/aiInterview/start-interview?courseId=${courseId}`, {});
+      const res = await apiClient.post(
+        `/api/aiInterview/start-interview?courseId=${courseId}`,
+        {}
+      );
       timestampsRef.current = [{ question: 0, start: Date.now() }];
 
       const question = res.data.question;
@@ -620,15 +632,18 @@ const AIInterview = () => {
         timestampsRef.current[timestampsRef.current.length - 1].end =
           Date.now();
 
-        const res = await apiClient.post(`/api/aiInterview/next-question?courseId=${courseId}`, {
-          answer: "",
-          question: currentQuestion,
-          transcript: "",
-          studentId: decoded.userId,
-          skip: false,
-          timedOut: true,
-          courseId: courseId,
-        });
+        const res = await apiClient.post(
+          `/api/aiInterview/next-question?courseId=${courseId}`,
+          {
+            answer: "",
+            question: currentQuestion,
+            transcript: "",
+            studentId: decoded.userId,
+            skip: false,
+            timedOut: true,
+            courseId: courseId,
+          }
+        );
 
         timedOutTriggeredRef.current = false;
 
@@ -682,14 +697,17 @@ const AIInterview = () => {
       setSkipped((prev) => prev.filter((i) => i !== questionIndex));
 
       // ✅ Fetch next question
-      const res = await apiClient.post(`/api/aiInterview/next-question?courseId=${courseId}`, {
-        answer: skip ? "" : finalAnswer,
-        question: currentQuestion,
-        transcript: skip ? "" : finalAnswer,
-        studentId: decoded.userId,
-        skip,
-        timedOut: false,
-      });
+      const res = await apiClient.post(
+        `/api/aiInterview/next-question?courseId=${courseId}`,
+        {
+          answer: skip ? "" : finalAnswer,
+          question: currentQuestion,
+          transcript: skip ? "" : finalAnswer,
+          studentId: decoded.userId,
+          skip,
+          timedOut: false,
+        }
+      );
 
       if (res.data.finished) {
         // Show analyzing UI immediately before stopping recording
@@ -781,7 +799,10 @@ const AIInterview = () => {
     }
 
     try {
-      const res = await apiClient.post(`/api/aiInterview/complete-interview`, formData);
+      const res = await apiClient.post(
+        `/api/aiInterview/complete-interview`,
+        formData
+      );
 
       // ensure backend returns one of these — sessionId preferred for polling
       const { reportId, sessionId } = res.data || {};

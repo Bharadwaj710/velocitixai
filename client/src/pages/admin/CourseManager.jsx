@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios"; // keep axios for external services (SUGGEST_API_URL)
-import apiClient from '../../api/apiClient';
+import apiClient from "../../api/apiClient";
 import {
   fetchCourses,
   createCourse,
@@ -214,14 +214,12 @@ const CourseManager = () => {
             const formData = new FormData();
             formData.append("pdf", pendingPdfs[pendingKey]);
             pdfUploads.push(
-              apiClient
-                .post(`/api/upload/pdf`, formData)
-                .then((res) => ({
-                  modIdx,
-                  lessonIdx,
-                  name: res.data.name,
-                  url: res.data.url,
-                }))
+              apiClient.post(`/api/upload/pdf`, formData).then((res) => ({
+                modIdx,
+                lessonIdx,
+                name: res.data.name,
+                url: res.data.url,
+              }))
             );
           }
         }

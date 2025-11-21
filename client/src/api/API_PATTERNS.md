@@ -1,10 +1,11 @@
-/**
- * API PATTERNS DISCOVERED IN VELOTEXAI PROJECT
- * 
- * This document catalogs all API calls, existing axios instances,
- * and patterns discovered during the centralized apiClient.js creation.
- * Use this as reference when migrating components to use the new apiClient.
- */
+/\*\*
+
+- API PATTERNS DISCOVERED IN VELOTEXAI PROJECT
+-
+- This document catalogs all API calls, existing axios instances,
+- and patterns discovered during the centralized apiClient.js creation.
+- Use this as reference when migrating components to use the new apiClient.
+  \*/
 
 // ============================================================
 // EXISTING AXIOS INSTANCES (CONFLICTING / REDUNDANT)
@@ -200,8 +201,8 @@
 // - CourseEditModal.jsx has http://localhost:5001 (Python AI service)
 
 // BEARER TOKEN REQUIRED ENDPOINTS
-// - All /admin/* endpoints
-// - All /api/aiInterview/* endpoints
+// - All /admin/_ endpoints
+// - All /api/aiInterview/_ endpoints
 // - Notification endpoints
 // - Student profile endpoints
 // - Some user endpoints
@@ -246,34 +247,34 @@
 // ============================================================
 
 // 1. NEW apiClient.js FEATURES:
-//    - Automatic JWT Bearer token injection via interceptor
-//    - Multipart/form-data support (removes Content-Type header)
-//    - Consistent error handling (returns error object with message, status, data)
-//    - Base URL from environment with fallback to localhost
-//    - 30s timeout
+// - Automatic JWT Bearer token injection via interceptor
+// - Multipart/form-data support (removes Content-Type header)
+// - Consistent error handling (returns error object with message, status, data)
+// - Base URL from environment with fallback to localhost
+// - 30s timeout
 
 // 2. BACKWARD COMPATIBILITY:
-//    - apiClient.js maintains same interface as axios
-//    - All existing patterns (params, headers, data) work unchanged
-//    - Multipart uploads just need FormData object
-//    - Authorization header AUTOMATIC (no manual Bearer token needed)
+// - apiClient.js maintains same interface as axios
+// - All existing patterns (params, headers, data) work unchanged
+// - Multipart uploads just need FormData object
+// - Authorization header AUTOMATIC (no manual Bearer token needed)
 
 // 3. MIGRATION STEPS (per component):
-//    a) Import apiClient from '@/api/apiClient'
-//    b) Replace axios.get/post/etc with apiClient.get/post/etc
-//    c) Remove manual Authorization header assignment (handled by interceptor)
-//    d) Remove manual `${REACT_APP_API_BASE_URL}` prefixes (handled by baseURL)
-//    e) Keep FormData and multipart patterns unchanged
-//    f) Update error handling if needed (apiClient returns {message, status, data})
+// a) Import apiClient from '@/api/apiClient'
+// b) Replace axios.get/post/etc with apiClient.get/post/etc
+// c) Remove manual Authorization header assignment (handled by interceptor)
+// d) Remove manual `${REACT_APP_API_BASE_URL}` prefixes (handled by baseURL)
+// e) Keep FormData and multipart patterns unchanged
+// f) Update error handling if needed (apiClient returns {message, status, data})
 
 // 4. EXTERNAL SERVICE NOTE:
-//    - CourseEditModal.jsx calls http://localhost:5001 (Python service)
-//    - This requires special handling or separate axios instance
-//    - Consider whether this should be proxied through main API
+// - CourseEditModal.jsx calls http://localhost:5001 (Python service)
+// - This requires special handling or separate axios instance
+// - Consider whether this should be proxied through main API
 
 // 5. FETCH VS AXIOS:
-//    - Auth pages use fetch() - should be migrated to apiClient for consistency
-//    - StudentNavbar uses fetch() - should be migrated to apiClient
-//    - No breaking change expected
+// - Auth pages use fetch() - should be migrated to apiClient for consistency
+// - StudentNavbar uses fetch() - should be migrated to apiClient
+// - No breaking change expected
 
 // ============================================================

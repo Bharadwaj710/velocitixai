@@ -13,11 +13,10 @@ const courseOptions = [
   "Bachelor of Pharmacy (B.Pharm)",
   "Bachelor of Business Administration (BBA)",
   "Bachelor of Science (B.Sc)",
-  "Bachelor of Education (B.Ed)"
+  "Bachelor of Education (B.Ed)",
 ];
 
-const generateSlug = (str) =>
-  str?.toLowerCase().trim().replace(/\s+/g, "-");
+const generateSlug = (str) => str?.toLowerCase().trim().replace(/\s+/g, "-");
 
 const StudentDetails = () => {
   const student = JSON.parse(localStorage.getItem("student")) || {};
@@ -38,7 +37,9 @@ const StudentDetails = () => {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
         if (!user?.id && !user?._id) return setLoading(false);
-        const res = await apiClient.get(`/api/students/details/${user.id || user._id}`);
+        const res = await apiClient.get(
+          `/api/students/details/${user.id || user._id}`
+        );
         if (res.data && Object.keys(res.data).length > 0) {
           setForm({
             rollNumber: res.data.rollNumber || "",
@@ -66,42 +67,44 @@ const StudentDetails = () => {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setSubmitting(true);
-  try {
-    const user = JSON.parse(localStorage.getItem("user"));
-    const slug = generateSlug(form.college);
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const slug = generateSlug(form.college);
 
-    const payload = {
-      ...form,
-      user: user?.id || user?._id,
-      skills: form.skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      collegeSlug: slug,
-    };
-    console.log("📤 Final Payload:", payload);
-console.log("🎓 College:", form.college);
-console.log("🧠 Slug Generated:", slug);
-console.log("👤 User ID Used:", user?.id || user?._id);
+      const payload = {
+        ...form,
+        user: user?.id || user?._id,
+        skills: form.skills
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        collegeSlug: slug,
+      };
+      console.log("📤 Final Payload:", payload);
+      console.log("🎓 College:", form.college);
+      console.log("🧠 Slug Generated:", slug);
+      console.log("👤 User ID Used:", user?.id || user?._id);
 
-    await apiClient.post("/api/students/details", payload);
+      await apiClient.post("/api/students/details", payload);
 
-    // 👉 Refetch updated student and update localStorage
-    const refetchRes = await apiClient.get(`/api/students/details/${user.id || user._id}`);
-    localStorage.setItem("student", JSON.stringify(refetchRes.data));
+      // 👉 Refetch updated student and update localStorage
+      const refetchRes = await apiClient.get(
+        `/api/students/details/${user.id || user._id}`
+      );
+      localStorage.setItem("student", JSON.stringify(refetchRes.data));
 
-    toast.success("Details saved successfully");
-    setTimeout(() => {
-      navigate("/student/dashboard");
-    }, 800);
-  } catch (err) {
-    toast.error(err?.response?.data?.message || "Submission failed");
-  } finally {
-    setSubmitting(false);
-  }
-};
+      toast.success("Details saved successfully");
+      setTimeout(() => {
+        navigate("/student/dashboard");
+      }, 800);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Submission failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -131,7 +134,9 @@ console.log("👤 User ID Used:", user?.id || user?._id);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Email</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Email
+            </label>
             <input
               type="email"
               value={student.email || ""}
@@ -154,7 +159,6 @@ console.log("👤 User ID Used:", user?.id || user?._id);
             />
           </div>
           <div>
-
             <label className="block text-gray-700 font-medium mb-1">
               College Course *
             </label>
@@ -162,7 +166,6 @@ console.log("👤 User ID Used:", user?.id || user?._id);
               type="text"
               name="collegecourse"
               value={form.collegecourse}
-
               onChange={handleChange}
               required
               placeholder="Enter your course (e.g., B.Tech CSE)"
@@ -170,7 +173,9 @@ console.log("👤 User ID Used:", user?.id || user?._id);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Branch</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Branch
+            </label>
             <input
               type="text"
               name="branch"
@@ -180,7 +185,9 @@ console.log("👤 User ID Used:", user?.id || user?._id);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Year of Study</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Year of Study
+            </label>
             <input
               type="number"
               name="yearOfStudy"
@@ -192,7 +199,9 @@ console.log("👤 User ID Used:", user?.id || user?._id);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">College</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              College
+            </label>
             <input
               type="text"
               name="college"
@@ -202,7 +211,9 @@ console.log("👤 User ID Used:", user?.id || user?._id);
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Phone Number</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Phone Number
+            </label>
             <input
               type="text"
               name="phoneNumber"
@@ -213,7 +224,9 @@ console.log("👤 User ID Used:", user?.id || user?._id);
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-gray-700 font-medium mb-1">Address</label>
+            <label className="block text-gray-700 font-medium mb-1">
+              Address
+            </label>
             <input
               type="text"
               name="address"
@@ -222,7 +235,6 @@ console.log("👤 User ID Used:", user?.id || user?._id);
               className="w-full border rounded-lg p-2"
             />
           </div>
-
         </div>
         <button
           type="submit"
