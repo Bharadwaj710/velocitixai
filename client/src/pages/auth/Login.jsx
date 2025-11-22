@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 import { handleError, handleSuccess } from "../../utils/api";
 import apiClient from "../../api/apiClient";
+import { getProfile } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const Login = () => {
@@ -43,7 +44,7 @@ const Login = () => {
       if (user.isAdmin) {
         // Fetch admin profile from backend (ensure token is set)
         try {
-          const adminRes = await apiClient.get(`/admin/profile`);
+          const adminRes = await getProfile();
           const adminProfile = adminRes.data;
           localStorage.setItem(
             "admin",

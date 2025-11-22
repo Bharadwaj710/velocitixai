@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import apiClient from "../../api/apiClient";
+import { getProfile, updateProfile, deleteProfile } from "../../services/api";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -15,14 +16,15 @@ const ProfileSettings = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await apiClient.get(`/admin/profile`);
+        const res = await getProfile();
 
         setProfile(res.data);
         // ✅ Cloudinary URL is public and stored directly
-        if (res.data.imageUrl) {
+        if (res.data?.imageUrl) {
           setImagePreview(res.data.imageUrl);
         }
       } catch (err) {
+        console.error("Failed to load profile:", err);
         toast.error("Failed to load profile");
       }
     };
@@ -57,7 +59,7 @@ const ProfileSettings = () => {
         formData.append("password", passwords.newPassword);
       }
 
-      const res = await apiClient.put(`/admin/profile`, formData);
+      const res = await updateProfile(formData);
 
       toast.success("Profile updated!");
 
@@ -90,7 +92,7 @@ const ProfileSettings = () => {
       return;
 
     try {
-      await apiClient.delete(`/admin/profile`);
+      await deleteProfile();
       toast.success("Account deleted");
       localStorage.clear();
       window.location.href = "/login";
