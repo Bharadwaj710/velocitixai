@@ -2,14 +2,17 @@ const express = require("express");
 const axios = require("axios");
 const router = express.Router();
 
-// Proxy to Flask AI service
+// Proxy to Python AI service
+const RAW_AI = process.env.AI_SERVICE_URL || "http://localhost:8000";
+const AI_BASE = RAW_AI.replace(/\/$/, "");
+
 router.get("/recommendations/:studentId", async (req, res) => {
   const studentId = req.params.studentId;
   const refresh = req.query.refresh === "1" || req.query.refresh === "true";
 
   try {
     // Pass refresh param to Flask AI service
-    const flaskResponse = await axios.post("http://localhost:5001/recommend", {
+    const flaskResponse = await axios.post(`${AI_BASE}/recommend`, {
       student_id: studentId,
       refresh, // This will be true/false
     });

@@ -5,18 +5,25 @@ const mongoose = require("mongoose");
 const Course = require("../models/Course");
 const Transcript = require("../models/Transcript");
 
-// Config
-const FLASK_SERVER_URL = "http://localhost:5001/generate-transcript";
+// Config: AI worker URL (can be set via AI_SERVICE_URL). Do not include trailing slash.
+// Default to port 8000 which is the AI service `app.py` default.
+const RAW_FLASK_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
+const FLASK_BASE = RAW_FLASK_URL.replace(/\/$/, "");
 
 // Helper: Send one lesson to Flask for transcript
 async function sendToFlask(lessonData) {
+  const endpoint = `${FLASK_BASE}/generate-transcript`;
   try {
-    const res = await axios.post(FLASK_SERVER_URL, lessonData);
+    const res = await axios.post(endpoint, lessonData, { timeout: 120000 });
     return { status: "success", data: res.data };
   } catch (err) {
+    // Prefer AI worker JSON, otherwise include message
+    const aiError = err?.response?.data || err?.message || "Unknown error";
+    const statusCode = err?.response?.status || 502;
     return {
       status: "error",
-      error: err?.response?.data || err?.message || "Unknown error",
+      statusCode,
+      error: aiError,
       videoId: lessonData?.videoId,
       lessonId: lessonData?.lessonId,
     };

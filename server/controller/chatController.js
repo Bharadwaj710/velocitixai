@@ -3,6 +3,8 @@ const Student = require("../models/Student");
 const CareerAssessment = require("../models/CareerAssessment");
 const Course = require("../models/Course");
 const axios = require("axios");
+const RAW_AI = process.env.AI_SERVICE_URL || "http://localhost:8000";
+const AI_BASE = RAW_AI.replace(/\/$/, "");
 
 exports.handleMessage = async (req, res) => {
   try {
@@ -34,7 +36,7 @@ exports.handleMessage = async (req, res) => {
     const context = { student, assessment, courses };
 
     // Call Python Flask server with context + messages
-    const flaskRes = await axios.post("http://localhost:5001/generate", {
+    const flaskRes = await axios.post(`${AI_BASE}/generate`, {
       userId,
       courseId,
       messages,
@@ -63,7 +65,7 @@ exports.getSuggestions = async (req, res) => {
       return res.status(400).json({ error: "Missing userId or courseId" });
     }
 
-    const flaskRes = await axios.post("http://localhost:5001/suggestions", {
+    const flaskRes = await axios.post(`${AI_BASE}/suggestions`, {
       userId,
       courseId,
     });

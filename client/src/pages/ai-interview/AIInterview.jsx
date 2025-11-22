@@ -133,9 +133,7 @@ const AIInterview = () => {
     const checkIfCompleted = async () => {
       if (!courseId) return;
       try {
-        const res = await apiClient.get(
-          `/api/aiInterview/report/course/${courseId}`
-        );
+          const res = await apiClient.get(`/api/aiInterview/report/${courseId}`);
         if (res.data && res.data._id) {
           setStep("completed-report");
         }

@@ -8,6 +8,10 @@ const fs = require("fs");
 const path = require("path");
 const { jwtDecode } = require("jwt-decode"); // CommonJS
 
+// AI service base (Python microservice). Set via env `AI_SERVICE_URL` in production.
+const RAW_AI_SERVICE = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
+const AI_SERVICE_BASE = RAW_AI_SERVICE.replace(/\/$/, "");
+
 // Helper: safe read
 const safe = (v, fallback) => (typeof v === "undefined" ? fallback : v);
 
@@ -63,27 +67,23 @@ exports.startInterview = async (req, res) => {
 
     // 🆕 Reset Python detector state for this user
     try {
-      await axios.post(
-        `http://127.0.0.1:5001/reset/${userId}`,
-        {},
-        { timeout: 4000 }
-      );
+      await axios.post(`${AI_SERVICE_BASE}/reset/${userId}`, {}, { timeout: 4000 });
       console.log(`[StartInterview] Reset python detector for user=${userId}`);
     } catch (err) {
-      console.warn("⚠️ Could not reset python detector:", err.message);
-      // don’t block interview if reset fails — just continue
+      console.warn("⚠️ Could not reset python detector:", err?.message || err);
+      // don't block interview if reset fails — continue gracefully
     }
 
     // Fetch first AI-generated question
     let firstQuestion;
     try {
       const profileRes = await axios.get(
-        `http://127.0.0.1:5001/initial-question/${userId}?courseId=${courseId}`,
+        `${AI_SERVICE_BASE}/initial-question/${userId}?courseId=${courseId}`,
         { timeout: 30000 }
       );
       firstQuestion = profileRes.data.question;
     } catch (err) {
-      console.error("❌ Could not fetch first question:", err.message);
+      console.error("❌ Could not fetch first question:", err?.message || err);
       return res
         .status(500)
         .json({ error: "AI service unavailable, try again later." });
@@ -265,27 +265,29 @@ exports.nextQuestion = async (req, res) => {
 
     let finalQuestion = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const aiRes = await axios.post(
-        "http://localhost:5001/generate-next-question",
-        {
-          previousAnswer: isSkip
-            ? "Skipped"
-            : isTimedOut
-            ? ""
-            : transcript || answer,
-          questionIndex: nextIndex,
-          studentId: userId,
-          courseId,
-          proficiency,
-          skip: isSkip,
-          timedOut: isTimedOut,
-        }
-      );
+      try {
+        const aiRes = await axios.post(
+          `${AI_SERVICE_BASE}/generate-next-question`,
+          {
+            previousAnswer: isSkip ? "Skipped" : isTimedOut ? "" : transcript || answer,
+            questionIndex: nextIndex,
+            studentId: userId,
+            courseId,
+            proficiency,
+            skip: isSkip,
+            timedOut: isTimedOut,
+          },
+          { timeout: 30000 }
+        );
 
-      const generated = aiRes.data?.nextQuestion?.trim();
-      if (generated && !usedQuestionsText.has(generated.toLowerCase())) {
-        finalQuestion = generated;
-        break;
+        const generated = aiRes.data?.nextQuestion?.trim();
+        if (generated && !usedQuestionsText.has(generated.toLowerCase())) {
+          finalQuestion = generated;
+          break;
+        }
+      } catch (e) {
+        console.warn("Attempt to generate next question failed:", e?.message || e);
+        // try again (up to 3 attempts)
       }
     }
 
@@ -433,12 +435,12 @@ exports.checkCheating = async (req, res) => {
     let result;
     try {
       // send to python detector
-      result = await axios.post("http://127.0.0.1:5001/check-frame", form, {
+      result = await axios.post(`${AI_SERVICE_BASE}/check-frame`, form, {
         headers: form.getHeaders(),
-        timeout: 5000,
+        timeout: 8000,
       });
     } catch (err) {
-      console.error("❌ Cheating service unavailable:", err.message);
+      console.error("❌ Cheating service unavailable:", err?.message || err);
       return res.status(500).json({ error: "Cheating service unavailable" });
     }
 
@@ -617,18 +619,24 @@ exports.terminateInterview = async (req, res) => {
     // Analyze
     let analysisResult = {};
     try {
-      const { data } = await axios.post(
-        "http://localhost:5001/analyze-session",
-        {
-          videoUrl,
-          answers: session.answers,
-          timestamps: session.timestamps,
-          questions: session.questions,
-          studentId,
-          terminated: true,
-        }
-      );
-      analysisResult = data;
+      try {
+        const { data } = await axios.post(
+          `${AI_SERVICE_BASE}/analyze-session`,
+          {
+            videoUrl,
+            answers: session.answers,
+            timestamps: session.timestamps,
+            questions: session.questions,
+            studentId,
+            terminated: true,
+          },
+          { timeout: 120000 }
+        );
+        analysisResult = data;
+      } catch (e) {
+        console.warn("⚠️ Python analysis failed (terminate):", e?.message || e);
+        analysisResult = {};
+      }
     } catch (err) {
       console.warn("⚠️ Python analysis failed (terminate):", err.message);
       analysisResult = {};
@@ -715,17 +723,23 @@ exports.completeInterview = async (req, res) => {
     // Analyze via Python service
     let analysis = {};
     try {
-      const { data } = await axios.post(
-        "http://localhost:5001/analyze-session",
-        {
-          videoUrl,
-          answers: JSON.parse(answers),
-          timestamps: JSON.parse(timestamps),
-          questions: JSON.parse(questions),
-          studentId,
-        }
-      );
-      analysis = data;
+      try {
+        const { data } = await axios.post(
+          `${AI_SERVICE_BASE}/analyze-session`,
+          {
+            videoUrl,
+            answers: JSON.parse(answers),
+            timestamps: JSON.parse(timestamps),
+            questions: JSON.parse(questions),
+            studentId,
+          },
+          { timeout: 120000 }
+        );
+        analysis = data;
+      } catch (e) {
+        console.warn("⚠️ Python analysis failed:", e?.message || e);
+        analysis = {};
+      }
     } catch (err) {
       console.warn("⚠️ Python analysis failed:", err.message);
       analysis = {};

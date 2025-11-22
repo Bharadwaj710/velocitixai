@@ -5,6 +5,8 @@ const axios = require("axios");
 const Course = require("../models/Course");
 const Transcript = require("../models/Transcript");
 const Quiz = require("../models/Quiz");
+const RAW_AI = process.env.AI_SERVICE_URL || "http://localhost:8000";
+const AI_BASE = RAW_AI.replace(/\/$/, "");
 
 // 🔹 POST /api/quiz/generate-module/:courseId/:weekNumber
 router.post("/generate-module/:courseId/:weekNumber", async (req, res) => {
@@ -63,7 +65,7 @@ router.post("/generate-module/:courseId/:weekNumber", async (req, res) => {
 
         try {
           const flaskRes = await axios.post(
-            "http://localhost:5001/generate-quiz",
+            `${AI_BASE}/generate-quiz`,
             { transcript: transcriptText },
             { timeout: 30000 }
           );
@@ -158,7 +160,7 @@ router.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Transcript too short for quiz generation" });
     }
 
-    const flaskRes = await axios.post("http://localhost:5001/generate-quiz", {
+    const flaskRes = await axios.post(`${AI_BASE}/generate-quiz`, {
       transcript: transcriptText,
     });
 

@@ -59,9 +59,11 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "50mb" }));
 
 /* -----------------------------------------------------
-   2️⃣ Multer Setup (File Uploads)
+  2️⃣ Multer Setup (File Uploads)
+  - Add conservative file-size limits for uploads (200MB)
+  - Keep disk storage for proxying to AI microservice; files are removed after proxying
 ------------------------------------------------------ */
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: "uploads/", limits: { fileSize: 200 * 1024 * 1024 } });
 
 /* -----------------------------------------------------
    3️⃣ Express Routes
@@ -94,29 +96,48 @@ app.use("/uploads", express.static("uploads"));
    4️⃣ Whisper / Python AI Microservice Proxy
 ------------------------------------------------------ */
 app.post("/transcribe", upload.single("audio"), async (req, res) => {
+  const filePath = req.file?.path;
+  if (!filePath) return res.status(400).json({ error: "No audio file uploaded" });
+
+  const rawAiUrl = process.env.AI_SERVICE_URL || "";
+  const aiURL = rawAiUrl.replace(/\/$/, "");
+
+  if (!aiURL) {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return res.status(500).json({ error: "AI_SERVICE_URL missing in server environment" });
+  }
+
+  // Build form data and proxy the file to the AI microservice
+  const formData = new FormData();
+  formData.append("file", fs.createReadStream(filePath));
+
   try {
-    const filePath = req.file.path;
-    const aiURL = process.env.AI_SERVICE_URL;
-
-    if (!aiURL) {
-      return res.status(500).json({ error: "AI_SERVICE_URL missing in .env" });
-    }
-
-    const formData = new FormData();
-    formData.append("file", fs.createReadStream(filePath));
-
     const response = await axios.post(`${aiURL}/transcribe`, formData, {
       headers: formData.getHeaders(),
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
+      timeout: 120000, // 2 minutes, tune as necessary for long audio
     });
 
-    fs.unlinkSync(filePath);
-
-    return res.json(response.data);
+    // Always respond with JSON from AI service (or normalized)
+    const data = response?.data;
+    return res.status(response.status || 200).json(data);
   } catch (err) {
-    console.error("🔴 AI_ERROR:", err?.response?.data || err.message);
-    res.status(500).json({ error: "AI service failed" });
+    // Normalize error response: if AI responded with JSON, forward cleanly.
+    console.error("🔴 AI_PROXY_ERROR:", err?.response?.status, err?.response?.data || err.message);
+    if (err.response && err.response.data) {
+      // Try to forward AI service JSON error and status
+      const status = err.response.status || 502;
+      return res.status(status).json({ error: err.response.data });
+    }
+    return res.status(502).json({ error: "AI service failed or did not respond" });
+  } finally {
+    // Ensure temporary file removed in all cases to avoid disk growth
+    try {
+      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (e) {
+      console.warn("Failed to remove temp file:", filePath, e.message);
+    }
   }
 });
 
