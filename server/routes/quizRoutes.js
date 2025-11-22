@@ -149,15 +149,22 @@ router.post("/generate", async (req, res) => {
   const { lessonId, transcript } = req.body;
 
   if (!lessonId || !Array.isArray(transcript)) {
-    return res.status(400).json({ error: "Missing lessonId or invalid transcript" });
+    return res
+      .status(400)
+      .json({ error: "Missing lessonId or invalid transcript" });
   }
 
   try {
     // Convert transcript segments to plain text
-    const transcriptText = transcript.map((seg) => seg.text).join(" ").trim();
+    const transcriptText = transcript
+      .map((seg) => seg.text)
+      .join(" ")
+      .trim();
 
     if (!transcriptText || transcriptText.length < 50) {
-      return res.status(400).json({ error: "Transcript too short for quiz generation" });
+      return res
+        .status(400)
+        .json({ error: "Transcript too short for quiz generation" });
     }
 
     const flaskRes = await axios.post(`${AI_BASE}/generate-quiz`, {
@@ -185,10 +192,14 @@ router.post("/generate", async (req, res) => {
       { upsert: true }
     );
 
-    return res.status(200).json({ message: "Quiz generated", questions: quizQuestions });
+    return res
+      .status(200)
+      .json({ message: "Quiz generated", questions: quizQuestions });
   } catch (err) {
     console.error("❌ Quiz generation error:", err.message);
-    return res.status(500).json({ error: "Quiz generation failed", details: err.message });
+    return res
+      .status(500)
+      .json({ error: "Quiz generation failed", details: err.message });
   }
 });
 

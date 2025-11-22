@@ -67,7 +67,11 @@ exports.startInterview = async (req, res) => {
 
     // 🆕 Reset Python detector state for this user
     try {
-      await axios.post(`${AI_SERVICE_BASE}/reset/${userId}`, {}, { timeout: 4000 });
+      await axios.post(
+        `${AI_SERVICE_BASE}/reset/${userId}`,
+        {},
+        { timeout: 4000 }
+      );
       console.log(`[StartInterview] Reset python detector for user=${userId}`);
     } catch (err) {
       console.warn("⚠️ Could not reset python detector:", err?.message || err);
@@ -269,7 +273,11 @@ exports.nextQuestion = async (req, res) => {
         const aiRes = await axios.post(
           `${AI_SERVICE_BASE}/generate-next-question`,
           {
-            previousAnswer: isSkip ? "Skipped" : isTimedOut ? "" : transcript || answer,
+            previousAnswer: isSkip
+              ? "Skipped"
+              : isTimedOut
+              ? ""
+              : transcript || answer,
             questionIndex: nextIndex,
             studentId: userId,
             courseId,
@@ -286,7 +294,10 @@ exports.nextQuestion = async (req, res) => {
           break;
         }
       } catch (e) {
-        console.warn("Attempt to generate next question failed:", e?.message || e);
+        console.warn(
+          "Attempt to generate next question failed:",
+          e?.message || e
+        );
         // try again (up to 3 attempts)
       }
     }
@@ -870,7 +881,6 @@ exports.getReport = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch report" });
   }
 };
-
 
 exports.getAllReports = async (req, res) => {
   try {

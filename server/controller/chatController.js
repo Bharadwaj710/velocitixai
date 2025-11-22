@@ -10,7 +10,6 @@ exports.handleMessage = async (req, res) => {
   try {
     const { userId, messages, courseId } = req.body;
 
-
     if (!userId || !messages || !Array.isArray(messages)) {
       return res
         .status(400)
