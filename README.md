@@ -21,84 +21,84 @@ MongoDB | Cloudinary
 
 ## Tech stack
 Frontend:
--React
--Vite
--Tailwind CSS
+-React,
+-Vite,
+-Tailwind CSS,
 -Axios
 
 Backend (Main API):
--Node.js
--Express.js
--MongoDB (Mongoose)
+-Node.js,
+-Express.js,
+-MongoDB (Mongoose),
 JWT Authentication
 
 AI Services (Python):
--Flask
--Google Gemini AI
--Whisper (Speech-to-Text)
--MediaPipe (Face Analysis)
--OpenCV
--MoviePy
--yt-dlp
+-Flask,
+-Google Gemini AI,
+-Whisper (Speech-to-Text),
+-MediaPipe (Face Analysis),
+-OpenCV,
+-MoviePy,
+-yt-dlp,
 -Cloudinary SDK
 
 Deployment:
--Frontend: Vercel
--Backend: Render
--AI Services: Render (Python 3.10)
--Database: MongoDB Atlas
+-Frontend: Vercel,
+-Backend: Render,
+-AI Services: Render (Python 3.10),
+-Database: MongoDB Atlas,
 -Media Storage: Cloudinary
 
 ## Key features:
 **Career Assessment & Profiling**
-AI-driven analysis of student responses
-Domain identification (Technology, Healthcare, Business, etc.)
-Skill-level classification (Beginner / Intermediate / Proficient)
+AI-driven analysis of student responses,
+Domain identification (Technology, Healthcare, Business, etc.),
+Skill-level classification (Beginner / Intermediate / Proficient),
 Role recommendations based on interests and challenges
 
 **AI Video Analysis (Career & Interview)**
-Cloudinary-based video uploads
-Audio extraction and transcription using Whisper
-Speech confidence, clarity, tone, and intent analysis using Gemini AI
-Facial analysis using MediaPipe + OpenCV
-Eye contact and face-visibility scoring
+Cloudinary-based video uploads,
+Audio extraction and transcription using Whisper,
+Speech confidence, clarity, tone, and intent analysis using Gemini AI,
+Facial analysis using MediaPipe + OpenCV,
+Eye contact and face-visibility scoring,
 Anti-cheating and attention monitoring logic
 
 **AI Technical Interview System**
-Adaptive 10-question AI interview
+Adaptive 10-question AI interview,
 Dynamic question generation based on:
--Course content
--Student proficiency
--Previous answers
-No question repetition
-Real-world, role-based follow-ups for strong answers
+-Course content,
+-Student proficiency,
+-Previous answers,
+No question repetition,
+Real-world, role-based follow-ups for strong answers,
 Automatic scoring and feedback generation
 
 **AI-Powered Course Recommendation Engine**
 Course matching using:
--Domain alignment
--Skill overlap
--Role relevance
--Learning challenges
+-Domain alignment,
+-Skill overlap,
+-Role relevance,
+-Learning challenges,
 Scored recommendations with labels:
--Highly Recommended
--Recommended
--Useful
+-Highly Recommended,
+-Recommended,
+-Useful,
 Supports refresh & caching for performance
 
 **Course-Aware AI Chatbot**
--Context-aware AI tutor per course
--Answers only course-related queries
--Adapts language based on student level
--Smart starter question suggestions
+-Context-aware AI tutor per course,
+-Answers only course-related queries,
+-Adapts language based on student level,
+-Smart starter question suggestions,
 -Markdown-formatted, structured responses
 
 **AI Cheating Detection System**
--Real-time face detection
--Head movement (yaw & pitch) analysis
--Multi-face detection
--Grace period & debounce logic
--Session-based calibration
+-Real-time face detection,
+-Head movement (yaw & pitch) analysis,
+-Multi-face detection,
+-Grace period & debounce logic,
+-Session-based calibration,
 -Non-intrusive warning system
 
 ## How to run (local)
