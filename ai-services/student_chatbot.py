@@ -13,7 +13,12 @@ chatbot_bp = Blueprint("chatbot", __name__)
 # MongoDB setup
 MONGO_CONN = os.getenv("MONGO_CONN")
 client = MongoClient(MONGO_CONN)
-db = client["auth_db"]
+try:
+    db = client.get_default_database()
+    if db is None:
+        db = client["test"]
+except:
+    db = client["test"]
 students_col = db.students
 assessments_col = db.careerassessments
 courses_col = db.courses

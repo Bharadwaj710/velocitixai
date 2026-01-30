@@ -31,15 +31,16 @@ gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 # === Helper Functions ===
 
-def download_video(cloud_url, save_path="temp_interview_video.mp4"):
-    response = requests.get(cloud_url)
+def download_video(cloud_url, save_path):
+    response = requests.get(cloud_url, stream=True)
     with open(save_path, 'wb') as f:
-        f.write(response.content)
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
     return save_path
 
-def extract_audio(video_path, audio_path="temp_interview_audio.wav"):
-    clip = mp.VideoFileClip(video_path)
-    clip.audio.write_audiofile(audio_path)
+def extract_audio(video_path, audio_path):
+    with mp.VideoFileClip(video_path) as clip:
+        clip.audio.write_audiofile(audio_path)
     return audio_path
 
 def transcribe_audio(audio_path):
@@ -116,8 +117,9 @@ def analyze_interview(video_url, answers, student_id):
     Full AI interview analysis pipeline.
     Returns data structured for InterviewReport model.
     """
-    video_path = "temp_interview_video.mp4"
-    audio_path = "temp_interview_audio.wav"
+    unique_id = str(student_id)
+    video_path = f"temp_interview_video_{unique_id}.mp4"
+    audio_path = f"temp_interview_audio_{unique_id}.wav"
 
     try:
         print(f"[AI Interview] Starting analysis for student={student_id}")

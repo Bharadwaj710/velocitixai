@@ -9,6 +9,7 @@ import {
 } from "../../services/api";
 import CourseEditModal from "./CourseEditModal";
 import { toast } from "react-toastify";
+import { ensureAbsoluteUrl } from "../../utils/urlHelper";
 
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Proficient"];
 const DOMAIN_OPTIONS = [
@@ -19,7 +20,7 @@ const DOMAIN_OPTIONS = [
   "Education and Social Services",
 ];
 
-const SUGGEST_API_URL = "http://localhost:5001/suggest-course-metadata";
+const SUGGEST_API_URL = "http://localhost:8000/suggest-course-metadata";
 
 // Define the initial state for the form outside the component.
 // This ensures we have a single source of truth for both initializing and resetting the form.
@@ -138,7 +139,7 @@ const CourseManager = () => {
 
       if (values.length) {
         submissionForm[field] = Array.from(
-          new Set([...(submissionForm[field] || []), ...values])
+          new Set([...(submissionForm[field] || []), ...values]),
         );
       }
     }
@@ -151,7 +152,7 @@ const CourseManager = () => {
         submissionForm[field].length === 0
       ) {
         toast.error(
-          "All AI fields (Roles, Skills, Challenges) are required and must have at least one value."
+          "All AI fields (Roles, Skills, Challenges) are required and must have at least one value.",
         );
         return;
       }
@@ -192,7 +193,7 @@ const CourseManager = () => {
         }
         if (!lesson.videoUrl) {
           toast.error(
-            `Module ${i + 1}, Lesson ${j + 1}: Video URL is required.`
+            `Module ${i + 1}, Lesson ${j + 1}: Video URL is required.`,
           );
           return;
         }
@@ -219,7 +220,7 @@ const CourseManager = () => {
                 lessonIdx,
                 name: res.data.name,
                 url: res.data.url,
-              }))
+              })),
             );
           }
         }
@@ -232,7 +233,7 @@ const CourseManager = () => {
         ...mod,
         lessons: (mod.lessons || []).map((lesson, lessonIdx) => {
           const found = uploadedPdfs.find(
-            (pdf) => pdf.modIdx === modIdx && pdf.lessonIdx === lessonIdx
+            (pdf) => pdf.modIdx === modIdx && pdf.lessonIdx === lessonIdx,
           );
           if (found) {
             return {
@@ -279,7 +280,7 @@ const CourseManager = () => {
         userId: null,
       });
       toast.info(
-        `Please generate quiz and transcript for "${submissionForm.title}".`
+        `Please generate quiz and transcript for "${submissionForm.title}".`,
       ); // Second toast notification
 
       await loadCourses();
@@ -307,7 +308,7 @@ const CourseManager = () => {
       setFormKey((prev) => prev + 1); // force rerender if needed
     } catch (err) {
       toast.error(
-        "Failed to create course. Please check the console for details."
+        "Failed to create course. Please check the console for details.",
       );
       console.error("Error creating course:", err);
     }
@@ -448,7 +449,7 @@ const CourseManager = () => {
       });
       setSuggestionsLoaded(true);
       toast.success(
-        "Suggestions loaded! Click 'Add' beside each field to autofill."
+        "Suggestions loaded! Click 'Add' beside each field to autofill.",
       );
     } catch (err) {
       toast.error("Failed to fetch suggestions");
@@ -494,12 +495,12 @@ const CourseManager = () => {
           : [];
         const alreadyInForm = form.idealRoles || [];
         const newSuggestions = suggested.idealRoles.filter(
-          (s) => !current.includes(s) && !alreadyInForm.includes(s)
+          (s) => !current.includes(s) && !alreadyInForm.includes(s),
         );
         setInputFields((f) => ({
           ...f,
           idealRole: Array.from(new Set([...current, ...newSuggestions])).join(
-            ", "
+            ", ",
           ),
         }));
       }
@@ -513,12 +514,12 @@ const CourseManager = () => {
           : [];
         const alreadyInForm = form.skillsCovered || [];
         const newSuggestions = suggested.skillsCovered.filter(
-          (s) => !current.includes(s) && !alreadyInForm.includes(s)
+          (s) => !current.includes(s) && !alreadyInForm.includes(s),
         );
         setInputFields((f) => ({
           ...f,
           skill: Array.from(new Set([...current, ...newSuggestions])).join(
-            ", "
+            ", ",
           ),
         }));
       }
@@ -532,12 +533,12 @@ const CourseManager = () => {
           : [];
         const alreadyInForm = form.challengesAddressed || [];
         const newSuggestions = suggested.challengesAddressed.filter(
-          (s) => !current.includes(s) && !alreadyInForm.includes(s)
+          (s) => !current.includes(s) && !alreadyInForm.includes(s),
         );
         setInputFields((f) => ({
           ...f,
           challenge: Array.from(new Set([...current, ...newSuggestions])).join(
-            ", "
+            ", ",
           ),
         }));
       }
@@ -670,7 +671,7 @@ const CourseManager = () => {
   // --- Delete course handler ---
   const handleDelete = async (id) => {
     const confirm = window.confirm(
-      "Are you sure you want to delete this course?"
+      "Are you sure you want to delete this course?",
     );
     if (!confirm) return;
     try {
@@ -847,7 +848,7 @@ const CourseManager = () => {
                       !(inputFields.idealRole || "")
                         .split(",")
                         .map((v) => v.trim())
-                        .includes(role)
+                        .includes(role),
                   )
                   .map((role, idx) => (
                     <span
@@ -984,7 +985,7 @@ const CourseManager = () => {
                       !(inputFields.skill || "")
                         .split(",")
                         .map((v) => v.trim())
-                        .includes(skill)
+                        .includes(skill),
                   )
                   .map((skill, idx) => (
                     <span
@@ -1108,7 +1109,7 @@ const CourseManager = () => {
                       onClick={() =>
                         removeSuggestionFromInput(
                           "challengesAddressed",
-                          ch.trim()
+                          ch.trim(),
                         )
                       }
                       title="Remove"
@@ -1127,7 +1128,7 @@ const CourseManager = () => {
                         !(inputFields.challenge || "")
                           .split(",")
                           .map((v) => v.trim())
-                          .includes(ch)
+                          .includes(ch),
                     )
                     .map((ch, idx) => (
                       <span
@@ -1214,8 +1215,8 @@ const CourseManager = () => {
           {suggesting
             ? "Suggesting..."
             : suggestionsLoaded
-            ? "Suggestions Loaded"
-            : "Suggest Metadata"}
+              ? "Suggestions Loaded"
+              : "Suggest Metadata"}
         </button>
 
         {/* Modules and Lessons */}
@@ -1287,7 +1288,7 @@ const CourseManager = () => {
                             handlePdfSelect(
                               modIdx,
                               lessonIdx,
-                              e.target.files[0]
+                              e.target.files[0],
                             )
                           }
                         />
@@ -1327,11 +1328,11 @@ const CourseManager = () => {
                               ? isCloudinary
                                 ? pdf.url.replace(
                                     "/upload/",
-                                    "/upload/fl_attachment:pdf/"
+                                    "/upload/fl_attachment:pdf/",
                                   )
                                 : pdf.url.startsWith("http")
-                                ? pdf.url
-                                : `http://${pdf.url}`
+                                  ? pdf.url
+                                  : `http://${pdf.url}`
                               : "#";
 
                             const displayName =
@@ -1367,7 +1368,7 @@ const CourseManager = () => {
                             modIdx,
                             lessonIdx,
                             "title",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         style={{ borderColor: "#3b82f6" }}
@@ -1381,7 +1382,7 @@ const CourseManager = () => {
                             modIdx,
                             lessonIdx,
                             "videoUrl",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         style={{ borderColor: "#3b82f6" }}
@@ -1490,11 +1491,11 @@ const CourseManager = () => {
                                 ? isCloudinary
                                   ? res.url.replace(
                                       "/upload/",
-                                      "/upload/fl_attachment:pdf/"
+                                      "/upload/fl_attachment:pdf/",
                                     )
                                   : res.url.startsWith("http")
-                                  ? res.url
-                                  : `http://${res.url}`
+                                    ? res.url
+                                    : `http://${res.url}`
                                 : "#";
 
                               const displayName =
@@ -1506,7 +1507,7 @@ const CourseManager = () => {
                               return (
                                 <li key={idx}>
                                   <a
-                                    href={finalURL}
+                                    href={ensureAbsoluteUrl(finalURL)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="underline text-blue-600"
@@ -1532,7 +1533,7 @@ const CourseManager = () => {
                                       <span className="ml-2 text-sm text-gray-600">
                                         (Video:{" "}
                                         <a
-                                          href={lesson.videoUrl}
+                                          href={ensureAbsoluteUrl(lesson.videoUrl)}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="underline"
@@ -1552,11 +1553,11 @@ const CourseManager = () => {
                                           ? isCloudinary
                                             ? res.url.replace(
                                                 "/upload/",
-                                                "/upload/fl_attachment:pdf/"
+                                                "/upload/fl_attachment:pdf/",
                                               )
                                             : res.url.startsWith("http")
-                                            ? res.url
-                                            : `http://${res.url}`
+                                              ? res.url
+                                              : `http://${res.url}`
                                           : "#";
 
                                         const displayName =
@@ -1567,7 +1568,7 @@ const CourseManager = () => {
                                         return (
                                           <li key={resIdx}>
                                             <a
-                                              href={finalURL}
+                                              href={ensureAbsoluteUrl(finalURL)}
                                               target="_blank"
                                               rel="noopener noreferrer"
                                               className="underline"

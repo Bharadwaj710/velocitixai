@@ -3,6 +3,7 @@ import apiClient from "../../api/apiClient";
 import { useNavigate, useLocation } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 import { useNotification } from "../../context/NotificationContext";
+import { ensureAbsoluteUrl } from "../../utils/urlHelper";
 
 const StudentCourses = () => {
   const user = JSON.parse(localStorage.getItem("user")) || {};
@@ -495,7 +496,7 @@ const StudentCourses = () => {
                                         <>
                                           {": "}
                                           <a
-                                            href={mod.resources[0].url}
+                                            href={ensureAbsoluteUrl(mod.resources[0].url)}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-blue-600 underline hover:text-pink-500 transition-colors duration-200 ml-1"

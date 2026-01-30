@@ -89,7 +89,7 @@ const StudentDashboard = () => {
         setRecentCourse(recent);
         setLastFlatIdx(lastIdx);
 
-        if (assessmentExists && hasFilledDetails) {
+        if (assessmentExists) {
           setShowAssessmentBtn(false);
           setReadinessPercent(0); // Always 0 until mock interview is taken
           setEnrolledCourses(courses);

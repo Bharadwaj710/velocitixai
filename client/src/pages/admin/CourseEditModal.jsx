@@ -3,6 +3,7 @@ import axios from "axios";
 import apiClient from "../../api/apiClient";
 import { toast } from "react-toastify";
 import { XCircle } from "lucide-react";
+import { ensureAbsoluteUrl } from "../../utils/urlHelper";
 
 // Simple ProgressBar component
 const ProgressBar = ({ progress }) => {
@@ -606,7 +607,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
 
         try {
           const res = await axios.get(
-            `http://localhost:5001/progress/${videoId}`
+            `http://localhost:8000/progress/${videoId}`
           );
           const newBackendPercent = res.data.progress;
 
@@ -663,7 +664,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
       },
     }));
     try {
-      await axios.post("http://localhost:5001/generate-transcript", {
+      await axios.post("http://localhost:8000/generate-transcript", {
         videoUrl,
         videoId,
         lessonId,
@@ -877,7 +878,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                             let btnText = hasTranscript
                               ? "Regenerate\nTranscript"
                               : "Generate\nTranscript";
-                            let disabled = isLoading || !canGenerate;
+                            let disabled = isLoading || !canGenerate || hasTranscript;
                             let tooltip = !lesson._id
                               ? "Save lesson before generating transcript"
                               : !lesson.videoId
@@ -919,7 +920,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                             let btnText = hasQuiz
                               ? "Regenerate\nQuiz"
                               : "Generate\nQuiz";
-                            let disabled = isLoading || !hasTranscript;
+                            let disabled = isLoading || !hasTranscript || hasQuiz;
                             let tooltip = !hasTranscript
                               ? "Transcript required before generating quiz"
                               : "";
@@ -1046,7 +1047,7 @@ const CourseEditModal = ({ course, onClose, onSave }) => {
                               📄 {lesson.resources[0].name}
                             </span>
                             <a
-                              href={lesson.resources[0].url}
+                              href={ensureAbsoluteUrl(lesson.resources[0].url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 underline text-xs"

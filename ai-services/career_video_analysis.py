@@ -7,6 +7,7 @@ import whisper
 import cv2
 import mediapipe as mp_face
 import google.generativeai as genai
+import uuid
 from dotenv import load_dotenv
 
 
@@ -35,8 +36,8 @@ def download_video(cloud_url, save_path):
         f.write(response.content)
 
 def extract_audio(video_path, audio_path):
-    clip = mp.VideoFileClip(video_path)
-    clip.audio.write_audiofile(audio_path)
+    with mp.VideoFileClip(video_path) as clip:
+        clip.audio.write_audiofile(audio_path)
 
 def transcribe_audio(audio_path):
     model = whisper.load_model("base")
@@ -49,18 +50,35 @@ def analyze_transcript(text):
 
     "{text}"
 
-    Based on their language, tone, and intent, provide:
-    1. Confidence score (1–10)
-    2. Communication clarity (1–10)
-    3. Tone (confident / hesitant / passionate / unsure)
-    4. 3–5 keywords about the student's interests or domain focus
-    Return only this analysis in a readable format.
+    Analyze this transcript and return a JSON object with the following fields:
+    1. confidence_score (Number 1–10)
+    2. communication_clarity (Number 1–10)
+    3. tone (String: "confident", "hesitant", "passionate", or "unsure")
+    4. keywords (List of 3–5 strings about the student's interests or domain focus)
+    5. corrected_level (String: "Beginner", "Intermediate", or "Proficient" based on the above)
+
+    Return ONLY the JSON.
     """
     try:
         response = gemini_model.generate_content(prompt)
-        return response.text.strip()
+        # Attempt to extract JSON if Gemini wraps it in markdown blocks
+        import re
+        import json
+        text_resp = response.text.strip()
+        match = re.search(r'\{.*\}', text_resp, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        return json.loads(text_resp)
     except Exception as e:
-        return f"Gemini error: {e}"
+        print(f"Gemini error: {e}")
+        return {
+            "confidence_score": 5,
+            "communication_clarity": 5,
+            "tone": "neutral",
+            "keywords": [],
+            "corrected_level": "Beginner",
+            "error": str(e)
+        }
 
 def analyze_face_patterns(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -87,8 +105,9 @@ def analyze_face_patterns(video_path):
     return round((face_visible_frames / total_frames) * 100, 2) if total_frames else 0.0
 
 def analyze_career_video(cloud_url):
-    local_video = "temp_video.mp4"
-    local_audio = "temp_audio.wav"
+    unique_id = uuid.uuid4().hex
+    local_video = f"temp_video_{unique_id}.mp4"
+    local_audio = f"temp_audio_{unique_id}.wav"
 
     try:
         download_video(cloud_url, local_video)
@@ -99,8 +118,8 @@ def analyze_career_video(cloud_url):
 
         return {
             "transcript": transcript,
-            "ai_feedback": ai_feedback,
-            "eye_contact_percent": eye_contact_percent
+            "eye_contact_percent": eye_contact_percent,
+            **ai_feedback
         }
 
     finally:    

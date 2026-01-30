@@ -128,7 +128,7 @@ const StudentNavbar = () => {
       try {
         const res = await apiClient.get(`/api/students/details/${userId}`);
         const data = res.data;
-        if (data && data.rollNumber && data.college && data.collegecourse) {
+        if (data || userId) {
           setShowNavLinks(true);
         } else {
           setShowNavLinks(false);

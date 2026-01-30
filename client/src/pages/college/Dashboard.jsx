@@ -18,6 +18,7 @@ import {
   User,
 } from "lucide-react";
 import axios from "axios";
+import apiClient from "../../api/apiClient";
 
 const CollegeDashboard = () => {
   const { slug } = useParams();
@@ -47,8 +48,8 @@ const CollegeDashboard = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/college/students/${collegeSlug}`
+        const res = await apiClient.get(
+          `/api/college/students/${collegeSlug}`
         );
         setStudentsData(res.data.students);
         // Log the first student object for debugging
@@ -77,7 +78,7 @@ const CollegeDashboard = () => {
             const progresses = await Promise.all(
               student.course.map(async (c) => {
                 try {
-                  const res = await axios.get(
+                  const res = await apiClient.get(
                     `/api/progress/${student.user?._id || student.user}/${
                       c._id
                     }`
@@ -117,8 +118,8 @@ const CollegeDashboard = () => {
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
-        const res = await axios.get(
-          "${process.env.REACT_APP_API_BASE_URL}/api/career-assessment/filters"
+        const res = await apiClient.get(
+          "/api/assessments/filters"
         );
         setAvailableDomains(res.data.domains || []);
         setAvailableSkills(res.data.skills || []);
@@ -527,7 +528,7 @@ const CollegeDashboard = () => {
                           const progressArr = await Promise.all(
                             student.course.map(async (c) => {
                               try {
-                                const res = await axios.get(
+                                const res = await apiClient.get(
                                   `/api/progress/${
                                     student.user?._id || student.user
                                   }/${c._id}`

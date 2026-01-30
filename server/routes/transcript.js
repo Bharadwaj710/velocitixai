@@ -111,9 +111,13 @@ router.get("/by-lesson/:lessonId", async (req, res) => {
   const { lessonId } = req.params;
 
   try {
-    // Always store and query lessonId as string
-    const transcript = await Transcript.findOne({
-      lessonId: lessonId.toString(),
+    // Use native collection to bypass Mongoose casting and match both formats
+    const transcript = await Transcript.collection.findOne({
+      $or: [
+        { lessonId: lessonId }, // Matches ObjectId if lessonId is valid ObjectId string
+        { lessonId: lessonId.toString() }, // Matches legacy String format
+        { lessonId: new mongoose.Types.ObjectId(lessonId) } // Explicit ObjectId match
+      ]
     });
 
     if (!transcript) {

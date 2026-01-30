@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { useNavigate } from "react-router-dom";
 
 const DOMAIN_OPTIONS = [
@@ -418,7 +418,7 @@ const CareerAssessment = () => {
       formData.append("answers", JSON.stringify(answersToSend));
       if (file) formData.append("file", file);
 
-      await axios.post("/api/career-assessment", formData, {
+      await apiClient.post("/api/assessments", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

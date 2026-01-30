@@ -129,7 +129,7 @@ const QuizSection = ({
       };
 
       const { data: scoreData } = await axios.post(
-        "http://localhost:5001/score-quiz",
+        "http://localhost:8000/score-quiz",
         payload
       );
 

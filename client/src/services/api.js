@@ -35,9 +35,9 @@ async function requestWithFallback(
       if (hostname === "localhost" || hostname === "127.0.0.1") {
         const localDerived = [
           `http://localhost:8080`,
-          `http://localhost:5000`,
+          `http://localhost:8000`,
           `http://127.0.0.1:8080`,
-          `http://127.0.0.1:5000`,
+          `http://127.0.0.1:8000`,
         ];
         for (const h of localDerived) {
           const clean = h.replace(/\/$/, "");

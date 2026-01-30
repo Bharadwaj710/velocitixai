@@ -21,8 +21,11 @@ from generate_next_question import generate_next_question
 # =========================
 #  LOAD ENV VARIABLES
 # =========================
-# For production, load .env from same folder
-load_dotenv()  
+# For production, load .env from same folder. For local, prefer server/.env.
+if os.path.exists("../server/.env"):
+    load_dotenv("../server/.env")
+else:
+    load_dotenv()  
 
 MONGO_CONN = os.getenv("MONGO_CONN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -120,12 +123,22 @@ def run_whisper(audio_path):
 
 def save_transcript(course_id, lesson_id, video_id, transcript):
     client = MongoClient(MONGO_CONN)
-    db = client["auth_db"]
+    try:
+        db = client.get_default_database()
+        if db is None:
+            db = client["test"]
+    except:
+        db = client["test"]
+    
+    # Ensure IDs are ObjectIds for Mongoose compatibility
+    c_id = ObjectId(course_id) if isinstance(course_id, str) else course_id
+    l_id = ObjectId(lesson_id) if isinstance(lesson_id, str) else lesson_id
+
     db["transcripts"].update_one(
-        {"courseId": course_id, "lessonId": lesson_id, "videoId": video_id},
+        {"lessonId": l_id},
         {"$set": {
-            "courseId": course_id,
-            "lessonId": lesson_id,
+            "courseId": c_id,
+            "lessonId": l_id,
             "videoId": video_id,
             "transcript": transcript,
         }},
@@ -134,7 +147,12 @@ def save_transcript(course_id, lesson_id, video_id, transcript):
 
 def find_lesson(video_id):
     client = MongoClient(MONGO_CONN)
-    db = client["auth_db"]
+    try:
+        db = client.get_default_database()
+        if db is None:
+            db = client["test"]
+    except:
+        db = client["test"]
     for course in db["courses"].find():
         for week in course.get("weeks", []):
             for module in week.get("modules", []):
@@ -169,11 +187,15 @@ def recommend():
 @app.route("/analyze-career-video", methods=["POST"])
 def analyze_video():
     video_url = request.json.get("video_url")
+    print(f"[AI] Received request to analyze video: {video_url}")
     if not video_url:
         return jsonify({"error": "Missing video_url"}), 400
     try:
-        return jsonify(analyze_career_video(video_url)), 200
+        results = analyze_career_video(video_url)
+        print(f"[AI] Analysis complete for: {video_url}")
+        return jsonify(results), 200
     except Exception as e:
+        print(f"[AI] Analysis failed: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -363,7 +385,12 @@ def reset_session_api(session_id):
 def initial_question_api(student_id):
     try:
         client = MongoClient(MONGO_CONN)
-        db = client["auth_db"]
+        try:
+            db = client.get_default_database()
+            if db is None:
+                db = client["test"]
+        except:
+            db = client["test"]
 
         course_id_str = request.args.get("courseId")
         if not course_id_str:
@@ -422,9 +449,50 @@ def initial_question_api(student_id):
         return jsonify({"error": "Failed to generate question"}), 500
 
 
+# === AI SUGGEST COURSE METADATA ENDPOINT ===
+@app.route("/suggest-course-metadata", methods=["POST"])
+def suggest_course_metadata():
+    data = request.json
+    title = data.get("title", "").strip()
+    description = data.get("description", "").strip()
+    if not title or not description:
+        return jsonify({"error": "Title and description are required."}), 400
+
+    # Example prompt for Gemini (adjust as needed)
+    prompt = f"""
+    Given the following course title and description, suggest:
+    - The most relevant domain (from: Technology and Innovation, Healthcare and Wellness, Business and Finance, Arts and Creativity, Education and Social Services)
+    - 3-5 ideal roles this course prepares for
+    - 5-8 key skills covered
+    - 3-5 main challenges addressed
+    
+    Title: {title}
+    Description: {description}
+    
+    Respond as JSON with keys: domain, idealRoles, skillsCovered, challengesAddressed.
+    """
+    try:
+        res = model.generate_content(prompt)
+        # Try to parse the response as JSON
+        import json
+        try:
+            result = json.loads(res.text)
+        except Exception:
+            # Fallback: try to extract JSON from text
+            import re
+            match = re.search(r'\{.*\}', res.text, re.DOTALL)
+            if match:
+                result = json.loads(match.group(0))
+            else:
+                return jsonify({"error": "AI did not return valid JSON."}), 500
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # =====================================
 #  START SERVER (RENDER COMPATIBLE)
 # =====================================
 if __name__ == "__main__":
-    PORT = int(os.getenv("PORT", 8000))
+    PORT = int(os.getenv("AI_PORT", 5000))
     app.run(host="0.0.0.0", port=PORT)

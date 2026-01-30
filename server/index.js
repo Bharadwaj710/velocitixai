@@ -38,7 +38,7 @@ app.use(
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
-  })
+  }),
 );
 
 // 🔧 REQUIRED: allow browser preflight OPTIONS calls
@@ -46,11 +46,11 @@ app.use(
 app.use((req, res, next) => {
   res.header(
     "Access-Control-Allow-Origin",
-    allowedOrigins.includes(req.headers.origin) ? req.headers.origin : ""
+    allowedOrigins.includes(req.headers.origin) ? req.headers.origin : "",
   );
   res.header(
     "Access-Control-Allow-Methods",
-    "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+    "GET,POST,PUT,DELETE,PATCH,OPTIONS",
   );
   res.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
@@ -138,7 +138,7 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
     console.error(
       "🔴 AI_PROXY_ERROR:",
       err?.response?.status,
-      err?.response?.data || err.message
+      err?.response?.data || err.message,
     );
     if (err.response && err.response.data) {
       // Try to forward AI service JSON error and status

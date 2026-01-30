@@ -16,7 +16,12 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 
 # MongoDB setup
 client = MongoClient(os.getenv("MONGO_CONN"))
-db = client["auth_db"]
+try:
+    db = client.get_default_database()
+    if db is None:
+        db = client["test"]
+except:
+    db = client["test"]
 assessments_col = db["careerassessments"]
 courses_col = db["courses"]
 
@@ -233,53 +238,63 @@ def recommend_courses(student_id: str, refresh=False):
     if not data or "answers" not in data:
         raise ValueError("Assessment data not found")
 
-    # If refresh = False, return cached data (if already processed)
-    if not refresh and all(key in data for key in CACHE_KEYS):
-        recommended = serialize_mongo(data["recommended_courses"])
+    print(f"[RECO] Request for {student_id} (refresh={refresh})")
+
+    # FAST PATH: If already processed and not a refresh, return cached data immediately
+    if not refresh and data.get("isProcessed") and "recommended_courses" in data:
+        print(f"[RECO] Returning cached data for {student_id}")
         return {
             "isProcessed": True,
             "student_id": student_id,
-            "profile_analysis": serialize_mongo(data["profile_analysis"]),
-            "video_transcript": data["video_transcript"],
-            "video_feedback": data["video_feedback"],
-            "eye_contact_percent": data["eye_contact_percent"],
-            "corrected_level": data["corrected_level"],
-            "recommended_courses": recommended
+            "profile_analysis": serialize_mongo(data.get("profile_analysis", {})),
+            "video_transcript": data.get("video_transcript", ""),
+            "video_feedback": data.get("video_feedback", ""),
+            "eye_contact_percent": data.get("eye_contact_percent", 0),
+            "corrected_level": data.get("corrected_level", "Beginner"),
+            "recommended_courses": serialize_mongo(data["recommended_courses"])
         }
 
-    # If refresh = True, skip AI and video processing, only refresh courses
-    if refresh:
-        if "profile_analysis" not in data:
-            raise ValueError("Profile analysis not found. Please complete the assessment first.")
-
+    # REFRESH PATH: If refresh=True or not yet processed, but has profile_analysis
+    # We can recalculate recommendations WITHOUT re-running Gemini/Video analysis
+    if data.get("profile_analysis") and (refresh or "recommended_courses" not in data):
+        print(f"[RECO] Broadening search to ALL courses for {student_id} (REFRESH PATH)")
         tags = data["profile_analysis"]
-
-        # --- Ensure tags["level"] is up-to-date with corrected_level ---
-        if "corrected_level" in data and data["corrected_level"]:
+        
+        # Ensure level is consistent
+        if data.get("corrected_level"):
             tags["level"] = data["corrected_level"]
 
-        # Fetch latest courses
-        raw_courses = list(courses_col.find({"domain": {"$regex": tags["domain"], "$options": "i"}}))
-        # --- Always recalculate scores and labels on refresh ---
+        # Broaden search: fetch ALL courses to allow for "perfect fit" regardless of domain exact match
+        raw_courses = list(courses_col.find({})) 
         scored_courses = []
         for course in raw_courses:
             score, label, breakdown = compute_score(course, tags)
-            course_with_score = serialize_mongo(course)
-            course_with_score["match_score"] = score
-            course_with_score["recommendation_label"] = label
-            course_with_score["score_breakdown"] = breakdown
-            scored_courses.append((course_with_score, score))
-        # Filter and sort by recalculated score
-        filtered = [c for c, score in scored_courses if score >= 3]
-        if not filtered:
-            filtered = [c for c, _ in sorted(scored_courses, key=lambda x: -x[1])[:3]]
-        recommended = sorted(filtered, key=lambda c: -c["match_score"])
-        recommended_serialized = recommended
+            # Only include if there's some relevance (score >= 3)
+            if score >= 3:
+                course_with_score = serialize_mongo(course)
+                course_with_score["match_score"] = score
+                course_with_score["recommendation_label"] = label
+                course_with_score["score_breakdown"] = breakdown
+                scored_courses.append((course_with_score, score))
+            
+        # If no courses meet the threshold, take top 5 matches
+        if not scored_courses:
+            all_scored = []
+            for course in raw_courses:
+                score, label, _ = compute_score(course, tags)
+                all_scored.append((course, score))
+            sorted_all = sorted(all_scored, key=lambda x: -x[1])[:5]
+            scored_courses = [(serialize_mongo(c), s) for c, s in sorted_all]
 
-        # --- Update recommended_courses with recalculated scores/labels ---
+        recommended = sorted([c for c, _ in scored_courses], key=lambda c: -c["match_score"])
+        
+        # Update cache
         assessments_col.update_one(
             {"userId": user_object_id},
-            {"$set": {"recommended_courses": recommended_serialized}}
+            {"$set": {
+                "recommended_courses": recommended,
+                "isProcessed": True
+            }}
         )
 
         return {
@@ -290,10 +305,11 @@ def recommend_courses(student_id: str, refresh=False):
             "video_feedback": data.get("video_feedback"),
             "eye_contact_percent": data.get("eye_contact_percent"),
             "corrected_level": data.get("corrected_level"),
-            "recommended_courses": recommended_serialized
+            "recommended_courses": recommended
         }
 
-    # First time processing: Full AI + Video Analysis
+    # FULL ANALYSIS PATH: Only if profile_analysis is missing
+    print(f"[RECO] Running FULL AI analysis for {student_id}")
     def get_answer(qn):
         ans = next((a["answer"] for a in data["answers"] if a["questionNumber"] == qn), "")
         return ", ".join(ans) if isinstance(ans, list) else ans
@@ -306,14 +322,19 @@ def recommend_courses(student_id: str, refresh=False):
         raise ValueError("Missing video URL for question 10")
 
     video_analysis = analyze_career_video(video_url)
-    transcript = video_analysis["transcript"]
-    feedback = video_analysis["ai_feedback"]
-    eye_contact_percent = video_analysis["eye_contact_percent"]
+    transcript = video_analysis.get("transcript", "")
+    eye_contact_percent = video_analysis.get("eye_contact_percent", 0)
 
-    confidence, communication, tone = parse_feedback_scores(feedback)
-    corrected_level = determine_level_from_metrics(confidence, communication, tone)
+    confidence = video_analysis.get("confidence_score", 5)
+    communication = video_analysis.get("communication_clarity", 5)
+    tone = video_analysis.get("tone", "neutral")
+    corrected_level = video_analysis.get("corrected_level", "Beginner")
+    
+    video_keywords = video_analysis.get("keywords", [])
     tags["level"] = corrected_level
-    tags["skills"] = list(set(tags["skills"] + extract_video_keywords(feedback)))
+    tags["skills"] = list(set(tags.get("skills", []) + video_keywords))
+
+    video_feedback_summary = f"Confidence: {confidence}, Clarity: {communication}, Tone: {tone}"
 
     raw_courses = list(courses_col.find({"domain": {"$regex": tags["domain"], "$options": "i"}}))
     scored_courses = []
@@ -324,23 +345,22 @@ def recommend_courses(student_id: str, refresh=False):
         course_with_score["recommendation_label"] = label
         course_with_score["score_breakdown"] = breakdown
         scored_courses.append((course_with_score, score))
-    filtered = [c for c, score in scored_courses if score >= 3]
 
+    filtered = [c for c, score in scored_courses if score >= 3]
     if not filtered:
         filtered = [c for c, _ in sorted(scored_courses, key=lambda x: -x[1])[:3]]
 
     recommended = sorted(filtered, key=lambda c: -c["match_score"])
-    recommended_serialized = recommended
 
     assessments_col.update_one(
         {"userId": user_object_id},
         {"$set": {
             "profile_analysis": tags,
             "video_transcript": transcript,
-            "video_feedback": feedback,
+            "video_feedback": video_feedback_summary,
             "eye_contact_percent": eye_contact_percent,
             "corrected_level": corrected_level,
-            "recommended_courses": recommended_serialized,
+            "recommended_courses": recommended,
             "isProcessed": True
         }}
     )
@@ -349,10 +369,10 @@ def recommend_courses(student_id: str, refresh=False):
         "student_id": student_id,
         "profile_analysis": serialize_mongo(tags),
         "video_transcript": transcript,
-        "video_feedback": feedback,
+        "video_feedback": video_feedback_summary,
         "eye_contact_percent": eye_contact_percent,
         "corrected_level": corrected_level,
-        "recommended_courses": recommended_serialized,
+        "recommended_courses": recommended,
         "isProcessed": True
     }
 

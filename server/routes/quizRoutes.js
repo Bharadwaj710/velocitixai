@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const mongoose = require("mongoose");
 
 const Course = require("../models/Course");
 const Transcript = require("../models/Transcript");
@@ -37,8 +38,12 @@ router.post("/generate-module/:courseId/:weekNumber", async (req, res) => {
           continue;
         }
 
-        const transcriptDoc = await Transcript.findOne({
-          lessonId: lesson._id,
+        const transcriptDoc = await Transcript.collection.findOne({
+          $or: [
+            { lessonId: lesson._id },
+            { lessonId: lesson._id.toString() },
+            { lessonId: new mongoose.Types.ObjectId(lesson._id) }
+          ]
         });
         if (!transcriptDoc || !Array.isArray(transcriptDoc.transcript)) {
           results.push({
@@ -127,7 +132,14 @@ router.get("/:lessonId", async (req, res) => {
   }
 
   try {
-    const quiz = await Quiz.findOne({ lessonId });
+    const quiz = await Quiz.collection.findOne({
+      $or: [
+        { lessonId: lessonId },
+        { lessonId: lessonId.toString() },
+        { lessonId: new mongoose.Types.ObjectId(lessonId) }
+      ]
+    });
+    // Convert to Mongoose model if needed or handle as plain object
 
     if (
       !quiz ||

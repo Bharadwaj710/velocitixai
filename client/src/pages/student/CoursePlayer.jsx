@@ -22,6 +22,7 @@ import ChatAssistant from "../../components/ChatAssistant/ChatAssistant";
 import { saveNote, fetchNotes, deleteNote, updateNote } from "../../api/notes";
 import { ChatProvider } from "../../context/ChatContext";
 import QuizSection from "./QuizSection";
+import { ensureAbsoluteUrl } from "../../utils/urlHelper";
 // Poll helper: repeatedly call GET /api/aiInterview/report/:id until it returns 200 with data.
 // returns the report object or throws after maxAttempts.
 async function pollForReportById(
@@ -127,8 +128,8 @@ function getIframePdfUrl(url) {
   }
   // If relative, prefix with ${process.env.REACT_APP_API_BASE_URL} (for local dev)
   if (url.startsWith("/")) return `${process.env.REACT_APP_API_BASE_URL}${url}`;
-  // Otherwise, return as is
-  return url;
+  // Otherwise, ensure it's absolute
+  return ensureAbsoluteUrl(url);
 }
 
 // Helper: collect all PDFs grouped by module

@@ -1,4 +1,5 @@
 const express = require("express");
+const axios = require("axios");
 const router = express.Router();
 const multer = require("multer");
 const path = require("path");
@@ -64,27 +65,50 @@ router.post("/", upload.single("file"), async (req, res) => {
       { upsert: true, new: true }
     );
 
-    res.status(200).json({ message: "Assessment submitted", doc });
+    // 🚀 Trigger AI analysis in the background
+    if (req.file && req.file.path) {
+      const videoUrl = req.file.path;
+      const aiURL = (process.env.AI_SERVICE_URL || "http://localhost:8000").replace(/\/$/, "");
+      
+      console.log(`[Assessment] Triggering AI analysis for user ${userId}, video: ${videoUrl}, using AI_URL: ${aiURL}`);
+      
+      // We don't await this to keep the response fast, but it runs as a side effect
+      axios.post(`${aiURL}/analyze-career-video`, { video_url: videoUrl })
+        .then(async (aiRes) => {
+          const analysis = aiRes.data;
+          console.log(`[Assessment] AI Analysis complete for user ${userId}`, analysis);
+          
+          const updatedDoc = await CareerAssessment.findOneAndUpdate(
+            { userId },
+            {
+              $set: {
+                profile_analysis: {
+                  confidence_score: analysis.confidence_score,
+                  communication_clarity: analysis.communication_clarity,
+                  tone: analysis.tone,
+                  keywords: analysis.keywords,
+                  corrected_level: analysis.corrected_level,
+                },
+                eye_contact_percent: analysis.eye_contact_percent,
+                video_transcript: analysis.transcript,
+                video_feedback: `Confidence: ${analysis.confidence_score}, Clarity: ${analysis.communication_clarity}, Tone: ${analysis.tone}`,
+                corrected_level: analysis.corrected_level,
+                isProcessed: true,
+              }
+            },
+            { new: true }
+          );
+          console.log(`[Assessment] Document updated for user ${userId}`);
+        })
+        .catch(err => {
+          console.error(`[Assessment] AI Analysis failed for user ${userId}:`, err.response?.data || err.message);
+        });
+    }
+
+    res.status(200).json({ message: "Assessment submitted and analysis triggered", doc });
   } catch (err) {
     console.error("[CareerAssessment] Error:", err);
     res.status(500).json({ error: "Server error", details: err.message });
-  }
-});
-
-// GET /api/assessments/:userId
-router.get("/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const assessment = await CareerAssessment.findOne({ userId });
-
-    if (!assessment) {
-      return res.status(404).json({ message: "Assessment not found" });
-    }
-
-    res.json(assessment);
-  } catch (err) {
-    console.error("Error fetching assessment:", err);
-    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -112,6 +136,23 @@ router.get('/filters', async (req, res) => {
   } catch (error) {
     console.error('Error fetching filters:', error);
     res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+// GET /api/assessments/:userId
+router.get("/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const assessment = await CareerAssessment.findOne({ userId });
+
+    if (!assessment) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
+
+    res.json(assessment);
+  } catch (err) {
+    console.error("Error fetching assessment:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

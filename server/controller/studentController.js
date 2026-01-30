@@ -117,7 +117,7 @@ exports.getStudentDetails = async (req, res) => {
       });
     }
 
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student) return res.status(200).json(null);
 
     res.json(student);
   } catch (err) {
