@@ -1,0 +1,184 @@
+const express = require("express");
+const router = express.Router();
+const axios = require("axios");
+const mongoose = require("mongoose");
+const Course = require("../models/Course");
+const Transcript = require("../models/Transcript");
+
+// Config: AI worker URL (can be set via AI_SERVICE_URL). Do not include trailing slash.
+// Default to port 8000 which is the AI service `app.py` default.
+const RAW_FLASK_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
+const FLASK_BASE = RAW_FLASK_URL.replace(/\/$/, "");
+
+// Helper: Send one lesson to Flask for transcript
+async function sendToFlask(lessonData) {
+  const endpoint = `${FLASK_BASE}/generate-transcript`;
+  try {
+    const res = await axios.post(endpoint, lessonData, { timeout: 120000 });
+    return { status: "success", data: res.data };
+  } catch (err) {
+    // Prefer AI worker JSON, otherwise include message
+    const aiError = err?.response?.data || err?.message || "Unknown error";
+    const statusCode = err?.response?.status || 502;
+    return {
+      status: "error",
+      statusCode,
+      error: aiError,
+      videoId: lessonData?.videoId,
+      lessonId: lessonData?.lessonId,
+    };
+  }
+}
+
+// POST /api/transcripts/generate-module
+router.post("/generate-module", async (req, res) => {
+  const { lessons } = req.body; // Array of { videoUrl, videoId, lessonId, courseId }
+  if (!Array.isArray(lessons) || lessons.length === 0) {
+    return res.status(400).json({ error: "lessons array required" });
+  }
+
+  try {
+    const results = await Promise.all(
+      lessons.map(async (lesson) => ({
+        ...lesson,
+        ...(await sendToFlask(lesson)),
+      }))
+    );
+
+    res.json({ message: "Transcript generation completed.", results });
+  } catch (err) {
+    console.error("[Transcript] Error generating transcripts:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/transcripts/generate-course
+router.post("/generate-course", async (req, res) => {
+  const { courseId } = req.body;
+  if (!courseId) {
+    return res.status(400).json({ error: "courseId is required" });
+  }
+
+  try {
+    const course = await Course.findById(courseId);
+    if (!course) return res.status(404).json({ error: "Course not found" });
+
+    const lessons = [];
+
+    (course.weeks || []).forEach((week) => {
+      (week.modules || []).forEach((mod) => {
+        (mod.lessons || []).forEach((lesson) => {
+          if (lesson.videoUrl && lesson.videoId && lesson._id) {
+            const lessonIdStr = lesson._id.toString();
+            console.log(`[Transcript] Preparing lessonId: ${lessonIdStr}`);
+            lessons.push({
+              videoUrl: lesson.videoUrl,
+              videoId: lesson.videoId,
+              lessonId: lessonIdStr,
+              courseId: course._id.toString(),
+            });
+          }
+        });
+      });
+    });
+
+    if (lessons.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "No valid lessons with video found." });
+    }
+
+    console.log(
+      `[Transcript] Generating for ${lessons.length} lessons in course "${course.title}"`
+    );
+
+    const results = await Promise.all(
+      lessons.map(async (lesson) => ({
+        ...lesson,
+        ...(await sendToFlask(lesson)),
+      }))
+    );
+
+    res.json({ message: "Transcript generation completed.", results });
+  } catch (err) {
+    console.error("[Transcript] Error generating course transcripts:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/transcripts/by-lesson/:lessonId
+router.get("/by-lesson/:lessonId", async (req, res) => {
+  const { lessonId } = req.params;
+
+  try {
+    // Use native collection to bypass Mongoose casting and match both formats
+    const transcript = await Transcript.collection.findOne({
+      $or: [
+        { lessonId: lessonId }, // Matches ObjectId if lessonId is valid ObjectId string
+        { lessonId: lessonId.toString() }, // Matches legacy String format
+        { lessonId: new mongoose.Types.ObjectId(lessonId) } // Explicit ObjectId match
+      ]
+    });
+
+    if (!transcript) {
+      return res
+        .status(404)
+        .json({ message: "Transcript not found", transcript: [] });
+    }
+
+    if (!Array.isArray(transcript.transcript)) {
+      return res
+        .status(500)
+        .json({ message: "Invalid transcript format", transcript: [] });
+    }
+
+    res.json({ transcript: transcript.transcript });
+  } catch (err) {
+    console.error("[Transcript] Error fetching transcript:", err);
+    res.status(500).json({ transcript: [] });
+  }
+});
+
+const { setProgress, clearProgress } = require("../utlis/progressTracker");
+
+router.post("/generate-transcript/:lessonId", async (req, res) => {
+  const { lessonId } = req.params;
+
+  try {
+    setProgress(lessonId, "transcript", 10); // start
+
+    // Simulate some progress steps
+    await someStep();
+    setProgress(lessonId, "transcript", 40);
+
+    await anotherStep();
+    setProgress(lessonId, "transcript", 70);
+
+    // Final step
+    await saveTranscriptToDB();
+    setProgress(lessonId, "transcript", 100);
+
+    // Optional: clean up
+    setTimeout(() => clearProgress(lessonId), 5000);
+
+    res.json({ message: "Transcript generated" });
+  } catch (err) {
+    setProgress(lessonId, "error", 0);
+    res.status(500).json({ error: "Transcript generation failed" });
+  }
+});
+
+// 🔹 DELETE /api/transcripts/by-lesson/:lessonId
+router.delete("/by-lesson/:lessonId", async (req, res) => {
+  const { lessonId } = req.params;
+
+  try {
+    await Transcript.deleteOne({ lessonId });
+    return res.status(200).json({ message: "Transcript deleted" });
+  } catch (err) {
+    console.error("❌ Failed to delete transcript:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+module.exports = router;

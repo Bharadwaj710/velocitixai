@@ -1,0 +1,109 @@
+/**
+ * QUICK REFERENCE CARD - apiClient.js
+ * Keep this handy when migrating components
+ */
+
+// ============================================================
+// IMPORT
+// ============================================================
+import apiClient from '@/api/apiClient';
+
+// ============================================================
+// BASIC METHODS
+// ============================================================
+apiClient.get('/api/endpoint');
+apiClient.post('/api/endpoint', data);
+apiClient.put('/api/endpoint', data);
+apiClient.patch('/api/endpoint', data);
+apiClient.delete('/api/endpoint');
+
+// ============================================================
+// WITH OPTIONS
+// ============================================================
+apiClient.get('/api/endpoint', { params: { id: '123' } });
+apiClient.post('/api/endpoint', data, { timeout: 60000 });
+
+// ============================================================
+// MULTIPART/FORM-DATA (Files)
+// ============================================================
+const formData = new FormData();
+formData.append('field', value);
+formData.append('file', fileInput.files[0]);
+apiClient.post('/api/upload', formData); // Content-Type auto-removed
+
+// ============================================================
+// ERROR HANDLING
+// ============================================================
+try {
+  const response = await apiClient.get('/api/data');
+} catch (error) {
+  // error object: { message: string, status: number, data: any }
+  console.log(error.message); // "Not Found"
+  console.log(error.status);  // 404
+  console.log(error.data);    // { error: "Resource not found" }
+}
+
+// ============================================================
+// TOKEN & AUTH
+// ============================================================
+// ✓ Automatically reads from localStorage['token']
+// ✓ Automatically adds "Authorization: Bearer {token}" header
+// ✓ Automatically clears token on 401 (Unauthorized)
+// ✓ Do NOT manually add Authorization header
+
+// ============================================================
+// BASE URL
+// ============================================================
+// ✓ Automatically set to REACT_APP_API_BASE_URL from .env
+// ✓ Use relative URLs: /api/courses (not full URL)
+// ✓ For external services: use axios directly
+
+// ============================================================
+// COMMON PATTERNS (VeloAI)
+// ============================================================
+
+// Interview Report (AIInterview.jsx)
+const report = await apiClient.get(`/api/aiInterview/report/${sessionId}`);
+
+// Video Upload (AIInterview.jsx)
+const fd = new FormData();
+fd.append('video', videoBlob);
+fd.append('sessionId', sessionId);
+await apiClient.post('/api/aiInterview/complete-interview', fd);
+
+// All Reports (HR Dashboard)
+const reports = await apiClient.get('/api/aiInterview/all-reports');
+
+// Course (CoursePlayer.jsx)
+const course = await apiClient.get(`/api/courses/${courseId}`);
+
+// Student Progress
+const progress = await apiClient.get(`/api/progress/${userId}/${courseId}`);
+
+// ============================================================
+// MIGRATION CHECKLIST
+// ============================================================
+// [ ] Import apiClient from '@/api/apiClient'
+// [ ] Remove axios imports
+// [ ] Replace axios.get/post/put/delete with apiClient equivalents
+// [ ] Remove process.env.REACT_APP_API_BASE_URL prefixes
+// [ ] Remove manual Authorization headers
+// [ ] Update error handling if needed
+// [ ] Test component functionality
+// [ ] Move to next component
+
+// ============================================================
+// DO's & DON'Ts
+// ============================================================
+
+// ✓ DO: Use apiClient for all API calls
+// ✓ DO: Use relative URLs (/api/...)
+// ✓ DO: Pass FormData directly for file uploads
+// ✓ DO: Handle error.status for specific errors
+
+// ✗ DON'T: Add Authorization header manually
+// ✗ DON'T: Use full URL with process.env
+// ✗ DON'T: Set Content-Type for multipart uploads
+// ✗ DON'T: Forget to catch errors
+
+// ============================================================

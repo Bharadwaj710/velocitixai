@@ -32,3 +32,10 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# === Python Virtual Environments ===
+venv/
+.venv/
+env/
+venv310/
+ai-services/venv310/

@@ -1,560 +1,756 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Users, UserCheck, TrendingUp, Search, Building2, Mail, BookOpen, Trophy, X } from 'lucide-react';
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import apiClient from "../../api/apiClient";
+import toast, { Toaster } from "react-hot-toast";
 
-// Mock API functions - replace with actual API calls
-const mockAPI = {
-  getStudents: () => Promise.resolve([
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      email: "sarah.j@email.com",
-      domain: "Full Stack Development",
-      level: "Advanced",
-      progress: 85,
-      completedCourses: 12,
-      totalCourses: 15,
-      isHired: false
-    },
-    {
-      id: 2,
-      name: "Mike Chen",
-      email: "mike.chen@email.com",
-      domain: "Data Science",
-      level: "Intermediate",
-      progress: 72,
-      completedCourses: 8,
-      totalCourses: 12,
-      isHired: false
-    },
-    {
-      id: 3,
-      name: "Emily Rodriguez",
-      email: "emily.r@email.com",
-      domain: "UI/UX Design",
-      level: "Advanced",
-      progress: 94,
-      completedCourses: 15,
-      totalCourses: 16,
-      isHired: false
-    },
-    {
-      id: 4,
-      name: "Alex Thompson",
-      email: "alex.t@email.com",
-      domain: "DevOps",
-      level: "Beginner",
-      progress: 45,
-      completedCourses: 5,
-      totalCourses: 10,
-      isHired: false
-    },
-    {
-      id: 5,
-      name: "Jessica Park",
-      email: "jessica.p@email.com",
-      domain: "Mobile Development",
-      level: "Intermediate",
-      progress: 68,
-      completedCourses: 9,
-      totalCourses: 14,
-      isHired: false
-    }
-  ]),
-  
-  getHiredStudents: () => Promise.resolve([
-    {
-      id: 101,
-      name: "David Wilson",
-      email: "david.w@email.com",
-      domain: "Full Stack Development",
-      company: "TechCorp Inc",
-      hiredDate: "2024-01-15"
-    },
-    {
-      id: 102,
-      name: "Lisa Garcia",
-      email: "lisa.g@email.com",
-      domain: "Data Science",
-      company: "DataFlow Solutions",
-      hiredDate: "2024-01-08"
-    }
-  ]),
-  
-  hireStudent: (studentId, companyName) => {
-    return Promise.resolve({ success: true, studentId, companyName });
-  }
-};
-
-// Shared Navbar Component
-const Navbar = () => {
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+// HR Navbar Component (No changes needed here)
+const HRNavbar = ({ hrInfo }) => {
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
 
   useEffect(() => {
-    function handleClickOutside(event) {
+    const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setProfileMenuOpen(false);
+        setShowProfileMenu(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <h1 className="text-2xl font-bold text-blue-600">Velocitix</h1>
+    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 flex justify-between items-center h-16">
+        <h1 className="text-2xl font-bold text-blue-700">HR Dashboard</h1>
+        <div className="relative" ref={profileRef}>
+          <button
+            className="flex items-center space-x-3 focus:outline-none"
+            onClick={() => setShowProfileMenu((v) => !v)}
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-white font-bold text-lg">
+              {hrInfo?.company ? hrInfo.company.charAt(0).toUpperCase() : "H"}
             </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-              HR Dashboard
-            </span>
-            {/* Profile Avatar with Dropdown */}
-            <div className="relative" ref={profileRef}>
+            <div className="text-left hidden sm:block">
+              <div className="font-semibold text-gray-800 text-sm">
+                {hrInfo?.company || "Company"}
+              </div>
+              <div className="text-xs text-gray-500">
+                {hrInfo?.designation || "HR"}
+              </div>
+            </div>
+          </button>
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-56 bg-white border rounded-lg shadow-lg py-2 z-50">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <div className="font-bold text-blue-700 text-base mb-1">
+                  {hrInfo?.company || "Company"}
+                </div>
+                <div className="text-xs text-gray-600 mb-1">
+                  {hrInfo?.designation || "HR"}
+                </div>
+                <div className="flex items-center text-xs text-gray-500 mb-1">
+                  {hrInfo?.phoneNumber && <span className="mr-1">📞</span>}
+                  {hrInfo?.phoneNumber || "No phone"}
+                </div>
+                <div className="flex items-center text-xs text-gray-500">
+                  {hrInfo?.address && <span className="mr-1">📍</span>}
+                  {hrInfo?.address || "No address"}
+                </div>
+              </div>
               <button
-                className="flex items-center focus:outline-none"
-                onClick={() => setProfileMenuOpen((open) => !open)}
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center"
               >
-                <span className="sr-only">Open user menu</span>
-                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center">
-                  <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
+                <span className="mr-2">🚪</span> Logout
               </button>
-              {profileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-white border rounded-lg shadow-lg py-2 z-50">
-                  <a
-                    href="/profile"
-                    className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    <svg className="h-4 w-4 mr-2 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    Profile
-                  </a>
-                  <a
-                    href="/settings"
-                    className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    <svg className="h-4 w-4 mr-2 text-purple-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4h2c0 1.1.9 2 2 2s2-.9 2-2h2c0 2.21-1.79 4-4 4zm6-4c0-3.31-2.69-6-6-6s-6 2.69-6 6H2c0-4.42 3.58-8 8-8s8 3.58 8 8h-2z" /></svg>
-                    Settings
-                  </a>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100"
-                  >
-                    <svg className="h-4 w-4 mr-2 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h4a2 2 0 012 2v1" /></svg>
-                    Logout
-                  </button>
-                </div>
-              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </nav>
   );
 };
 
-// Stats Card Component
-const StatsCard = ({ title, value, icon: Icon, color = "blue" }) => {
-  const colorClasses = {
-    blue: "bg-blue-50 text-blue-600",
-    green: "bg-green-50 text-green-600",
-    purple: "bg-purple-50 text-purple-600"
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center">
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        <div className="ml-4">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Student Card Component
-const StudentCard = ({ student, onHire }) => {
-  const getLevelColor = (level) => {
-    switch (level) {
-      case 'Advanced': return 'bg-green-100 text-green-800';
-      case 'Intermediate': return 'bg-yellow-100 text-yellow-800';
-      case 'Beginner': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">{student.name}</h3>
-          <div className="flex items-center text-gray-600 mt-1">
-            <Mail className="w-4 h-4 mr-1" />
-            <span className="text-sm">{student.email}</span>
-          </div>
-        </div>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLevelColor(student.level)}`}>
-          {student.level}
-        </span>
-      </div>
-      
-      <div className="space-y-3">
-        <div>
-          <p className="text-sm text-gray-600">Domain</p>
-          <p className="font-medium text-gray-900">{student.domain}</p>
-        </div>
-        
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-sm text-gray-600">Progress</span>
-            <span className="text-sm font-medium text-gray-900">{student.progress}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all"
-              style={{ width: `${student.progress}%` }}
-            ></div>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-gray-600">
-            <BookOpen className="w-4 h-4 mr-1" />
-            <span className="text-sm">{student.completedCourses}/{student.totalCourses} Courses</span>
-          </div>
-          <button
-            onClick={() => onHire(student)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            Hire
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Hire Modal Component
-const HireModal = ({ student, isOpen, onClose, onConfirm }) => {
-  const [companyName, setCompanyName] = useState('');
-
-  const handleSubmit = () => {
-    if (companyName.trim()) {
-      onConfirm(student.id, companyName.trim());
-      setCompanyName('');
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Hire Student</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        
-        <div className="mb-4">
-          <p className="text-gray-600">You are about to hire:</p>
-          <p className="font-semibold text-gray-900">{student?.name}</p>
-          <p className="text-sm text-gray-600">{student?.email}</p>
-        </div>
-        
-        <div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Company Name
-            </label>
-            <input
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter company name"
-            />
-          </div>
-          
-          <div className="flex space-x-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-            >
-              Confirm Hire
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Hired Students Modal Component
-const HiredStudentsModal = ({ isOpen, onClose, hiredStudents }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[80vh] overflow-hidden">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">Hired Students</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
-          {hiredStudents.length === 0 ? (
-            <div className="text-center py-8">
-              <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No students hired yet</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Email</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Domain</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Company</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Hired Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hiredStudents.map((student) => (
-                    <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium text-gray-900">{student.name}</td>
-                      <td className="py-3 px-4 text-gray-600">{student.email}</td>
-                      <td className="py-3 px-4 text-gray-600">{student.domain}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center">
-                          <Building2 className="w-4 h-4 mr-2 text-gray-400" />
-                          <span className="font-medium text-gray-900">{student.company}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">
-                        {new Date(student.hiredDate).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Main HR Dashboard Component
-const HRDashboard = () => {
-  const [activeSection, setActiveSection] = useState('students');
+const Dashboard = () => {
   const [students, setStudents] = useState([]);
-  const [hiredStudents, setHiredStudents] = useState([]);
+  const [invitedStudents, setInvitedStudents] = useState([]);
+  const [hrInfo, setHrInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [showHireModal, setShowHireModal] = useState(false);
-  const [showHiredModal, setShowHiredModal] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardDomain, setLeaderboardDomain] = useState("");
+  const [leaderboardSkills, setLeaderboardSkills] = useState("");
 
-  // Mock user role - replace with actual auth context
-  const userRole = 'hr';
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [studentDetails, setStudentDetails] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [filterDomain, setFilterDomain] = useState("");
+  const [filterSkills, setFilterSkills] = useState("");
+
+  const user = JSON.parse(localStorage.getItem("user"));
+  const [reports, setReports] = useState([]);
+
+  const fetchReports = async () => {
+    try {
+      const res = await apiClient.get(`/api/aiInterview/all-reports`);
+      setReports(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Failed to fetch reports", err);
+    }
+  };
+
+  // Helper function to calculate average progress based on courseProgressMap
+  const calculateAverageProgress = (courseProgressMap, courses) => {
+    if (!courses || courses.length === 0) {
+      return 0;
+    }
+    let totalProgress = 0;
+    let coursesWithProgress = 0;
+
+    courses.forEach((course) => {
+      const progress = courseProgressMap[course._id];
+      if (typeof progress === "number") {
+        totalProgress += progress;
+        coursesWithProgress++;
+      }
+    });
+
+    if (coursesWithProgress === 0) {
+      return 0;
+    }
+    return Math.round(totalProgress / coursesWithProgress);
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const res = await apiClient.get("/api/hr/students");
+      const studentsData = Array.isArray(res.data?.students)
+        ? res.data.students
+        : [];
+
+      // --- START OF WORKAROUND FOR N+1 PROBLEM ---
+      // Fetch detailed progress for each student
+      const studentsWithDetailedProgress = await Promise.all(
+        studentsData.map(async (student) => {
+          try {
+            const detailRes = await apiClient.get(
+              `/api/hr/student-details/${student._id}`
+            );
+            const { student: detailedStudent, courseProgressMap } =
+              detailRes.data || {};
+
+            // Calculate average progress using the detailed data
+            const calculatedProgress = calculateAverageProgress(
+              courseProgressMap,
+              detailedStudent.course // Use the courses from detailed student data
+            );
+
+            return {
+              ...student, // Keep original student data
+              calculatedProgress, // Add the calculated average progress
+              courseProgressMap: courseProgressMap, // Also store the map for modal
+              detailedCourses: detailedStudent.course, // Store detailed courses for modal
+            };
+          } catch (detailErr) {
+            console.warn(
+              `Could not fetch details for student ${student._id}:`,
+              detailErr
+            );
+            // Return student with 0 progress if details fetch fails
+            return {
+              ...student,
+              calculatedProgress: 0,
+              courseProgressMap: {},
+              detailedCourses: [],
+            };
+          }
+        })
+      );
+      // --- END OF WORKAROUND ---
+
+      setStudents(studentsWithDetailedProgress);
+    } catch (err) {
+      console.error("Error fetching students:", err);
+      toast.error("Failed to fetch student data.");
+    }
+  };
+
+  const fetchInvitedStudents = async () => {
+    try {
+      const res = await apiClient.get("/api/hr/invited");
+      setInvitedStudents(
+        Array.isArray(res.data?.students) ? res.data.students : []
+      );
+    } catch (err) {
+      console.error("Error fetching invited students:", err);
+      toast.error("Failed to fetch invited students list.");
+    }
+  };
+
+  const fetchHRDetails = async () => {
+    try {
+      const res = await apiClient.get(`/api/hr/${user._id}/details`);
+      setHrInfo(res.data?.hr || null);
+    } catch (err) {
+      console.error("Error fetching HR details:", err);
+      toast.error("Failed to fetch HR profile details.");
+    }
+  };
 
   useEffect(() => {
-    fetchData();
+    const initializeDashboard = async () => {
+      setLoading(true);
+      const [studentsRes, invitedRes, hrRes, reportsRes] =
+        await Promise.allSettled([
+          fetchStudents(),
+          fetchInvitedStudents(),
+          fetchHRDetails(),
+          fetchReports(),
+        ]);
+      setLoading(false);
+    };
+    initializeDashboard();
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [studentsData, hiredData] = await Promise.all([
-        mockAPI.getStudents(),
-        mockAPI.getHiredStudents()
-      ]);
-      setStudents(studentsData);
-      setHiredStudents(hiredData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
+  // Filter students based on domain and skills
+  useEffect(() => {
+    let filtered = [...students];
+
+    if (filterDomain.trim()) {
+      filtered = filtered.filter(
+        (s) => s.domain?.toLowerCase() === filterDomain.toLowerCase()
+      );
     }
-  };
 
-  const handleHireStudent = (student) => {
-    setSelectedStudent(student);
-    setShowHireModal(true);
-  };
+    if (filterSkills.trim()) {
+      filtered = filtered.filter((s) =>
+        s.skills?.some((skill) =>
+          skill.toLowerCase().includes(filterSkills.toLowerCase())
+        )
+      );
+    }
 
-  const confirmHire = async (studentId, companyName) => {
+    setFilteredStudents(filtered);
+  }, [filterDomain, filterSkills, students]);
+
+  const handleConfirmHire = async (student) => {
+    if (!hrInfo || !hrInfo._id || !hrInfo.company) {
+      toast.error("HR profile not found. Please re-login.");
+      return;
+    }
+
     try {
-      await mockAPI.hireStudent(studentId, companyName);
-      
-      // Move student from students to hired students
-      const student = students.find(s => s.id === studentId);
-      if (student) {
-        const hiredStudent = {
-          ...student,
-          company: companyName,
-          hiredDate: new Date().toISOString()
-        };
-        
-        setStudents(prev => prev.filter(s => s.id !== studentId));
-        setHiredStudents(prev => [...prev, hiredStudent]);
+      const res = await apiClient.post("/api/hr/send-invite", {
+        studentId: student._id,
+        companyName: hrInfo.company,
+        hrId: hrInfo._id,
+      });
+
+      if (res.data.success) {
+        toast.success("Invitation sent successfully!");
+        fetchInvitedStudents(); // refresh list
+      } else {
+        toast.error(res.data.message || "Failed to send invitation.");
       }
-      
-      setShowHireModal(false);
-      setSelectedStudent(null);
-    } catch (error) {
-      console.error('Error hiring student:', error);
+    } catch (err) {
+      console.error("Error sending hire invitation:", err);
+      toast.error("Error sending invite. Please try again later.");
     }
   };
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.domain.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Leaderboard logic (top 3 by calculated average progress)
+  const leaderboard = useMemo(() => {
+    return [...students]
+      .filter((s) => s.calculatedProgress !== undefined)
+      .sort((a, b) => (b.calculatedProgress || 0) - (a.calculatedProgress || 0))
+      .slice(0, 3);
+  }, [students]);
 
-  const averageProgress = students.length > 0 
-    ? Math.round(students.reduce((sum, student) => sum + student.progress, 0) / students.length)
-    : 0;
-
-  const handleSectionChange = (section) => {
-    setActiveSection(section);
-    if (section === 'hired') {
-      setShowHiredModal(true);
-    }
-  };
-
-  if (loading) {
+  if (loading)
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar userRole={userRole} activeSection={activeSection} onSectionChange={handleSectionChange} />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-lg font-semibold">
+        Loading...
       </div>
     );
-  }
+
+  // Stat cards data
+  const statCards = [
+    {
+      title: "Total Students",
+      value: students.length,
+      icon: (
+        <div className="p-2 bg-blue-100 rounded-lg">
+          <span role="img" aria-label="users">
+            👥
+          </span>
+        </div>
+      ),
+      color: "blue",
+    },
+    {
+      title: "Leaderboard",
+      value: (
+        <div className="flex flex-col gap-1">
+          {leaderboard.map((s, i) => (
+            <span
+              key={s._id}
+              className="text-xs font-semibold text-gray-900 whitespace-normal break-words max-w-xs"
+            >
+              {i + 1}. {s.user?.name || "N/A"} ({s.calculatedProgress || 0}%)
+            </span>
+          ))}
+        </div>
+      ),
+      icon: (
+        <div className="p-2 bg-yellow-100 rounded-lg">
+          <span role="img" aria-label="trophy">
+            🏆
+          </span>
+        </div>
+      ),
+      color: "yellow",
+      leaderboard: true,
+      onClick: () => setShowLeaderboard(true),
+    },
+    {
+      title: "Invited Students",
+      value: invitedStudents.length,
+      icon: (
+        <div className="p-2 bg-green-100 rounded-lg">
+          <span role="img" aria-label="invite">
+            ✉️
+          </span>
+        </div>
+      ),
+      color: "green",
+    },
+  ];
+
+  // Helper for student avatar
+  const getAvatar = (name) => (name ? name.charAt(0).toUpperCase() : "S");
+
+  const handleStudentClick = async (studentId) => {
+    try {
+      // When clicking "View Details", we already have the detailed data if the N+1 workaround is active.
+      // Find the student from the `students` state to avoid another API call.
+      const studentData = students.find((s) => s._id === studentId);
+
+      if (studentData) {
+        // If we already fetched detailed data, use it
+        setStudentDetails({
+          student: {
+            ...studentData,
+            course: studentData.detailedCourses, // Use the detailed courses
+          },
+          courseProgressMap: studentData.courseProgressMap,
+        });
+        // Fetch reports for this student to determine which courses have reports
+        try {
+          const repRes = await apiClient.get("/api/aiInterview/all-reports");
+          const allReports = Array.isArray(repRes.data) ? repRes.data : [];
+          // Normalize to strings for easy comparison
+          setReports(
+            allReports.map((r) => ({
+              student: String(r.student),
+              course: String(r.course),
+            }))
+          );
+        } catch (e) {
+          console.warn("Failed to fetch reports for HR modal", e);
+          setReports([]);
+        }
+        setShowModal(true);
+      } else {
+        // Fallback: if for some reason data isn't in state, fetch it
+        const res = await apiClient.get(`/api/hr/student-details/${studentId}`);
+        setStudentDetails(res.data);
+        // fetch reports for this student
+        try {
+          const repRes = await apiClient.get("/api/aiInterview/all-reports");
+          const allReports = Array.isArray(repRes.data) ? repRes.data : [];
+          setReports(
+            allReports.map((r) => ({
+              student: String(r.student),
+              course: String(r.course),
+            }))
+          );
+        } catch (e) {
+          console.warn("Failed to fetch reports for HR modal", e);
+          setReports([]);
+        }
+        setShowModal(true);
+      }
+    } catch (err) {
+      console.error("Error fetching student details:", err);
+      toast.error("Failed to fetch student details.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar userRole={userRole} activeSection={activeSection} onSectionChange={handleSectionChange} />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
+      <Toaster />
+      <HRNavbar hrInfo={hrInfo} />
+      <div className="max-w-6xl mx-auto py-10 px-4 sm:px-8">
+        {/* Stat Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatsCard
-            title="Total Students"
-            value={students.length}
-            icon={Users}
-            color="blue"
-          />
-          <div onClick={() => setShowHiredModal(true)} className="cursor-pointer">
-            <StatsCard
-              title="Total Hired"
-              value={hiredStudents.length}
-              icon={UserCheck}
-              color="green"
-            />
-          </div>
-          <StatsCard
-            title="Average Progress"
-            value={`${averageProgress}%`}
-            icon={TrendingUp}
-            color="purple"
+          {statCards.map((card, idx) => (
+            <div
+              key={idx}
+              className="bg-white rounded-lg shadow p-6 flex items-center cursor-pointer"
+              onClick={card.onClick}
+            >
+              {card.icon}
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">
+                  {card.title}
+                </p>
+                {card.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Domain Dropdown */}
+          <select
+            value={filterDomain}
+            onChange={(e) => setFilterDomain(e.target.value)}
+            className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Domains</option>
+            <option value="Technology and Innovation">
+              Technology and Innovation
+            </option>
+            <option value="Healthcare and Wellness">
+              Healthcare and Wellness
+            </option>
+            <option value="Business and Finance">Business and Finance</option>
+            <option value="Arts and Creativity">Arts and Creativity</option>
+            <option value="Education and Social Services">
+              Education and Social Services
+            </option>
+          </select>
+
+          {/* Skills Text Input */}
+          <input
+            type="text"
+            placeholder="Filter by skills (e.g., React, Python)"
+            value={filterSkills}
+            onChange={(e) => setFilterSkills(e.target.value)}
+            className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
-        {/* All Students Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 sm:mb-0">All Students</h2>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        {/* Leaderboard Modal */}
+        {showLeaderboard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full relative">
+              <button
+                className="absolute top-3 right-4 text-gray-400 hover:text-gray-800 text-xl"
+                onClick={() => setShowLeaderboard(false)}
+              >
+                &times;
+              </button>
+              <h2 className="text-2xl font-bold mb-4 flex items-center text-gray-800">
+                <span role="img" aria-label="trophy" className="mr-2">
+                  🏆
+                </span>
+                Leaderboard
+              </h2>
+
+              {/* Filters inside leaderboard */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <select
+                  value={leaderboardDomain}
+                  onChange={(e) => setLeaderboardDomain(e.target.value)}
+                  className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Domains</option>
+                  <option value="Technology and Innovation">
+                    Technology and Innovation
+                  </option>
+                  <option value="Healthcare and Wellness">
+                    Healthcare and Wellness
+                  </option>
+                  <option value="Business and Finance">
+                    Business and Finance
+                  </option>
+                  <option value="Arts and Creativity">
+                    Arts and Creativity
+                  </option>
+                  <option value="Education and Social Services">
+                    Education and Social Services
+                  </option>
+                </select>
+
                 <input
                   type="text"
-                  placeholder="Search students..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Filter by skills"
+                  value={leaderboardSkills}
+                  onChange={(e) => setLeaderboardSkills(e.target.value)}
+                  className="border p-2 rounded w-full sm:w-1/2 focus:ring-blue-500 focus:border-blue-500"
                 />
+              </div>
+
+              <ol className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                {[...students]
+                  .filter((s) => s.calculatedProgress !== undefined)
+                  .filter((s) =>
+                    leaderboardDomain
+                      ? s.domain?.toLowerCase() ===
+                        leaderboardDomain.toLowerCase()
+                      : true
+                  )
+                  .filter((s) =>
+                    leaderboardSkills
+                      ? s.skills?.some((skill) =>
+                          skill
+                            .toLowerCase()
+                            .includes(leaderboardSkills.toLowerCase())
+                        )
+                      : true
+                  )
+                  .sort(
+                    (a, b) =>
+                      (b.calculatedProgress || 0) - (a.calculatedProgress || 0)
+                  )
+                  .map((s, idx) => (
+                    <li
+                      key={s._id || idx}
+                      onClick={() => handleStudentClick(s._id)}
+                      className="flex items-center justify-between px-2 py-2 rounded hover:bg-gray-100 cursor-pointer transition duration-150 ease-in-out"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span
+                          className={`font-bold text-lg ${
+                            idx === 0
+                              ? "text-yellow-600"
+                              : idx === 1
+                              ? "text-gray-500"
+                              : idx === 2
+                              ? "text-orange-700"
+                              : "text-gray-700"
+                          }`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900">
+                            {s.user?.name || "N/A"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {s.college || "N/A"}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">
+                        {s.calculatedProgress || 0}%
+                      </span>
+                    </li>
+                  ))}
+              </ol>
+            </div>
+          </div>
+        )}
+
+        {/* All Students Grid */}
+        <h2 className="text-xl font-semibold mb-4 text-gray-800">
+          All Students
+        </h2>
+        {filteredStudents.length === 0 ? (
+          <div className="bg-white rounded-xl shadow p-6 text-gray-500 text-center">
+            No students found matching your criteria.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {filteredStudents.map((student) => (
+              <div
+                key={student._id}
+                className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition flex flex-col items-center border border-gray-100"
+              >
+                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl mb-3">
+                  {getAvatar(student.user?.name)}
+                </div>
+                <h3 className="font-semibold text-lg text-gray-900 text-center">
+                  {student.user?.name || "N/A"}
+                </h3>
+                <div className="text-gray-600 text-sm text-center mb-2">
+                  {student.user?.email || "N/A"}
+                </div>
+                {/* Display College, Roll No, College Course */}
+                <div className="text-xs text-gray-500 text-center mb-1">
+                  <strong>College:</strong> {student.college || "N/A"}
+                </div>
+                <div className="text-xs text-gray-500 text-center mb-1">
+                  <strong>Roll No:</strong> {student.rollNumber || "N/A"}
+                </div>
+                <div className="text-xs text-gray-500 text-center mb-2">
+                  <strong>College Course:</strong>{" "}
+                  {student.collegecourse || "N/A"}
+                </div>
+
+                {/* Progress Bar based on calculatedAverageProgress */}
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div
+                    className="h-2 rounded-full bg-gradient-to-r from-green-400 to-blue-500"
+                    style={{ width: `${student.calculatedProgress || 0}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-500 mb-2">
+                  Progress: {student.calculatedProgress || 0}%
+                </div>
+                <div className="flex flex-col gap-2 w-full">
+                  <button
+                    className="px-4 py-2 bg-gray-100 text-blue-600 rounded-lg font-semibold shadow hover:bg-gray-200 transition"
+                    onClick={() => handleStudentClick(student._id)}
+                  >
+                    View Details
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition"
+                    onClick={() => handleConfirmHire(student)}
+                  >
+                    Send Hire Invitation
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Modal with Full Student Details */}
+        {showModal && studentDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-4">
+            <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto relative">
+              <button
+                onClick={() => setShowModal(false)}
+                className="absolute top-3 right-4 text-gray-400 hover:text-gray-800 text-xl"
+              >
+                &times;
+              </button>
+              <h2 className="text-2xl font-bold text-blue-700 mb-4">
+                {studentDetails.student.name}'s Details
+              </h2>
+              <div className="space-y-2 text-gray-700 text-sm">
+                <p>
+                  <strong>Email:</strong> {studentDetails.student.user?.email}
+                </p>
+                <p>
+                  <strong>College:</strong> {studentDetails.student.college}
+                </p>
+                <p>
+                  <strong>Branch:</strong> {studentDetails.student.branch}
+                </p>
+                <p>
+                  <strong>Roll No:</strong> {studentDetails.student.rollNumber}
+                </p>
+                <p>
+                  <strong>College Course:</strong>{" "}
+                  {studentDetails.student.collegecourse}
+                </p>
+                <p>
+                  <strong>Domain:</strong>{" "}
+                  {studentDetails.student.domain || "N/A"}
+                </p>
+                <p>
+                  <strong>Skills:</strong>{" "}
+                  {Array.isArray(studentDetails.student.skills) &&
+                  studentDetails.student.skills.length > 0
+                    ? studentDetails.student.skills.join(", ")
+                    : "N/A"}
+                </p>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                  Course Progress
+                </h3>
+                <div className="space-y-4">
+                  {studentDetails.student.course.length > 0 ? (
+                    studentDetails.student.course.map((course) => (
+                      <div
+                        key={course._id}
+                        className="bg-gray-50 p-4 rounded-lg border"
+                      >
+                        <div className="font-semibold text-blue-600 text-md mb-1">
+                          {course.title}
+                        </div>
+                        <div className="text-sm text-gray-600 mb-1">
+                          {course.description}
+                        </div>
+
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-500 h-2 rounded-full"
+                            style={{
+                              width: `${Math.min(
+                                Math.max(
+                                  studentDetails.courseProgressMap[
+                                    course._id
+                                  ] || 0,
+                                  0
+                                ),
+                                100
+                              )}%`,
+                            }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-right text-gray-500 mt-1">
+                          {Math.min(
+                            Math.max(
+                              studentDetails.courseProgressMap[course._id] || 0,
+                              0
+                            ),
+                            100
+                          )}
+                          % completed
+                        </div>
+
+                        {/* ✅ View Report Button only if progress is exactly 100% and a report exists */}
+                        {Math.round(
+                          studentDetails.courseProgressMap[course._id] || 0
+                        ) === 100 &&
+                          reports.some((r) => {
+                            const studentUserId = String(
+                              studentDetails.student.user?._id ||
+                                studentDetails.student.user
+                            );
+                            return (
+                              r.student === studentUserId &&
+                              r.course === String(course._id)
+                            );
+                          }) && (
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition"
+                                onClick={() =>
+                                  window.open(
+                                    `/ai-interview-analysis/${course._id}?view=hr`,
+                                    "_blank"
+                                  )
+                                }
+                              >
+                                View Report
+                              </button>
+                            </div>
+                          )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500">No courses enrolled.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-          
-          <div className="p-6">
-            {filteredStudents.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">
-                  {searchTerm ? 'No students found matching your search' : 'No students available'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredStudents.map((student) => (
-                  <StudentCard
-                    key={student.id}
-                    student={student}
-                    onHire={handleHireStudent}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
-
-      {/* Hire Modal */}
-      <HireModal
-        student={selectedStudent}
-        isOpen={showHireModal}
-        onClose={() => {
-          setShowHireModal(false);
-          setSelectedStudent(null);
-        }}
-        onConfirm={confirmHire}
-      />
-
-      {/* Hired Students Modal */}
-      <HiredStudentsModal
-        isOpen={showHiredModal}
-        onClose={() => setShowHiredModal(false)}
-        hiredStudents={hiredStudents}
-      />
     </div>
   );
 };
 
-export default HRDashboard;
+export default Dashboard;

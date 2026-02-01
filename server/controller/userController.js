@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
+const { cloudinary } = require("../utlis/cloudinary");
 
 // GET /api/users - fetch all users
 const getAllUsers = async (req, res) => {
@@ -16,23 +17,42 @@ const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     let updateFields = {};
+
     if (req.body.name) updateFields.name = req.body.name;
     if (req.body.email) updateFields.email = req.body.email;
     if (req.body.role) updateFields.role = req.body.role;
     if (req.body.isAdmin !== undefined) updateFields.isAdmin = req.body.isAdmin;
+
+    // ✅ If image file is present, upload to Cloudinary
     if (req.file) {
-      updateFields.profilePicture = "/uploads/" + req.file.filename;
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "profilePictures",
+        public_id: `user_${id}`,
+        overwrite: true,
+      });
+      updateFields.profilePicture = result.secure_url;
     }
-    const updatedUser = await User.findByIdAndUpdate(id, updateFields, {
-      new: true,
-      runValidators: true,
-      context: "query",
-    }).select("-password");
-    if (!updatedUser) {
+
+    // Defensive: check if id is a valid ObjectId
+    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    // Defensive: ensure user exists before updating
+    const user = await User.findById(id);
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Actually update the user
+    Object.assign(user, updateFields);
+    await user.save();
+
+    // Return updated user (without password)
+    const updatedUser = await User.findById(id).select("-password");
     res.status(200).json(updatedUser);
   } catch (error) {
+    console.error("Update Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
@@ -71,15 +91,16 @@ const getOverviewStats = async (req, res) => {
 // GET /api/users/:id - fetch single user
 const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findById(id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json(user);
+    const user = await User.findById(req.params.id);
+    if (!user)
+      return res.status(404).json({ success: false, message: "User not found" });
+
+    res.status(200).json({ success: true, user });
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Get user by ID failed:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 // PUT /api/users/change-password/:id
 const changePassword = async (req, res) => {
   try {
@@ -98,6 +119,30 @@ const changePassword = async (req, res) => {
   }
 };
 
+// PUT /api/users/upload-profile/:id
+const uploadProfileImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ message: "No image uploaded" });
+    }
+
+    // req.file.path is already the Cloudinary URL (from multer-storage-cloudinary)
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { imageUrl: req.file.path }, // Save Cloudinary URL
+      { new: true }
+    ).select("-password");
+
+    if (!updated) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json(updated);
+  } catch (err) {
+    console.error("Profile image upload error:", err);
+    res.status(500).json({ message: "Image upload failed" });
+  }
+};
+
 module.exports = {
   getAllUsers,
   updateUser,
@@ -105,4 +150,5 @@ module.exports = {
   getOverviewStats,
   getUserById,
   changePassword,
+  uploadProfileImage,
 };

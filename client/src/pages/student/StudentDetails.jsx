@@ -1,35 +1,33 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
+import { useNavigate } from "react-router-dom";
 const courseOptions = [
-  "Intro to Python",
-  "Web Dev Basics",
-  "AI Fundamentals",
-  "Data Science 101",
-  "Cloud Computing",
+  "Bachelor of Technology (B.Tech)",
+  "Bachelor of Engineering (B.E)",
+  "Bachelor of Computer Applications (BCA)",
+  "Bachelor of Medicine and Bachelor of Surgery (MBBS)",
+  "Bachelor of Fine Arts (BFA)",
+  "Bachelor of Commerce (B.Com)",
+  "Bachelor of Pharmacy (B.Pharm)",
+  "Bachelor of Business Administration (BBA)",
+  "Bachelor of Science (B.Sc)",
+  "Bachelor of Education (B.Ed)",
 ];
-const domainOptions = [
-  "Technology and Innovation",
-  "Healthcare and Wellness",
-  "Business and Finance",
-  "Arts and Creativity",
-  "Education and Social Services",
-];
+
+const generateSlug = (str) => str?.toLowerCase().trim().replace(/\s+/g, "-");
 
 const StudentDetails = () => {
   const student = JSON.parse(localStorage.getItem("student")) || {};
   const [form, setForm] = useState({
-    enrollmentNumber: "",
-    course: "",
+    rollNumber: "",
+    collegecourse: "",
     branch: "",
     yearOfStudy: "",
     college: "",
     phoneNumber: "",
-    domain: "",
     address: "",
-    skills: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,23 +37,17 @@ const StudentDetails = () => {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
         if (!user?.id && !user?._id) return setLoading(false);
-        const res = await axios.get(
-          `/api/students/details/${user.id || user._id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
+        const res = await apiClient.get(
+          `/api/students/details/${user.id || user._id}`
         );
         if (res.data && Object.keys(res.data).length > 0) {
           setForm({
-            enrollmentNumber: res.data.enrollmentNumber || "",
-            course: res.data.course?.title || res.data.course || "",
+            rollNumber: res.data.rollNumber || "",
+            collegecourse: res.data.collegecourse || "",
             branch: res.data.branch || "",
             yearOfStudy: res.data.yearOfStudy || "",
             college: res.data.college || "",
             phoneNumber: res.data.phoneNumber || "",
-            domain: res.data.domain || "",
             address: res.data.address || "",
             skills: (res.data.skills || []).join(", ") || "",
           });
@@ -72,12 +64,15 @@ const StudentDetails = () => {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       const user = JSON.parse(localStorage.getItem("user"));
+      const slug = generateSlug(form.college);
+
       const payload = {
         ...form,
         user: user?.id || user?._id,
@@ -85,13 +80,25 @@ const StudentDetails = () => {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
+        collegeSlug: slug,
       };
-      await axios.post("/api/students/details", payload, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      console.log("📤 Final Payload:", payload);
+      console.log("🎓 College:", form.college);
+      console.log("🧠 Slug Generated:", slug);
+      console.log("👤 User ID Used:", user?.id || user?._id);
+
+      await apiClient.post("/api/students/details", payload);
+
+      // 👉 Refetch updated student and update localStorage
+      const refetchRes = await apiClient.get(
+        `/api/students/details/${user.id || user._id}`
+      );
+      localStorage.setItem("student", JSON.stringify(refetchRes.data));
+
       toast.success("Details saved successfully");
+      setTimeout(() => {
+        navigate("/student/dashboard");
+      }, 800);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Submission failed");
     } finally {
@@ -139,12 +146,13 @@ const StudentDetails = () => {
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-1">
-              Enrollment Number *
+              Roll Number *
             </label>
+
             <input
               type="text"
-              name="enrollmentNumber"
-              value={form.enrollmentNumber}
+              name="rollNumber"
+              value={form.rollNumber}
               onChange={handleChange}
               required
               className="w-full border rounded-lg p-2"
@@ -152,22 +160,17 @@ const StudentDetails = () => {
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-1">
-              Course *
+              College Course *
             </label>
-            <select
-              name="course"
-              value={form.course}
+            <input
+              type="text"
+              name="collegecourse"
+              value={form.collegecourse}
               onChange={handleChange}
               required
+              placeholder="Enter your course (e.g., B.Tech CSE)"
               className="w-full border rounded-lg p-2"
-            >
-              <option value="">Select Course</option>
-              {courseOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div>
             <label className="block text-gray-700 font-medium mb-1">
@@ -219,24 +222,7 @@ const StudentDetails = () => {
               className="w-full border rounded-lg p-2"
             />
           </div>
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Domain
-            </label>
-            <select
-              name="domain"
-              value={form.domain}
-              onChange={handleChange}
-              className="w-full border rounded-lg p-2"
-            >
-              <option value="">Select Domain</option>
-              {domainOptions.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
+
           <div className="md:col-span-2">
             <label className="block text-gray-700 font-medium mb-1">
               Address
@@ -246,19 +232,6 @@ const StudentDetails = () => {
               name="address"
               value={form.address}
               onChange={handleChange}
-              className="w-full border rounded-lg p-2"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-gray-700 font-medium mb-1">
-              Skills (comma separated)
-            </label>
-            <input
-              type="text"
-              name="skills"
-              value={form.skills}
-              onChange={handleChange}
-              placeholder="e.g. JavaScript, React, MongoDB"
               className="w-full border rounded-lg p-2"
             />
           </div>

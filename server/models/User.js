@@ -26,15 +26,14 @@ const UserSchema = new Schema({
   },
   collegeSlug: {
     type: String,
-    required: function () {
-      return this.role === "college";
-    },
+    required: false,
+    default: null
   },
-  profilePicture: {
-    type: String,
-    default: "",
-  },
+  imageUrl: { type: String }
 });
 
-const UserModel = mongoose.model("user", UserSchema, "user");
+
+
+const UserModel = mongoose.model("user", UserSchema,"user");
 module.exports = UserModel;
+

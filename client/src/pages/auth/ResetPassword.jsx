@@ -1,74 +1,76 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { handleError, handleSuccess } from '../../utils/api';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { handleError, handleSuccess } from "../../utils/api";
+import apiClient from "../../api/apiClient";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const ResetPassword = () => {
   const [formData, setFormData] = useState({
-    newPassword: '',
-    confirmPassword: ''
+    newPassword: "",
+    confirmPassword: "",
   });
-  
+
   const navigate = useNavigate();
   const { token } = useParams();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.newPassword || !formData.confirmPassword) {
-      handleError('All fields are required');
+      handleError("All fields are required");
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      handleError('Passwords do not match');
+      handleError("Passwords do not match");
       return;
     }
 
     if (formData.newPassword.length < 4) {
-      handleError('Password must be at least 4 characters long');
+      handleError("Password must be at least 4 characters long");
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/auth/reset-password/${token}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ newPassword: formData.newPassword })
-      });      const data = await response.json();
-      
+      const response = await apiClient.post(`/auth/reset-password/${token}`, {
+        newPassword: formData.newPassword,
+      });
+      const data = response.data;
+
       if (!response.ok) {
         // Check specifically for same password error
-        if (data.message === "New password cannot be the same as the old password") {
-          handleError('Please choose a different password from your current one');
+        if (
+          data.message === "New password cannot be the same as the old password"
+        ) {
+          handleError(
+            "Please choose a different password from your current one"
+          );
         } else {
-          handleError(data.message || 'Failed to reset password');
+          handleError(data.message || "Failed to reset password");
         }
         return;
       }
 
       if (data.success) {
-        handleSuccess('Password reset successful! Redirecting to login...');
+        handleSuccess("Password reset successful! Redirecting to login...");
         setTimeout(() => {
-          navigate('/login');
+          navigate("/login");
         }, 2000);
       } else {
-        handleError(data.message || 'Failed to reset password');
+        handleError(data.message || "Failed to reset password");
       }
     } catch (error) {
-      console.error('Reset password error:', error);
-      handleError('Failed to reset password');
+      console.error("Reset password error:", error);
+      handleError("Failed to reset password");
     }
   };
 
@@ -88,14 +90,21 @@ const ResetPassword = () => {
       />
       <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 space-y-8">
         <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900">Reset Password</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">Enter your new password</p>
+          <h2 className="text-center text-3xl font-extrabold text-gray-900">
+            Reset Password
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Enter your new password
+          </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="newPassword"
+                className="block text-sm font-medium text-gray-700"
+              >
                 New Password
               </label>
               <input
@@ -111,7 +120,10 @@ const ResetPassword = () => {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Confirm New Password
               </label>
               <input

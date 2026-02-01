@@ -6,6 +6,7 @@ const {
   deleteUser,
   getUserById,
   changePassword,
+  uploadProfileImage,
 } = require("../controller/userController");
 const multer = require("../middleware/multerConfig");
 
@@ -13,11 +14,15 @@ const multer = require("../middleware/multerConfig");
 router.get("/", getAllUsers);
 // GET user by id
 router.get("/:id", getUserById);
-// UPDATE user (with multer for image upload)
-router.put("/:id", multer.single("profilePicture"), updateUser);
+
 // CHANGE PASSWORD
 router.put("/change-password/:id", changePassword);
 // DELETE user
 router.delete("/:id", deleteUser);
-
+// PUT: Upload profile image to Cloudinary
+router.put("/upload-profile/:id", multer.single("profilePicture"), uploadProfileImage);
+// PUT: Update user profile (name, email, password, role, etc.)
+// Accept both /:id and /profile/:id for backward compatibility
+router.put("/:id", multer.single("profilePicture"), updateUser);
+router.put("/profile/:id", multer.single("profilePicture"), updateUser);
 module.exports = router;

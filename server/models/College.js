@@ -9,6 +9,13 @@ const CollegeSchema = new Schema({
     required: true
   },
   
+  name: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
+  },
+
   slug: {
     type: String,
     required: true,
@@ -38,7 +45,6 @@ const CollegeSchema = new Schema({
     phone: String,
     website: String
   },
-
 });
 
 

@@ -1,3 +1,4 @@
+// All your imports (no changes needed here)
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -6,6 +7,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { Toaster } from "react-hot-toast";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
@@ -19,26 +21,44 @@ import CollegeDashboard from "./pages/college/Dashboard";
 import StudentDashboard from "./pages/student/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import StudentNavbar from "./components/StudentNavbar";
-import Assessments from "./pages/student/Assessments";
+import Assessments from "./pages/student/CareerAssessment";
 import Practice from "./pages/student/Practice";
 import Jobs from "./pages/student/Jobs";
 import StudentProfileSettings from "./pages/student/ProfileSettings";
 import StudentDetails from "./pages/student/StudentDetails";
+import StudentCourses from "./pages/student/StudentCourses";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import HRProfile from "./pages/hr/Profile";
+import CollegeOnboarding from "./pages/college/CollegeOnboarding";
+import ChatAssistant from "./components/ChatAssistant/ChatAssistant";
+import CoursePlayer from "./pages/student/CoursePlayer";
+import MyLearning from "./pages/student/MyLearning";
+import LearningPath from "./pages/student/LearningPath";
+import AIInterview from "./pages/ai-interview/AIInterview";
+import AIInterviewInstructions from "./pages/ai-interview/AIInterviewInstructions";
+import InterviewAnalysis from "./pages/ai-interview/InterviewAnalysis";
+
 
 const AppContent = () => {
   const location = useLocation();
 
-  // List of routes where Navbar should be hidden
   const hideNavbarRoutes = [
     "/admin-dashboard",
     "/hr",
     "/college-dashboard",
     "/student",
+    "/course-player",
+    "/ai-interview",
   ];
 
   const shouldHideNavbar = hideNavbarRoutes.some((path) =>
     location.pathname.startsWith(path)
   );
+
+  const showChatbot =
+    ["/student/CoursePlayer"].includes(location.pathname) &&
+    location.pathname !== "/ai-interview";
 
   return (
     <>
@@ -51,6 +71,19 @@ const AppContent = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route
+            path="/ai-interview"
+            element={
+              <>
+                <AIInterview />
+              </>
+            }
+          />
+          <Route
+            path="/ai-interview-instructions"
+            element={<AIInterviewInstructions />}
+          />
+          <Route path="/ai-interview-analysis/:courseId" element={<InterviewAnalysis />} />
 
           {/* Admin routes */}
           <Route
@@ -70,7 +103,15 @@ const AppContent = () => {
                 <HRDashboard />
               </ProtectedRoute>
             }
-          /> 
+          />
+          <Route
+            path="/hr/profile"
+            element={
+              <ProtectedRoute requireHR={true}>
+                <HRProfile />
+              </ProtectedRoute>
+            }
+          />
 
           {/* College routes */}
           <Route
@@ -81,6 +122,10 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="/college/onboarding" element={<CollegeOnboarding />} />
+
+          {/* Course Player */}
+          <Route path="/course-player/:id" element={<CoursePlayer />} />
 
           {/* Student routes */}
           <Route
@@ -98,12 +143,18 @@ const AppContent = () => {
                     element={<StudentProfileSettings />}
                   />
                   <Route path="details" element={<StudentDetails />} />
+                  <Route path="courses" element={<StudentCourses />} />
+                  <Route path="student/courses" element={<StudentCourses />} />
+                  <Route path="CoursePlayer" element={<CoursePlayer />} />
+                  <Route path="my-learning" element={<MyLearning />} />
+                  <Route path="learning-path" element={<LearningPath />} />
                   <Route path="*" element={<StudentDashboard />} />
                 </Routes>
               </ProtectedRoute>
             }
           />
         </Routes>
+        {showChatbot && <ChatAssistant />}
       </main>
     </>
   );
@@ -114,8 +165,11 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <Router>
         <AuthProvider>
-          <AppContent />
-          <Toaster position="top-right" />
+          <NotificationProvider>
+            <AppContent />
+            <Toaster position="top-right" />
+            <ToastContainer position="top-right" autoClose={3000} />
+          </NotificationProvider>
         </AuthProvider>
       </Router>
     </div>
