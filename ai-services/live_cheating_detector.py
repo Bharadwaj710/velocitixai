@@ -1,27 +1,36 @@
-import cv2
 import numpy as np
 from collections import deque, defaultdict
 import time
-import mediapipe as mp
 import math
 import traceback
 import statistics
 import os
 
-# ---------- MediaPipe init ----------
-mp_face_detection = mp.solutions.face_detection
-mp_face_mesh = mp.solutions.face_mesh
+# ---------- Lazy heavy models ----------
+_FACE_DET = None
+_FACE_MESH = None
 
-FACE_DET = mp_face_detection.FaceDetection(
-    model_selection=0, min_detection_confidence=0.5
-)
-FACE_MESH = mp_face_mesh.FaceMesh(
-    static_image_mode=False,
-    max_num_faces=1,
-    refine_landmarks=True,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5,
-)
+def _get_face_detection():
+    global _FACE_DET
+    if _FACE_DET is None:
+        import mediapipe as mp
+        _FACE_DET = mp.solutions.face_detection.FaceDetection(
+            model_selection=0, min_detection_confidence=0.5
+        )
+    return _FACE_DET
+
+def _get_face_mesh():
+    global _FACE_MESH
+    if _FACE_MESH is None:
+        import mediapipe as mp
+        _FACE_MESH = mp.solutions.face_mesh.FaceMesh(
+            static_image_mode=False,
+            max_num_faces=1,
+            refine_landmarks=True,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+        )
+    return _FACE_MESH
 
 # ---------- Per-session state ----------
 # Use session id (e.g., user id) to keep per-user state for calibration/debounce.
@@ -93,6 +102,7 @@ def _solve_head_pose(img_w, img_h, face_landmarks):
     Returns (yaw, pitch) in degrees or (None, None) on failure.
     """
     try:
+        import cv2
         IDX = {
             "left_eye_outer": 33,
             "right_eye_outer": 263,
@@ -212,6 +222,10 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
         return response
 
     try:
+        import cv2
+        face_det = _get_face_detection()
+        face_mesh = _get_face_mesh()
+
         # decode frame bytes safely
         nparr = np.frombuffer(frame_bytes, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -230,7 +244,7 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
 
         # Face detection (fast)
         try:
-            face_det_res = FACE_DET.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            face_det_res = face_det.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             faces = face_det_res.detections or []
         except Exception:
             faces = []
@@ -275,7 +289,7 @@ def check_cheating(frame_bytes: bytes, session_id: str = "default"):
                 st["mesh_fail_frames"] = 0
                 # compute mesh landmarks
                 try:
-                    mesh_res = FACE_MESH.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                    mesh_res = face_mesh.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                     fl = mesh_res.multi_face_landmarks[0] if mesh_res.multi_face_landmarks else None
                 except Exception:
                     fl = None

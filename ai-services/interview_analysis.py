@@ -4,10 +4,6 @@ import json
 import requests
 import cloudinary
 import cloudinary.uploader
-import moviepy.editor as mp
-import whisper
-import cv2
-import mediapipe as mp_face
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -28,6 +24,22 @@ cloudinary.config(
 # Gemini config
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+_whisper_model = None
+_face_mesh_model = None
+
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        import whisper
+        _whisper_model = whisper.load_model("base")
+    return _whisper_model
+
+def get_face_mesh_model():
+    global _face_mesh_model
+    if _face_mesh_model is None:
+        import mediapipe as mp_face
+        _face_mesh_model = mp_face.solutions.face_mesh.FaceMesh(static_image_mode=False)
+    return _face_mesh_model
 
 # === Helper Functions ===
 
@@ -39,12 +51,13 @@ def download_video(cloud_url, save_path):
     return save_path
 
 def extract_audio(video_path, audio_path):
+    import moviepy.editor as mp
     with mp.VideoFileClip(video_path) as clip:
         clip.audio.write_audiofile(audio_path)
     return audio_path
 
 def transcribe_audio(audio_path):
-    model = whisper.load_model("base")
+    model = get_whisper_model()
     result = model.transcribe(audio_path)
     return result["text"]
 
@@ -78,8 +91,9 @@ def analyze_transcript(text):
         return {"error": f"Gemini error: {str(e)}"}
 
 def analyze_face_visibility(video_path):
+    import cv2
     cap = cv2.VideoCapture(video_path)
-    face_mesh = mp_face.solutions.face_mesh.FaceMesh(static_image_mode=False)
+    face_mesh = get_face_mesh_model()
     
     total = 0
     face_frames = 0
@@ -101,7 +115,6 @@ def analyze_face_visibility(video_path):
                 multiple_faces += 1
 
     cap.release()
-    face_mesh.close()
 
     face_visible_percent = round((face_frames / total) * 100, 2) if total else 0
     return {

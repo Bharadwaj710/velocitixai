@@ -5,7 +5,6 @@ from bson import ObjectId
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import google.generativeai as genai
-from career_video_analysis import analyze_career_video
 
 # Load .env variables
 load_dotenv("../server/.env")
@@ -321,6 +320,7 @@ def recommend_courses(student_id: str, refresh=False):
     if not video_url:
         raise ValueError("Missing video URL for question 10")
 
+    from career_video_analysis import analyze_career_video
     video_analysis = analyze_career_video(video_url)
     transcript = video_analysis.get("transcript", "")
     eye_contact_percent = video_analysis.get("eye_contact_percent", 0)
