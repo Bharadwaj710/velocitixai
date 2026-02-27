@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from recommend import recommend_courses
-from career_video_analysis import analyze_career_video
 from student_chatbot import chatbot_bp
 import google.generativeai as genai
 import os
@@ -12,8 +11,6 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from generate_quiz import generate_quiz_from_transcript
 from score_quiz import score_quiz_with_ai
-from interview_analysis import analyze_interview
-from live_cheating_detector import check_cheating, clear_session
 from utils.progress_tracker import set_progress, get_progress
 from bson.objectid import ObjectId
 from generate_next_question import generate_next_question
@@ -40,6 +37,7 @@ if not GEMINI_API_KEY:
 # =========================
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.5-flash")  # Change if using different model
+_whisper_model = None
 
 # =========================
 #  INIT FLASK APP
@@ -107,11 +105,13 @@ def download_audio(video_url):
     return mp3_path if os.path.exists(mp3_path) else None
 
 def run_whisper(audio_path):
+    global _whisper_model
     print(f"[PY] Running Whisper on {audio_path}")
     try:
-        import whisper
-        whisper_model = whisper.load_model("base")
-        result = whisper_model.transcribe(audio_path, verbose=False)
+        if _whisper_model is None:
+            import whisper
+            _whisper_model = whisper.load_model("base")
+        result = _whisper_model.transcribe(audio_path, verbose=False)
         return [
             {"start": seg["start"], "end": seg["end"], "text": seg["text"].strip()}
             for seg in result.get("segments", [])
@@ -191,6 +191,7 @@ def analyze_video():
     if not video_url:
         return jsonify({"error": "Missing video_url"}), 400
     try:
+        from career_video_analysis import analyze_career_video
         results = analyze_career_video(video_url)
         print(f"[AI] Analysis complete for: {video_url}")
         return jsonify(results), 200
@@ -347,12 +348,14 @@ def detect_cheating_api():
     session_id = request.form.get("sessionId") or request.args.get("sessionId") or "default"
     if not file:
         return jsonify({"error": "No frame uploaded"}), 400
+    from live_cheating_detector import check_cheating
     return jsonify(check_cheating(file.read(), session_id)), 200
 
 
 @app.route("/cheating-session/reset", methods=["POST"])
 def reset_cheating_session_api():
     session_id = (request.json or {}).get("sessionId", "default")
+    from live_cheating_detector import clear_session
     clear_session(session_id)
     return jsonify({"ok": True}), 200
 
@@ -369,6 +372,7 @@ def final_interview_analysis_api():
             return jsonify({"error": "Missing videoUrl or studentId"}), 400
 
         print(f"[PY] Running interview analysis for student={student_id}")
+        from interview_analysis import analyze_interview
         return jsonify(analyze_interview(video_url, answers, student_id)), 200
 
     except Exception as e:
@@ -377,6 +381,7 @@ def final_interview_analysis_api():
 
 @app.route("/reset/<session_id>", methods=["POST"])
 def reset_session_api(session_id):
+    from live_cheating_detector import clear_session
     clear_session(session_id)
     return jsonify({"status": "ok"}), 200
 
